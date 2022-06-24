@@ -77,14 +77,15 @@ comptime {
     assert(IterMap(SliceIter(u32), fn (u32) []u8).Item == []u8);
 }
 
-fn square(v: u32) u64 {
-    return v * v;
-}
-
 test "IterMap" {
+    const Square = struct {
+        pub fn f(v: u32) u64 {
+            return v * v;
+        }
+    };
     const arr = [_]u32{ 1, 2, 3 };
     var arr_iter = ArrayIter(u32, arr.len).new(arr);
-    var iter = IterMap(ArrayIter(u32, arr.len), fn (u32) u64).new(square, arr_iter);
+    var iter = IterMap(ArrayIter(u32, arr.len), fn (u32) u64).new(Square.f, arr_iter);
     try testing.expect(iter.next().? == 1);
     try testing.expect(iter.next().? == 4);
     try testing.expect(iter.next().? == 9);
@@ -114,14 +115,16 @@ pub fn IterFilter(comptime Iter: type) type {
     };
 }
 
-fn is_even(value: u32) bool {
-    return value % 2 == 0;
-}
-
 test "IterFilter" {
+    const IsEven = struct {
+        pub fn f(value: u32) bool {
+            return value % 2 == 0;
+        }
+    };
+
     const arr = [_]u32{ 1, 2, 3, 4, 5 } ** 3;
     var arr_iter = ArrayIter(u32, arr.len).new(arr);
-    var iter = IterFilter(ArrayIter(u32, arr.len)).new(is_even, arr_iter);
+    var iter = IterFilter(ArrayIter(u32, arr.len)).new(IsEven.f, arr_iter);
     try testing.expect(iter.next().? == 2);
     try testing.expect(iter.next().? == 4);
     try testing.expect(iter.next().? == 2);
