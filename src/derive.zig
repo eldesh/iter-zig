@@ -17,37 +17,26 @@ fn DeriveMap(comptime Iter: type) type {
     if (meta.have_fun(Iter, "map")) |_| {
         return struct {};
     } else {
-        // for avoiding dependency loop,
-        // delay evaluation such like `(() -> e)()`
-        var M = struct {
-            pub const N = struct {
-                pub fn map(self: Iter, f: anytype) iter.IterMap(Iter, @TypeOf(f)) {
-                    return iter.IterMap(Iter, @TypeOf(f)).new(f, self);
-                }
-            };
+        return struct {
+            pub fn map(self: Iter, f: anytype) iter.IterMap(Iter, @TypeOf(f)) {
+                return iter.IterMap(Iter, @TypeOf(f)).new(f, self);
+            }
         };
-        return M.N;
     }
 }
 
 fn DeriveFilter(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
+
     // already have "filter" function
     if (meta.have_fun(Iter, "filter")) |_| {
         return struct {};
     } else {
-        // for avoiding dependency loop,
-        // delay evaluation such like `(() -> e)()`
-        var M = struct {
-            pub const N = struct {
-                // This `anytype` should not be passed explicitly using `Self.Item`.
-                // The 'depends on itself' error would be occurred.
-                pub fn filter(self: Iter, p: anytype) iter.IterFilter(Iter, @TypeOf(p)) {
-                    return iter.IterFilter(Iter, @TypeOf(p)).new(p, self);
-                }
-            };
+        return struct {
+            pub fn filter(self: Iter, p: fn (Iter.Item) bool) iter.IterFilter(Iter, fn (Iter.Item) bool) {
+                return iter.IterFilter(Iter, fn (Iter.Item) bool).new(p, self);
+            }
         };
-        return M.N;
     }
 }
 
