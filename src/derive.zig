@@ -8,12 +8,14 @@ const assert = std.debug.assert;
 const debug = std.debug.print;
 
 const MakeSliceIter = to_iter.MakeSliceIter;
+const isIterator = meta.isIterator;
 
 fn DeriveMap(comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(isIterator(Iter));
+
     // already have "map" function
     if (meta.have_fun(Iter, "map")) |_| {
-        return Iter;
+        return struct {};
     } else {
         // for avoiding dependency loop,
         // delay evaluation such like `(() -> e)()`
