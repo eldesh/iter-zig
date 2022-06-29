@@ -1,16 +1,22 @@
 ///! Container to iterator converters.
 ///! 
 const std = @import("std");
+const derive = @import("./derive.zig");
+const meta = @import("./type.zig");
+
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const SinglyLinkedList = std.SinglyLinkedList;
 const testing = std.testing;
 const assert = std.debug.assert;
 
-pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
+const Derive = derive.Derive;
+
+pub fn MakeArrayIter(comptime F: fn (type) type, comptime Item: type, comptime N: usize) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Item;
+        pub usingnamespace F(@This());
 
         array: [N]Item,
         index: u32,
@@ -31,10 +37,15 @@ pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
     };
 }
 
+pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
+    return MakeArrayIter(Derive, Item, N);
+}
+
 comptime {
     const arr = [_]u32{ 1, 2, 3 };
     assert(ArrayIter(u32, arr.len).Self == ArrayIter(u32, arr.len));
     assert(ArrayIter(u32, arr.len).Item == u32);
+    assert(meta.isIterator(ArrayIter(u32, arr.len)));
 }
 
 test "ArrayIter" {
@@ -46,16 +57,17 @@ test "ArrayIter" {
     try testing.expect(iter.next() == null);
 }
 
-pub fn SliceIter(comptime Item: type) type {
+pub fn MakeSliceIter(comptime F: fn (type) type, comptime Item: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Item;
+        pub usingnamespace F(@This());
 
-        slice: []const Item,
+        slice: []Item,
         index: u32,
 
-        pub fn new(slice: []const Item) Self {
-            return .{ .slice = slice, .index = 0 };
+        pub fn new(slice: []Item) Self {
+            return Self{ .slice = slice, .index = 0 };
         }
 
         pub fn next(self: *Self) ?Self.Item {
@@ -70,13 +82,18 @@ pub fn SliceIter(comptime Item: type) type {
     };
 }
 
+pub fn SliceIter(comptime Item: type) type {
+    return MakeSliceIter(derive.Derive, Item);
+}
+
 comptime {
     assert(SliceIter(u32).Self == SliceIter(u32));
     assert(SliceIter(u32).Item == u32);
+    assert(meta.isIterator(SliceIter(u32)));
 }
 
 test "SliceIter" {
-    const arr = [_]u32{ 1, 2, 3 };
+    var arr = [_]u32{ 1, 2, 3 };
     var iter = SliceIter(u32).new(arr[0..]);
     try testing.expect(iter.next().? == 1);
     try testing.expect(iter.next().? == 2);
@@ -84,10 +101,11 @@ test "SliceIter" {
     try testing.expect(iter.next() == null);
 }
 
-pub fn ArrayListIter(comptime Item: type) type {
+pub fn MakeArrayListIter(comptime F: fn (type) type, comptime Item: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Item;
+        pub usingnamespace F(@This());
 
         array: ArrayList(Item),
         index: usize,
@@ -105,6 +123,16 @@ pub fn ArrayListIter(comptime Item: type) type {
             return self.array.items[index];
         }
     };
+}
+
+pub fn ArrayListIter(comptime Item: type) type {
+    return MakeArrayListIter(Derive, Item);
+}
+
+comptime {
+    assert(ArrayListIter(u32).Self == ArrayListIter(u32));
+    assert(ArrayListIter(u32).Item == u32);
+    assert(meta.isIterator(ArrayListIter(u32)));
 }
 
 test "ArrayListIter" {
@@ -125,10 +153,11 @@ test "ArrayListIter" {
     try testing.expect(iter.next() == null);
 }
 
-pub fn SinglyLinkedListIter(comptime Item: type) type {
+pub fn MakeSinglyLinkedListIter(comptime F: fn (type) type, comptime Item: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Item;
+        pub usingnamespace F(@This());
 
         list: SinglyLinkedList(Self.Item),
         node: ?*SinglyLinkedList(Self.Item).Node,
@@ -147,9 +176,14 @@ pub fn SinglyLinkedListIter(comptime Item: type) type {
     };
 }
 
+pub fn SinglyLinkedListIter(comptime Item: type) type {
+    return MakeSinglyLinkedListIter(Derive, Item);
+}
+
 comptime {
     assert(SinglyLinkedListIter(u32).Self == SinglyLinkedListIter(u32));
     assert(SinglyLinkedListIter(u32).Item == u32);
+    assert(meta.isIterator(SinglyLinkedListIter(u32)));
 }
 
 test "SinglyLinkedListIter" {
