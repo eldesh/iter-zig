@@ -77,23 +77,92 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
-fn impl_map(comptime T: type) type {
-    assert(isIterator(T));
-    // conflict to existing function
-    assert(have_fun(T, "map") == null);
-    return void;
+/// Fix :: ((type -> type) -> type -> type) -> type -> type
+fn Fix(comptime F: fn (fn (type) type) fn (type) type) fn (type) type {
+    const C = struct {
+        pub fn call(comptime T: type) type {
+            return Fix(F)(T);
+        }
+    };
+    return F(C.call);
+}
 
-    // cannot override 'Self'
-    // var M = struct {
-    //     pub usingnamespace T;
-    //     pub const Self = @This();
+fn MakeIter(comptime F: fn (type) type, comptime Item: type) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Item;
+        pub usingnamespace F(@This());
 
-    //     pub fn map(self: *T.Self, f: anytype) iter.IterMap(T.Self, @TypeOf(f)) {
-    //         return iter.IterMap(T.Self, @TypeOf(f)).new(f, self);
-    //     }
-    // };
-    // M.Self = @TypeOf(M);
-    // return M;
+        slice: []const Item,
+        index: u32,
+
+        pub fn new(slice: []const Item) Self {
+            return Self{ .slice = slice, .index = 0 };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            if (self.index < self.slice.len) {
+                const i = self.index;
+                self.index += 1;
+                return self.slice[i];
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+fn DeriveMap(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+    if (have_fun(Iter, "map")) |_| {
+        return Iter;
+    } else {
+        // for avoiding dependency loop,
+        // delay evaluation such like `(() -> e)()`
+        var M = struct {
+            pub const N = struct {
+                pub fn map(self: Iter, f: anytype) iter.IterMap(Iter, @TypeOf(f)) {
+                    return iter.IterMap(Iter, @TypeOf(f)).new(f, self);
+                }
+            };
+        };
+        return M.N;
+    }
+}
+
+/// https://lyrical-logical.hatenadiary.org/entry/20111107/1320671610
+fn impl_map(comptime F: fn (type) type) fn (type) type {
+    const C = struct {
+        pub fn call(comptime T: type) type {
+            assert(isIterator(T));
+            // conflict to existing function
+            //@compileLog("call: ");
+            //inline for (@typeInfo(T).Struct.decls) |decl| {
+            //    @compileLog("\tdecl: ", decl.name);
+            //}
+            if (have_fun(T, "map")) |_| {
+                //@compileLog("have_map");
+                return T;
+            } else {
+                //@compileLog("not have_map");
+                // cannot override 'Self'
+                var M = struct {
+                    pub const N = struct {
+                        pub usingnamespace T;
+                        //pub const Self = @This();
+
+                        pub fn map(self: *T.Self, f: anytype) iter.IterMap(T.Self, @TypeOf(f)) {
+                            return iter.IterMap(T.Self, @TypeOf(f)).new(f, self);
+                        }
+                    };
+                };
+                assert(have_fun(M.N, "map") != null);
+                //M.Self = @TypeOf(M);
+                return F(M.N);
+            }
+        }
+    };
+    return C.call;
 
     // cannot reify declarations with @Type
     // const TypeInfo = std.builtin.TypeInfo;
@@ -114,26 +183,33 @@ fn impl_map(comptime T: type) type {
     // return @Type(ty);
 }
 
-// test "impl_map" {
-//     const SliceIterMap = impl_map(SliceIter(u32));
-//     assert(isIterator(SliceIterMap));
-//
-//     const arr = [_]u32{ 1, 2, 3 };
-//     var slice = SliceIter(u32).new(arr[0..]);
-//     try testing.expect(slice.next().? == 1);
-//     try testing.expect(slice.next().? == 2);
-//     try testing.expect(slice.next().? == 3);
-//     try testing.expect(slice.next() == null);
-//
-//     const Double = struct {
-//         pub fn apply(x: u32) u32 {
-//             return x * 2;
-//         }
-//     };
-//
-//     var map = SliceIterMap.new(arr[0..]).map(Double.apply);
-//     try testing.expect(map.next().? == 2);
-//     try testing.expect(map.next().? == 4);
-//     try testing.expect(map.next().? == 6);
-//     try testing.expect(map.next() == null);
-// }
+test "impl_map" {
+    const arr = [_]u32{ 1, 2, 3 };
+    var slice = SliceIter(u32).new(arr[0..]);
+    try testing.expect(slice.next().? == 1);
+    try testing.expect(slice.next().? == 2);
+    try testing.expect(slice.next().? == 3);
+    try testing.expect(slice.next() == null);
+
+    const Double = struct {
+        pub fn apply(x: u32) u32 {
+            return x * 2;
+        }
+    };
+    _ = Double;
+
+    var map = MakeIter(DeriveMap, u32).new(arr[0..]).map(Double.apply);
+    try testing.expect(map.next().? == 2);
+    try testing.expect(map.next().? == 4);
+    try testing.expect(map.next().? == 6);
+    try testing.expect(map.next() == null);
+
+    const SliceIterMap = Fix(impl_map)(SliceIter(u32));
+    assert(isIterator(SliceIterMap));
+
+    // var map = SliceIterMap.new(arr[0..]).map(Double.apply);
+    // try testing.expect(map.next().? == 2);
+    // try testing.expect(map.next().? == 4);
+    // try testing.expect(map.next().? == 6);
+    // try testing.expect(map.next() == null);
+}
