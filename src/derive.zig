@@ -40,8 +40,10 @@ fn DeriveFilter(comptime Iter: type) type {
         // delay evaluation such like `(() -> e)()`
         var M = struct {
             pub const N = struct {
-                pub fn filter(self: Iter, p: fn (Iter.Item) bool) iter.IterFilter(Iter) {
-                    return iter.IterFilter(Iter).new(p, self);
+                // This `anytype` should not be passed explicitly using `Self.Item`.
+                // The 'depends on itself' error would be occurred.
+                pub fn filter(self: Iter, p: anytype) iter.IterFilter(Iter, @TypeOf(p)) {
+                    return iter.IterFilter(Iter, @TypeOf(p)).new(p, self);
                 }
             };
         };
@@ -84,13 +86,41 @@ test "derive filter" {
         }
     };
     const Iter = MakeSliceIter(DeriveFilter, u32);
-    var map = Iter.new(arr[0..]).filter(IsEven.apply);
+    var filter = Iter.new(arr[0..]).filter(IsEven.apply);
     comptime {
         assert(meta.isIterator(Iter));
-        assert(meta.isIterator(@TypeOf(map)));
+        assert(meta.isIterator(@TypeOf(filter)));
     }
-    try testing.expect(map.next().? == 2);
-    try testing.expect(map.next().? == 4);
-    try testing.expect(map.next().? == 6);
-    try testing.expect(map.next() == null);
+    try testing.expect(filter.next().? == 2);
+    try testing.expect(filter.next().? == 4);
+    try testing.expect(filter.next().? == 6);
+    try testing.expect(filter.next() == null);
+}
+
+test "derive" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
+    const Triple = struct {
+        pub fn apply(x: u32) u32 {
+            return x * 3;
+        }
+    };
+    const IsEven = struct {
+        pub fn apply(x: u32) bool {
+            return x % 2 == 0;
+        }
+    };
+    const Iter = MakeSliceIter(Derive, u32);
+
+    var mfm = Iter.new(arr[0..6])
+        .map(Triple.apply) // derive map for SliceIter
+        .filter(IsEven.apply) // more derive filter for IterMap
+        .map(Triple.apply); // more more derive map for IterFilter
+    comptime {
+        assert(meta.isIterator(Iter));
+        assert(meta.isIterator(@TypeOf(mfm)));
+    }
+    try testing.expect(mfm.next().? == 6 * 3);
+    try testing.expect(mfm.next().? == 12 * 3);
+    try testing.expect(mfm.next().? == 18 * 3);
+    try testing.expect(mfm.next() == null);
 }

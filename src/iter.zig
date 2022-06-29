@@ -1,10 +1,14 @@
 const std = @import("std");
+const to_iter = @import("./to_iter.zig");
+const derive = @import("./derive.zig");
+const meta = @import("./type.zig");
+
 const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
 
-const SliceIter = @import("./to_iter.zig").SliceIter;
-const ArrayIter = @import("./to_iter.zig").ArrayIter;
+const SliceIter = to_iter.SliceIter;
+const ArrayIter = to_iter.ArrayIter;
 
 fn is_func_type(comptime F: type) bool {
     const TypeInfo: type = std.builtin.TypeInfo;
@@ -51,10 +55,11 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
-pub fn IterMap(comptime Iter: type, comptime F: type) type {
+pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = codomain(F);
+        pub usingnamespace D(@This());
 
         f: F,
         iter: Iter,
@@ -73,9 +78,14 @@ pub fn IterMap(comptime Iter: type, comptime F: type) type {
     };
 }
 
+pub fn IterMap(comptime Iter: type, comptime F: type) type {
+    return MakeIterMap(derive.Derive, Iter, F);
+}
+
 comptime {
     assert(IterMap(SliceIter(u32), fn (u32) []u8).Self == IterMap(SliceIter(u32), fn (u32) []u8));
     assert(IterMap(SliceIter(u32), fn (u32) []u8).Item == []u8);
+    assert(meta.isIterator(IterMap(SliceIter(u32), fn (u32) []u8)));
 }
 
 test "IterMap" {
@@ -93,15 +103,16 @@ test "IterMap" {
     try testing.expect(iter.next() == null);
 }
 
-pub fn IterFilter(comptime Iter: type) type {
+pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
 
-        pred: fn (Self.Item) bool,
+        pred: Pred,
         iter: Iter,
 
-        pub fn new(pred: fn (Self.Item) bool, iter: Iter) Self {
+        pub fn new(pred: Pred, iter: Iter) Self {
             return .{ .pred = pred, .iter = iter };
         }
 
@@ -116,6 +127,16 @@ pub fn IterFilter(comptime Iter: type) type {
     };
 }
 
+pub fn IterFilter(comptime Iter: type, comptime Pred: type) type {
+    return MakeIterFilter(derive.Derive, Iter, Pred);
+}
+
+comptime {
+    assert(IterFilter(SliceIter(u32), fn (u32) bool).Self == IterFilter(SliceIter(u32), fn (u32) bool));
+    assert(IterFilter(SliceIter(u32), fn (u32) bool).Item == u32);
+    assert(meta.isIterator(IterFilter(SliceIter(u32), fn (u32) bool)));
+}
+
 test "IterFilter" {
     const IsEven = struct {
         pub fn f(value: u32) bool {
@@ -125,7 +146,7 @@ test "IterFilter" {
 
     const arr = [_]u32{ 1, 2, 3, 4, 5 } ** 3;
     var arr_iter = ArrayIter(u32, arr.len).new(arr);
-    var iter = IterFilter(ArrayIter(u32, arr.len)).new(IsEven.f, arr_iter);
+    var iter = IterFilter(ArrayIter(u32, arr.len), fn (u32) bool).new(IsEven.f, arr_iter);
     try testing.expect(iter.next().? == 2);
     try testing.expect(iter.next().? == 4);
     try testing.expect(iter.next().? == 2);
