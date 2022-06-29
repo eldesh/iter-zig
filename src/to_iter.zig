@@ -83,7 +83,7 @@ pub fn MakeSliceIter(comptime F: fn (type) type, comptime Item: type) type {
 }
 
 pub fn SliceIter(comptime Item: type) type {
-    return MakeSliceIter(derive.Derive, Item);
+    return MakeSliceIter(Derive, Item);
 }
 
 comptime {
