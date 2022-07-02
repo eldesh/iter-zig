@@ -12,7 +12,7 @@ const assert = std.debug.assert;
 const debug = std.debug.print;
 
 pub fn have_type(comptime T: type, name: []const u8) ?type {
-    if (!comptime @hasDecl(T, name)) {
+    if (!@hasDecl(T, name)) {
         return null;
     }
     const field = @field(T, name);
