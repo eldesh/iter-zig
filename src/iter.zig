@@ -155,3 +155,41 @@ test "IterFilter" {
     try testing.expect(iter.next().? == 4);
     try testing.expect(iter.next() == null);
 }
+
+pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = std.meta.Child(codomain(F));
+        pub usingnamespace D(@This());
+
+        f: F,
+        iter: Iter,
+
+        pub fn new(f: F, iter: Iter) Self {
+            return .{ .f = f, .iter = iter };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            while (self.iter.next()) |item| {
+                if (self.f(item)) |v| {
+                    return v;
+                } else {
+                    continue;
+                }
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn FlatMap(comptime Iter: type, comptime F: type) type {
+    return MakeFlatMap(derive.Derive, Iter, F);
+}
+
+comptime {
+    assert(FlatMap(SliceIter(u32), fn (u32) ?u8).Self == FlatMap(SliceIter(u32), fn (u32) ?u8));
+    assert(FlatMap(SliceIter(u32), fn (u32) ?u8).Item == u8);
+    assert(meta.isIterator(FlatMap(SliceIter(u32), fn (u32) ?u8)));
+}

@@ -38,10 +38,25 @@ fn DeriveFilter(comptime Iter: type) type {
     }
 }
 
+fn DeriveFlatMap(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "flat_map")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn flat_map(self: Iter, m: anytype) iter.FlatMap(Iter, @TypeOf(m)) {
+                return iter.FlatMap(Iter, @TypeOf(m)).new(m, self);
+            }
+        };
+    }
+}
+
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveMap(Iter);
         pub usingnamespace DeriveFilter(Iter);
+        pub usingnamespace DeriveFlatMap(Iter);
     };
 }
 
@@ -82,6 +97,25 @@ test "derive filter" {
     try testing.expect(filter.next().? == 4);
     try testing.expect(filter.next().? == 6);
     try testing.expect(filter.next() == null);
+}
+
+test "derive flat_map" {
+    var arr = [_][]const u8{ "1", "2", "foo", "3", "bar" };
+    const ParseInt = struct {
+        pub fn apply(x: []const u8) ?u32 {
+            return std.fmt.parseInt(u32, x, 10) catch null;
+        }
+    };
+    const Iter = MakeSliceIter(DeriveFlatMap, []const u8);
+    var flat_map = Iter.new(arr[0..]).flat_map(ParseInt.apply);
+    comptime {
+        assert(meta.isIterator(Iter));
+        assert(meta.isIterator(@TypeOf(flat_map)));
+    }
+    try testing.expect(flat_map.next().? == @as(u32, 1));
+    try testing.expect(flat_map.next().? == @as(u32, 2));
+    try testing.expect(flat_map.next().? == @as(u32, 3));
+    try testing.expect(flat_map.next() == null);
 }
 
 test "derive" {
