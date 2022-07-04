@@ -158,6 +158,8 @@ test "IterFilter" {
 
 pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
+    comptime assert(is_unary_func_type(F));
+    comptime assert(std.meta.trait.is(.Optional)(codomain(F)));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(codomain(F));
