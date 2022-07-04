@@ -13,7 +13,6 @@ const isIterator = meta.isIterator;
 fn DeriveMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
-    // already have "map" function
     if (meta.have_fun(Iter, "map")) |_| {
         return struct {};
     } else {
@@ -28,7 +27,6 @@ fn DeriveMap(comptime Iter: type) type {
 fn DeriveFilter(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
-    // already have "filter" function
     if (meta.have_fun(Iter, "filter")) |_| {
         return struct {};
     } else {
