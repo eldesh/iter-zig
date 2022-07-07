@@ -237,13 +237,10 @@ comptime {
 }
 
 test "ArrayListIter" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
     var xs = ArrayList(u32).init(testing.allocator);
     defer xs.deinit();
-    try xs.append(@as(u32, 1));
-    try xs.append(@as(u32, 2));
-    try xs.append(@as(u32, 3));
-    try xs.append(@as(u32, 4));
-    try xs.append(@as(u32, 5));
+    try xs.appendSlice(arr[0..]);
 
     var iter = ArrayListIter(u32).new(xs);
     try testing.expectEqual(@as(u32, 1), iter.next().?.*);
