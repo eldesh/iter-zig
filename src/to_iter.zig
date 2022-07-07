@@ -152,12 +152,12 @@ test "ArrayListIter" {
     try xs.append(@as(u32, 5));
 
     var iter = ArrayListIter(u32).new(xs);
-    try testing.expect(iter.next().?.* == 1);
-    try testing.expect(iter.next().?.* == 2);
-    try testing.expect(iter.next().?.* == 3);
-    try testing.expect(iter.next().?.* == 4);
-    try testing.expect(iter.next().?.* == 5);
-    try testing.expect(iter.next() == null);
+    try testing.expectEqual(@as(u32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 5), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
 pub fn MakeSinglyLinkedListIter(comptime F: fn (type) type, comptime T: type) type {
@@ -206,8 +206,8 @@ test "SinglyLinkedListIter" {
 
     var iter = SinglyLinkedListIter(u32).new(list);
 
-    try testing.expect(iter.next().?.* == 1);
-    try testing.expect(iter.next().?.* == 2);
-    try testing.expect(iter.next().?.* == 3);
-    try testing.expect(iter.next() == null);
+    try testing.expectEqual(@as(u32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
 }

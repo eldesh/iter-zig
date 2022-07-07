@@ -38,10 +38,10 @@ test "derive map" {
         assert(isIterator(Iter));
         assert(isIterator(@TypeOf(map)));
     }
-    try testing.expect(map.next().? == 2);
-    try testing.expect(map.next().? == 4);
-    try testing.expect(map.next().? == 6);
-    try testing.expect(map.next() == null);
+    try testing.expectEqual(@as(?u32, 2), map.next());
+    try testing.expectEqual(@as(?u32, 4), map.next());
+    try testing.expectEqual(@as(?u32, 6), map.next());
+    try testing.expectEqual(@as(?u32, null), map.next());
 }
 
 fn DeriveFilter(comptime Iter: type) type {
@@ -61,7 +61,7 @@ fn DeriveFilter(comptime Iter: type) type {
 test "derive filter" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     const IsEven = struct {
-        pub fn apply(x: *const u32) bool {
+        fn apply(x: *const u32) bool {
             return x.* % 2 == 0;
         }
     };
@@ -74,7 +74,7 @@ test "derive filter" {
     try testing.expectEqual(@as(u32, 2), filter.next().?.*);
     try testing.expectEqual(@as(u32, 4), filter.next().?.*);
     try testing.expectEqual(@as(u32, 6), filter.next().?.*);
-    try testing.expectEqual(@as(?*const u32, null), filter.next());
+    try testing.expectEqual(@as(?*u32, null), filter.next());
 }
 
 fn DeriveFlatMap(comptime Iter: type) type {
@@ -94,7 +94,7 @@ fn DeriveFlatMap(comptime Iter: type) type {
 test "derive flat_map" {
     var arr = [_][]const u8{ "1", "2", "foo", "3", "bar" };
     const ParseInt = struct {
-        pub fn apply(x: *const []const u8) ?u32 {
+        fn apply(x: *const []const u8) ?u32 {
             return std.fmt.parseInt(u32, x.*, 10) catch null;
         }
     };
@@ -104,9 +104,9 @@ test "derive flat_map" {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(flat_map)));
     }
-    try testing.expectEqual(@as(u32, 1), flat_map.next().?);
-    try testing.expectEqual(@as(u32, 2), flat_map.next().?);
-    try testing.expectEqual(@as(u32, 3), flat_map.next().?);
+    try testing.expectEqual(@as(?u32, 1), flat_map.next());
+    try testing.expectEqual(@as(?u32, 2), flat_map.next());
+    try testing.expectEqual(@as(?u32, 3), flat_map.next());
     try testing.expectEqual(@as(?u32, null), flat_map.next());
 }
 
@@ -142,8 +142,8 @@ test "derive" {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(mfm)));
     }
-    try testing.expectEqual(@as(u32, 6 * 3), mfm.next().?);
-    try testing.expectEqual(@as(u32, 12 * 3), mfm.next().?);
-    try testing.expectEqual(@as(u32, 18 * 3), mfm.next().?);
+    try testing.expectEqual(@as(?u32, 6 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, 12 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, 18 * 3), mfm.next());
     try testing.expectEqual(@as(?u32, null), mfm.next());
 }

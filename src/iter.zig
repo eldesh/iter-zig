@@ -97,10 +97,10 @@ test "IterMap" {
     var arr = [_]u32{ 1, 2, 3 };
     var arr_iter = ArrayIter(u32, arr.len).new(&arr);
     var iter = IterMap(ArrayIter(u32, arr.len), fn (*const u32) u64).new(Square.f, arr_iter);
-    try testing.expect(iter.next().? == @as(u64, 1));
-    try testing.expect(iter.next().? == @as(u64, 4));
-    try testing.expect(iter.next().? == @as(u64, 9));
-    try testing.expect(iter.next() == null);
+    try testing.expectEqual(@as(?u64, 1), iter.next());
+    try testing.expectEqual(@as(?u64, 4), iter.next());
+    try testing.expectEqual(@as(?u64, 9), iter.next());
+    try testing.expectEqual(@as(?u64, null), iter.next());
 }
 
 pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
@@ -146,13 +146,13 @@ test "IterFilter" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 } ** 3;
     var arr_iter = ArrayIter(u32, arr.len).new(&arr);
     var iter = IterFilter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.f, arr_iter);
-    try testing.expect(iter.next().?.* == @as(u32, 2));
-    try testing.expect(iter.next().?.* == @as(u32, 4));
-    try testing.expect(iter.next().?.* == @as(u32, 2));
-    try testing.expect(iter.next().?.* == @as(u32, 4));
-    try testing.expect(iter.next().?.* == @as(u32, 2));
-    try testing.expect(iter.next().?.* == @as(u32, 4));
-    try testing.expect(iter.next() == null);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
 pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
