@@ -8,27 +8,27 @@ const derive = @import("./derive.zig");
 const assert = std.debug.assert;
 const testing = std.testing;
 
-pub fn MakeRangeIter(comptime F: fn (type) type, comptime Item: type) type {
-    comptime assert(std.meta.trait.isIntegral(Item));
+pub fn MakeRangeIter(comptime F: fn (type) type, comptime T: type) type {
+    comptime assert(std.meta.trait.isIntegral(T));
 
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = Item;
+        pub const Item: type = T;
         pub usingnamespace F(@This());
 
-        curr: Item,
-        upper: Item,
-        step: Item,
+        curr: T,
+        upper: T,
+        step: T,
 
-        pub fn new(curr: Item, upper: Item, step: Item) Self {
-            return Self{ .curr = curr, .upper = upper, .step = step };
+        pub fn new(curr: T, upper: T, step: T) Self {
+            return .{ .curr = curr, .upper = upper, .step = step };
         }
 
         pub fn next(self: *Self) ?Item {
             if (self.curr < self.upper) {
-                const now = self.curr;
+                const curr = self.curr;
                 self.curr += self.step;
-                return now;
+                return curr;
             } else {
                 return null;
             }
@@ -68,8 +68,8 @@ test "Range Iterator" {
             return x + 3;
         }
     }.add3);
-    try testing.expectEqual(iter.next().?, @as(u32, 3));
-    try testing.expectEqual(iter.next().?, @as(u32, 5));
-    try testing.expectEqual(iter.next().?, @as(u32, 7));
-    try testing.expectEqual(iter.next(), null);
+    try testing.expectEqual(@as(u32, 3), iter.next().?);
+    try testing.expectEqual(@as(u32, 5), iter.next().?);
+    try testing.expectEqual(@as(u32, 7), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
 }

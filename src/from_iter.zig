@@ -15,7 +15,7 @@ pub fn slice_from_iter_with_allocator(alloc: Allocator, iter: anytype) Allocator
 }
 
 test "slice_from_iter" {
-    var rng = range.range(@as(usize, 0), 10, 1);
+    var rng = range.range(@as(u32, 0), 10, 1);
     const slice = try slice_from_iter_with_allocator(testing.allocator, rng);
     defer testing.allocator.free(slice);
     try testing.expectEqual(@as(usize, 10), slice.len);
@@ -34,7 +34,7 @@ pub fn array_list_from_iter_with_allocator(alloc: Allocator, iter: anytype) Allo
 }
 
 test "array_list_from_iter" {
-    var rng = range.range(@as(usize, 0), 10, 1);
+    var rng = range.range(@as(u32, 0), 10, 1);
     const arr = try array_list_from_iter_with_allocator(testing.allocator, rng);
     defer arr.deinit();
 

@@ -26,8 +26,8 @@ fn DeriveMap(comptime Iter: type) type {
 
 test "derive map" {
     const Double = struct {
-        pub fn apply(x: u32) u32 {
-            return x * 2;
+        fn apply(x: *const u32) u32 {
+            return x.* * 2;
         }
     };
 
@@ -61,8 +61,8 @@ fn DeriveFilter(comptime Iter: type) type {
 test "derive filter" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     const IsEven = struct {
-        pub fn apply(x: u32) bool {
-            return x % 2 == 0;
+        pub fn apply(x: *const u32) bool {
+            return x.* % 2 == 0;
         }
     };
     const Iter = MakeSliceIter(DeriveFilter, u32);
@@ -71,10 +71,10 @@ test "derive filter" {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(filter)));
     }
-    try testing.expect(filter.next().? == 2);
-    try testing.expect(filter.next().? == 4);
-    try testing.expect(filter.next().? == 6);
-    try testing.expect(filter.next() == null);
+    try testing.expectEqual(@as(u32, 2), filter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), filter.next().?.*);
+    try testing.expectEqual(@as(u32, 6), filter.next().?.*);
+    try testing.expectEqual(@as(?*const u32, null), filter.next());
 }
 
 fn DeriveFlatMap(comptime Iter: type) type {
@@ -94,8 +94,8 @@ fn DeriveFlatMap(comptime Iter: type) type {
 test "derive flat_map" {
     var arr = [_][]const u8{ "1", "2", "foo", "3", "bar" };
     const ParseInt = struct {
-        pub fn apply(x: []const u8) ?u32 {
-            return std.fmt.parseInt(u32, x, 10) catch null;
+        pub fn apply(x: *const []const u8) ?u32 {
+            return std.fmt.parseInt(u32, x.*, 10) catch null;
         }
     };
     const Iter = MakeSliceIter(DeriveFlatMap, []const u8);
@@ -104,10 +104,10 @@ test "derive flat_map" {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(flat_map)));
     }
-    try testing.expect(flat_map.next().? == @as(u32, 1));
-    try testing.expect(flat_map.next().? == @as(u32, 2));
-    try testing.expect(flat_map.next().? == @as(u32, 3));
-    try testing.expect(flat_map.next() == null);
+    try testing.expectEqual(@as(u32, 1), flat_map.next().?);
+    try testing.expectEqual(@as(u32, 2), flat_map.next().?);
+    try testing.expectEqual(@as(u32, 3), flat_map.next().?);
+    try testing.expectEqual(@as(?u32, null), flat_map.next());
 }
 
 pub fn Derive(comptime Iter: type) type {
@@ -121,6 +121,9 @@ pub fn Derive(comptime Iter: type) type {
 test "derive" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     const Triple = struct {
+        pub fn apply_ref(x: *const u32) u32 {
+            return x.* * 3;
+        }
         pub fn apply(x: u32) u32 {
             return x * 3;
         }
@@ -131,17 +134,16 @@ test "derive" {
         }
     };
     const Iter = MakeSliceIter(Derive, u32);
-
     var mfm = Iter.new(arr[0..6])
-        .map(Triple.apply) // derive map for SliceIter
+        .map(Triple.apply_ref) // derive map for SliceIter
         .filter(IsEven.apply) // more derive filter for IterMap
         .map(Triple.apply); // more more derive map for IterFilter
     comptime {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(mfm)));
     }
-    try testing.expect(mfm.next().? == 6 * 3);
-    try testing.expect(mfm.next().? == 12 * 3);
-    try testing.expect(mfm.next().? == 18 * 3);
-    try testing.expect(mfm.next() == null);
+    try testing.expectEqual(@as(u32, 6 * 3), mfm.next().?);
+    try testing.expectEqual(@as(u32, 12 * 3), mfm.next().?);
+    try testing.expectEqual(@as(u32, 18 * 3), mfm.next().?);
+    try testing.expectEqual(@as(?u32, null), mfm.next());
 }
