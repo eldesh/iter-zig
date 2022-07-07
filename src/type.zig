@@ -11,6 +11,25 @@ const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
 
+pub fn remove_pointer(comptime T: type) type {
+    comptime assert(std.meta.trait.is(.Pointer)(T));
+    return std.meta.Child(T);
+}
+
+pub fn remove_const_pointer(comptime T: type) type {
+    comptime assert(std.meta.trait.isConstPtr(T));
+    var info = @typeInfo(T);
+    info.Pointer.is_const = false;
+    return remove_pointer(@Type(info));
+}
+
+comptime {
+    assert(remove_pointer(*const u32) == u32);
+    assert(remove_pointer(*[]const u8) == []const u8);
+    assert(remove_const_pointer(*const u32) == u32);
+    assert(remove_const_pointer(*const []u8) == []u8);
+}
+
 pub fn have_type(comptime T: type, name: []const u8) ?type {
     if (!@hasDecl(T, name)) {
         return null;
