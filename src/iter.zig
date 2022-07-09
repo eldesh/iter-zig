@@ -299,8 +299,6 @@ pub fn Enumerate(comptime Iter: type) type {
 
 comptime {
     assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
-    // For some reason, they do not match. Mystery...
-    // assert(Enumerate(SliceIter(u32)).Item == std.meta.Tuple(&[_]type{ SliceIter(u32).Item, usize }));
     assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
     assert(meta.isIterator(Enumerate(SliceIter(u32))));
 }

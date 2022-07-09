@@ -26,6 +26,7 @@ fn DeriveEnumerate(comptime Iter: type) type {
 }
 
 test "derive enumerate" {
+    const tuple2 = tuple.tuple2;
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = MakeSliceIter(DeriveEnumerate, u32);
     var enumerate = Iter.new(arr[0..]).enumerate();
@@ -33,18 +34,19 @@ test "derive enumerate" {
         assert(isIterator(Iter));
         assert(isIterator(@TypeOf(enumerate)));
     }
-    try testing.expectEqual(tuple.tuple2(&arr[0], @as(usize, 0)), enumerate.next().?);
-    try testing.expectEqual(tuple.tuple2(&arr[1], @as(usize, 1)), enumerate.next().?);
-    try testing.expectEqual(tuple.tuple2(&arr[2], @as(usize, 2)), enumerate.next().?);
-    try testing.expectEqual(tuple.tuple2(&arr[3], @as(usize, 3)), enumerate.next().?);
-    try testing.expectEqual(tuple.tuple2(&arr[4], @as(usize, 4)), enumerate.next().?);
+    try testing.expectEqual(tuple2(&arr[0], @as(usize, 0)), enumerate.next().?);
+    try testing.expectEqual(tuple2(&arr[1], @as(usize, 1)), enumerate.next().?);
+    try testing.expectEqual(tuple2(&arr[2], @as(usize, 2)), enumerate.next().?);
+    try testing.expectEqual(tuple2(&arr[3], @as(usize, 3)), enumerate.next().?);
+    try testing.expectEqual(tuple2(&arr[4], @as(usize, 4)), enumerate.next().?);
     try testing.expectEqual(@as(?@TypeOf(enumerate).Item, null), enumerate.next());
 }
 
 test "derive enumerate map" {
+    const Tuple2 = tuple.Tuple2;
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     var eiter = MakeSliceIter(Derive, u32).new(arr[0..]).enumerate().map(struct {
-        fn proj(item: tuple.Tuple2(*u32, usize)) *u32 {
+        fn proj(item: Tuple2(*u32, usize)) *u32 {
             return item.get(0);
         }
     }.proj);
