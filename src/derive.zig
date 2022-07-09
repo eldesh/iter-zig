@@ -77,15 +77,15 @@ test "derive filter" {
     try testing.expectEqual(@as(?*u32, null), filter.next());
 }
 
-fn DeriveFlatMap(comptime Iter: type) type {
+fn DeriveFilterMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "flat_map")) |_| {
         return struct {};
     } else {
         return struct {
-            pub fn flat_map(self: Iter, m: anytype) iter.FlatMap(Iter, @TypeOf(m)) {
-                return iter.FlatMap(Iter, @TypeOf(m)).new(m, self);
+            pub fn flat_map(self: Iter, m: anytype) iter.FilterMap(Iter, @TypeOf(m)) {
+                return iter.FilterMap(Iter, @TypeOf(m)).new(m, self);
             }
         };
     }
@@ -98,7 +98,7 @@ test "derive flat_map" {
             return std.fmt.parseInt(u32, x.*, 10) catch null;
         }
     };
-    const Iter = MakeSliceIter(DeriveFlatMap, []const u8);
+    const Iter = MakeSliceIter(DeriveFilterMap, []const u8);
     var flat_map = Iter.new(arr[0..]).flat_map(ParseInt.apply);
     comptime {
         assert(meta.isIterator(Iter));
@@ -114,7 +114,7 @@ pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveMap(Iter);
         pub usingnamespace DeriveFilter(Iter);
-        pub usingnamespace DeriveFlatMap(Iter);
+        pub usingnamespace DeriveFilterMap(Iter);
     };
 }
 

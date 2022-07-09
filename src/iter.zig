@@ -155,7 +155,7 @@ test "IterFilter" {
     try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
-pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
+pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(is_unary_func_type(F));
     comptime assert(std.meta.trait.is(.Optional)(codomain(F)));
@@ -185,12 +185,27 @@ pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: 
     };
 }
 
-pub fn FlatMap(comptime Iter: type, comptime F: type) type {
-    return MakeFlatMap(derive.Derive, Iter, F);
+pub fn FilterMap(comptime Iter: type, comptime F: type) type {
+    return MakeFilterMap(derive.Derive, Iter, F);
 }
 
 comptime {
-    assert(FlatMap(SliceIter(u32), fn (*const u32) ?u8).Self == FlatMap(SliceIter(u32), fn (*const u32) ?u8));
-    assert(FlatMap(SliceIter(u32), fn (*const u32) ?u8).Item == u8);
-    assert(meta.isIterator(FlatMap(SliceIter(u32), fn (*const u32) ?u8)));
+    assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Self == FilterMap(SliceIter(u32), fn (*const u32) ?u8));
+    assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Item == u8);
+    assert(meta.isIterator(FilterMap(SliceIter(u32), fn (*const u32) ?u8)));
 }
+
+test "FilterMap" {
+    const ParseInt = struct {
+        pub fn f(value: *const []const u8) ?u32 {
+            return std.fmt.parseInt(u32, value.*, 10) catch null;
+        }
+    };
+    var arr = [_][]const u8{ "abc", "123", "345", "-123.", "1abc" };
+    var arr_iter = ArrayIter([]const u8, arr.len).new(&arr);
+    var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.f, arr_iter);
+    try testing.expectEqual(@as(u32, 123), iter.next().?);
+    try testing.expectEqual(@as(u32, 345), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
