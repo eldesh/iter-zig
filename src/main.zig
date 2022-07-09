@@ -18,3 +18,4 @@ pub usingnamespace @import("./type.zig");
 pub usingnamespace @import("./derive.zig");
 pub usingnamespace @import("./from_iter.zig");
 pub usingnamespace @import("./range.zig");
+pub usingnamespace @import("./tuple.zig");

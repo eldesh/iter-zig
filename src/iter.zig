@@ -2,6 +2,7 @@ const std = @import("std");
 const to_iter = @import("./to_iter.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
+const tuple = @import("./tuple.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -264,4 +265,53 @@ test "Chain" {
     try testing.expectEqual(@as(u32, 5), iter.next().?.*);
     try testing.expectEqual(@as(u32, 6), iter.next().?.*);
     try testing.expectEqual(@as(?*u32, null), iter.next());
+}
+
+pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = tuple.Tuple2(Iter.Item, usize);
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        count: usize,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter, .count = 0 };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.iter.next()) |v| {
+                const count = self.count;
+                self.count += 1;
+                return tuple.tuple2(v, count);
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn Enumerate(comptime Iter: type) type {
+    return MakeEnumerate(derive.Derive, Iter);
+}
+
+comptime {
+    assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
+    // For some reason, they do not match. Mystery...
+    // assert(Enumerate(SliceIter(u32)).Item == std.meta.Tuple(&[_]type{ SliceIter(u32).Item, usize }));
+    assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
+    assert(meta.isIterator(Enumerate(SliceIter(u32))));
+}
+
+test "Enumerate" {
+    var arr = [_][]const u8{ "foo", "bar", "bazz" };
+    var siter = SliceIter([]const u8).new(arr[0..]);
+    const Iter = Enumerate(@TypeOf(siter));
+    var iter = Enumerate(@TypeOf(siter)).new(siter);
+    try testing.expectEqual(tuple.tuple2(&arr[0], @as(usize, 0)), iter.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[1], @as(usize, 1)), iter.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[2], @as(usize, 2)), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }

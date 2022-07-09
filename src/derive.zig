@@ -2,6 +2,7 @@ const std = @import("std");
 const meta = @import("./type.zig");
 const iter = @import("./iter.zig");
 const to_iter = @import("./to_iter.zig");
+const tuple = @import("./tuple.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -9,6 +10,54 @@ const debug = std.debug.print;
 
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
+
+fn DeriveEnumerate(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "enumerate")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn enumerate(self: Iter) iter.Enumerate(Iter) {
+                return iter.Enumerate(Iter).new(self);
+            }
+        };
+    }
+}
+
+test "derive enumerate" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveEnumerate, u32);
+    var enumerate = Iter.new(arr[0..]).enumerate();
+    comptime {
+        assert(isIterator(Iter));
+        assert(isIterator(@TypeOf(enumerate)));
+    }
+    try testing.expectEqual(tuple.tuple2(&arr[0], @as(usize, 0)), enumerate.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[1], @as(usize, 1)), enumerate.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[2], @as(usize, 2)), enumerate.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[3], @as(usize, 3)), enumerate.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[4], @as(usize, 4)), enumerate.next().?);
+    try testing.expectEqual(@as(?@TypeOf(enumerate).Item, null), enumerate.next());
+}
+
+test "derive enumerate map" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    var eiter = MakeSliceIter(Derive, u32).new(arr[0..]).enumerate().map(struct {
+        fn proj(item: tuple.Tuple2(*u32, usize)) *u32 {
+            return item.get(0);
+        }
+    }.proj);
+    comptime {
+        assert(isIterator(@TypeOf(eiter)));
+    }
+    try testing.expectEqual(@as(u32, 1), eiter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), eiter.next().?.*);
+    try testing.expectEqual(@as(u32, 3), eiter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), eiter.next().?.*);
+    try testing.expectEqual(@as(u32, 5), eiter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), eiter.next());
+}
 
 fn DeriveChain(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
@@ -156,6 +205,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveFilter(Iter);
         pub usingnamespace DeriveFilterMap(Iter);
         pub usingnamespace DeriveChain(Iter);
+        pub usingnamespace DeriveEnumerate(Iter);
     };
 }
 
