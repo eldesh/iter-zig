@@ -11,6 +11,72 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveAll(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "all")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn all(self: *Iter, P: fn (*const Iter.Item) bool) bool {
+                while (self.next()) |val| {
+                    if (!P(&val))
+                        return false;
+                }
+                return true;
+            }
+        };
+    }
+}
+
+test "derive all" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveAll, u32);
+    try testing.expect(Iter.new(arr[0..]).all(struct {
+        fn less10(x: *const *u32) bool {
+            return x.*.* < 10;
+        }
+    }.less10));
+    try testing.expect(!Iter.new(arr[0..]).all(struct {
+        fn greater10(x: *const *u32) bool {
+            return x.*.* > 10;
+        }
+    }.greater10));
+}
+
+fn DeriveAny(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "any")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn any(self: *Iter, P: fn (*const Iter.Item) bool) bool {
+                while (self.next()) |val| {
+                    if (P(&val))
+                        return true;
+                }
+                return false;
+            }
+        };
+    }
+}
+
+test "derive any" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveAny, u32);
+    try testing.expect(Iter.new(arr[0..]).any(struct {
+        fn greater4(x: *const *u32) bool {
+            return x.*.* > 4;
+        }
+    }.greater4));
+    try testing.expect(!Iter.new(arr[0..]).any(struct {
+        fn greater10(x: *const *u32) bool {
+            return x.*.* > 10;
+        }
+    }.greater10));
+}
+
 fn DeriveEnumerate(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -208,6 +274,8 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveFilterMap(Iter);
         pub usingnamespace DeriveChain(Iter);
         pub usingnamespace DeriveEnumerate(Iter);
+        pub usingnamespace DeriveAll(Iter);
+        pub usingnamespace DeriveAny(Iter);
     };
 }
 
