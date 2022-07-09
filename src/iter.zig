@@ -209,3 +209,59 @@ test "FilterMap" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
+pub fn MakeChain(comptime D: fn (type) type, comptime Iter1: type, comptime Iter2: type) type {
+    comptime assert(meta.isIterator(Iter1));
+    comptime assert(meta.isIterator(Iter2));
+    comptime assert(Iter1.Item == Iter2.Item);
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter1.Item;
+        pub usingnamespace D(@This());
+
+        iter1: Iter1,
+        iter2: Iter2,
+        iter1end: bool,
+
+        pub fn new(iter1: Iter1, iter2: Iter2) Self {
+            return .{ .iter1 = iter1, .iter2 = iter2, .iter1end = false };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (!self.iter1end) {
+                if (self.iter1.next()) |v| {
+                    return v;
+                } else {
+                    self.iter1end = true;
+                    return self.iter2.next();
+                }
+            } else {
+                return self.iter2.next();
+            }
+        }
+    };
+}
+
+pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
+    return MakeChain(derive.Derive, Iter1, Iter2);
+}
+
+comptime {
+    assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Self == Chain(SliceIter(u32), ArrayIter(u32, 5)));
+    assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Item == *u32);
+    assert(meta.isIterator(Chain(SliceIter(u32), ArrayIter(u32, 5))));
+}
+
+test "Chain" {
+    var arr1 = [_]u32{ 1, 2, 3 };
+    var arr2 = [_]u32{ 4, 5, 6 };
+    var iter1 = ArrayIter(u32, arr1.len).new(&arr1);
+    var iter2 = SliceIter(u32).new(arr2[0..]);
+    var iter = Chain(@TypeOf(iter1), @TypeOf(iter2)).new(iter1, iter2);
+    try testing.expectEqual(@as(u32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 5), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 6), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
+}
