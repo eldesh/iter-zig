@@ -10,6 +10,46 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveChain(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "chain")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn chain(self: Iter, other: anytype) iter.Chain(Iter, @TypeOf(other)) {
+                return iter.Chain(Iter, @TypeOf(other)).new(self, other);
+            }
+        };
+    }
+}
+
+test "derive chain" {
+    const IsEven = struct {
+        fn apply(x: *const u32) bool {
+            return x.* % 2 == 0;
+        }
+    };
+    var arr1 = [_]u32{ 1, 2, 3 };
+    var arr2 = [_]u32{ 4, 5, 6 };
+    const Iter1 = MakeSliceIter(DeriveFilter, u32);
+    const Iter2 = MakeSliceIter(DeriveChain, u32);
+    var other = Iter1.new(arr2[0..]).filter(IsEven.apply);
+    var chain = Iter2.new(arr1[0..]).chain(other);
+    comptime {
+        assert(isIterator(Iter1));
+        assert(isIterator(Iter2));
+        assert(isIterator(@TypeOf(chain)));
+    }
+    try testing.expectEqual(@as(u32, 1), chain.next().?.*);
+    try testing.expectEqual(@as(u32, 2), chain.next().?.*);
+    try testing.expectEqual(@as(u32, 3), chain.next().?.*);
+    try testing.expectEqual(@as(u32, 4), chain.next().?.*);
+    // filter out '5' by IsEven
+    try testing.expectEqual(@as(u32, 6), chain.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), chain.next());
+}
+
 fn DeriveMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -115,6 +155,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveMap(Iter);
         pub usingnamespace DeriveFilter(Iter);
         pub usingnamespace DeriveFilterMap(Iter);
+        pub usingnamespace DeriveChain(Iter);
     };
 }
 
