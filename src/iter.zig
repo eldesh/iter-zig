@@ -368,3 +368,61 @@ test "TakeWhile" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
+
+pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        pred: P,
+        skip: bool,
+
+        pub fn new(iter: Iter, pred: P) Self {
+            return .{ .iter = iter, .pred = pred, .skip = true };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.skip) {
+                while (self.iter.next()) |v| {
+                    if (self.pred(&v)) {
+                        continue;
+                    } else {
+                        self.skip = false;
+                        return v;
+                    }
+                }
+                self.skip = false;
+            }
+            return self.iter.next();
+        }
+    };
+}
+
+pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
+    return MakeSkipWhile(derive.Derive, Iter, P);
+}
+
+comptime {
+    assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Self == SkipWhile(SliceIter(u32), fn (*const *u32) bool));
+    assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(SkipWhile(SliceIter(u32), fn (*const *u32) bool)));
+}
+
+test "SkipWhile" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = SkipWhile(@TypeOf(siter), fn (*const *i32) bool);
+    var iter = Iter.new(siter, struct {
+        fn call(v: *const *i32) bool {
+            return v.*.* > 0;
+        }
+    }.call);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}

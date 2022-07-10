@@ -92,11 +92,11 @@ fn DeriveTakeWhile(comptime Iter: type) type {
 }
 
 test "derive take_while" {
-    var arr = [_]i32{ -3, -2, -1, 0, 1, 2, 3, 4, 5 };
+    var arr = [_]i32{ -3, -2, -1, 0, 1, -2, -3, 4, 5 };
     const Iter = MakeSliceIter(DeriveTakeWhile, i32);
     var take_while = Iter.new(arr[0..]).take_while(struct {
         fn call(v: *const *i32) bool {
-            return v.*.* < 0;
+            return v.*.* <= 0;
         }
     }.call);
     comptime {
@@ -106,7 +106,45 @@ test "derive take_while" {
     try testing.expectEqual(@as(i32, -3), take_while.next().?.*);
     try testing.expectEqual(@as(i32, -2), take_while.next().?.*);
     try testing.expectEqual(@as(i32, -1), take_while.next().?.*);
+    try testing.expectEqual(@as(i32, 0), take_while.next().?.*);
     try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
+    try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
+    try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
+    try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
+}
+
+fn DeriveSkipWhile(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "skip_while")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn skip_while(self: Iter, pred: anytype) iter.SkipWhile(Iter, @TypeOf(pred)) {
+                return iter.SkipWhile(Iter, @TypeOf(pred)).new(self, pred);
+            }
+        };
+    }
+}
+
+test "derive skip_while" {
+    var arr = [_]i32{ 2, 1, 0, -1, 2, 3, -1, 2 };
+    const Iter = MakeSliceIter(DeriveSkipWhile, i32);
+    var skip_while = Iter.new(arr[0..]).skip_while(struct {
+        fn call(v: *const *i32) bool {
+            return v.*.* >= 0;
+        }
+    }.call);
+    comptime {
+        assert(isIterator(Iter));
+        assert(isIterator(@TypeOf(skip_while)));
+    }
+    try testing.expectEqual(@as(i32, -1), skip_while.next().?.*);
+    try testing.expectEqual(@as(i32, 2), skip_while.next().?.*);
+    try testing.expectEqual(@as(i32, 3), skip_while.next().?.*);
+    try testing.expectEqual(@as(i32, -1), skip_while.next().?.*);
+    try testing.expectEqual(@as(i32, 2), skip_while.next().?.*);
+    try testing.expectEqual(@as(?@TypeOf(skip_while).Item, null), skip_while.next());
 }
 
 fn DeriveEnumerate(comptime Iter: type) type {
@@ -302,6 +340,7 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveTakeWhile(Iter);
+        pub usingnamespace DeriveSkipWhile(Iter);
         pub usingnamespace DeriveMap(Iter);
         pub usingnamespace DeriveFilter(Iter);
         pub usingnamespace DeriveFilterMap(Iter);
