@@ -77,6 +77,38 @@ test "derive any" {
     }.greater10));
 }
 
+fn DeriveTakeWhile(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "take_while")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn take_while(self: Iter, pred: anytype) iter.TakeWhile(Iter, @TypeOf(pred)) {
+                return iter.TakeWhile(Iter, @TypeOf(pred)).new(self, pred);
+            }
+        };
+    }
+}
+
+test "derive take_while" {
+    var arr = [_]i32{ -3, -2, -1, 0, 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveTakeWhile, i32);
+    var take_while = Iter.new(arr[0..]).take_while(struct {
+        fn call(v: *const *i32) bool {
+            return v.*.* < 0;
+        }
+    }.call);
+    comptime {
+        assert(isIterator(Iter));
+        assert(isIterator(@TypeOf(take_while)));
+    }
+    try testing.expectEqual(@as(i32, -3), take_while.next().?.*);
+    try testing.expectEqual(@as(i32, -2), take_while.next().?.*);
+    try testing.expectEqual(@as(i32, -1), take_while.next().?.*);
+    try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
+}
+
 fn DeriveEnumerate(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -269,6 +301,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveTakeWhile(Iter);
         pub usingnamespace DeriveMap(Iter);
         pub usingnamespace DeriveFilter(Iter);
         pub usingnamespace DeriveFilterMap(Iter);
