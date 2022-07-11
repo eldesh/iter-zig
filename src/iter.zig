@@ -118,7 +118,7 @@ pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime 
         }
 
         pub fn next(self: *Self) ?Item {
-            while (self.iter.next()) |item| {
+            if (self.iter.next()) |item| {
                 if (self.pred(item)) {
                     return item;
                 }
@@ -140,18 +140,16 @@ comptime {
 
 test "IterFilter" {
     const IsEven = struct {
-        pub fn f(value: *const u32) bool {
+        pub fn call(value: *const u32) bool {
             return value.* % 2 == 0;
         }
     };
-    var arr = [_]u32{ 1, 2, 3, 4, 5 } ** 3;
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
     var arr_iter = ArrayIter(u32, arr.len).new(&arr);
-    var iter = IterFilter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.f, arr_iter);
+    var iter = IterFilter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.call, arr_iter);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
     try testing.expectEqual(@as(u32, 2), iter.next().?.*);
-    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
-    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
-    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
-    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
     try testing.expectEqual(@as(u32, 4), iter.next().?.*);
     try testing.expectEqual(@as(?*u32, null), iter.next());
 }
@@ -173,15 +171,12 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
         }
 
         pub fn next(self: *Self) ?Item {
-            while (self.iter.next()) |item| {
+            if (self.iter.next()) |item| {
                 if (self.f(item)) |v| {
                     return v;
-                } else {
-                    continue;
                 }
-            } else {
-                return null;
             }
+            return null;
         }
     };
 }
@@ -198,15 +193,18 @@ comptime {
 
 test "FilterMap" {
     const ParseInt = struct {
-        pub fn f(value: *const []const u8) ?u32 {
+        pub fn call(value: *const []const u8) ?u32 {
             return std.fmt.parseInt(u32, value.*, 10) catch null;
         }
     };
     var arr = [_][]const u8{ "abc", "123", "345", "-123.", "1abc" };
     var arr_iter = ArrayIter([]const u8, arr.len).new(&arr);
-    var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.f, arr_iter);
+    var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.call, arr_iter);
+    try testing.expectEqual(@as(?u32, null), iter.next());
     try testing.expectEqual(@as(u32, 123), iter.next().?);
     try testing.expectEqual(@as(u32, 345), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 

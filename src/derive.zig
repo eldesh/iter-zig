@@ -213,7 +213,7 @@ fn DeriveChain(comptime Iter: type) type {
 
 test "derive chain" {
     const IsEven = struct {
-        fn apply(x: *const u32) bool {
+        fn call(x: *const u32) bool {
             return x.* % 2 == 0;
         }
     };
@@ -221,7 +221,7 @@ test "derive chain" {
     var arr2 = [_]u32{ 4, 5, 6 };
     const Iter1 = MakeSliceIter(DeriveFilter, u32);
     const Iter2 = MakeSliceIter(DeriveChain, u32);
-    var other = Iter1.new(arr2[0..]).filter(IsEven.apply);
+    var other = Iter1.new(arr2[0..]).filter(IsEven.call);
     var chain = Iter2.new(arr1[0..]).chain(other);
     comptime {
         assert(isIterator(Iter1));
@@ -232,8 +232,9 @@ test "derive chain" {
     try testing.expectEqual(@as(u32, 2), chain.next().?.*);
     try testing.expectEqual(@as(u32, 3), chain.next().?.*);
     try testing.expectEqual(@as(u32, 4), chain.next().?.*);
-    // filter out '5' by IsEven
+    try testing.expectEqual(@as(?*u32, null), chain.next());
     try testing.expectEqual(@as(u32, 6), chain.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), chain.next());
     try testing.expectEqual(@as(?*u32, null), chain.next());
 }
 
@@ -288,19 +289,23 @@ fn DeriveFilter(comptime Iter: type) type {
 test "derive filter" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     const IsEven = struct {
-        fn apply(x: *const u32) bool {
+        fn call(x: *const u32) bool {
             return x.* % 2 == 0;
         }
     };
     const Iter = MakeSliceIter(DeriveFilter, u32);
-    var filter = Iter.new(arr[0..]).filter(IsEven.apply);
+    var filter = Iter.new(arr[0..]).filter(IsEven.call);
     comptime {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(filter)));
     }
+    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 2), filter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 4), filter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 6), filter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(?*u32, null), filter.next());
 }
 
@@ -321,19 +326,22 @@ fn DeriveFilterMap(comptime Iter: type) type {
 test "derive filter_map" {
     var arr = [_][]const u8{ "1", "2", "foo", "3", "bar" };
     const ParseInt = struct {
-        fn apply(x: *const []const u8) ?u32 {
+        fn call(x: *const []const u8) ?u32 {
             return std.fmt.parseInt(u32, x.*, 10) catch null;
         }
     };
     const Iter = MakeSliceIter(DeriveFilterMap, []const u8);
-    var filter_map = Iter.new(arr[0..]).filter_map(ParseInt.apply);
+    var filter_map = Iter.new(arr[0..]).filter_map(ParseInt.call);
     comptime {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(filter_map)));
     }
     try testing.expectEqual(@as(?u32, 1), filter_map.next());
     try testing.expectEqual(@as(?u32, 2), filter_map.next());
+    try testing.expectEqual(@as(?u32, null), filter_map.next());
     try testing.expectEqual(@as(?u32, 3), filter_map.next());
+    try testing.expectEqual(@as(?u32, null), filter_map.next());
+    try testing.expectEqual(@as(?u32, null), filter_map.next());
     try testing.expectEqual(@as(?u32, null), filter_map.next());
 }
 
@@ -353,38 +361,44 @@ pub fn Derive(comptime Iter: type) type {
 
 test "derive" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
-    var arr2 = [_]u32{ 10, 20, 30 };
+    var arr2 = [_]u32{ 30, 10, 20 };
     const Triple = struct {
-        pub fn apply_ref(x: *const u32) u32 {
+        pub fn call_ref(x: *const u32) u32 {
             return x.* * 3;
         }
-        pub fn apply(x: u32) u32 {
+        pub fn call(x: u32) u32 {
             return x * 3;
         }
     };
     const IsEven = struct {
-        pub fn apply(x: u32) bool {
+        pub fn call(x: u32) bool {
             return x % 2 == 0;
         }
     };
     const Less = struct {
-        pub fn apply(x: u32) ?u32 {
+        pub fn call(x: u32) ?u32 {
             return if (x < 100) x else null;
         }
     };
     const Iter = MakeSliceIter(Derive, u32);
-    var mfm = Iter.new(arr[0..6]).chain(Iter.new(arr2[0..]))
-        .map(Triple.apply_ref) // derive map for SliceIter
-        .filter(IsEven.apply) // more derive filter for IterMap
-        .map(Triple.apply) // more more derive map for IterFilter
-        .filter_map(Less.apply);
+    var mfm = Iter.new(arr[0..]).chain(Iter.new(arr2[0..]))
+        .map(Triple.call_ref) // derive map for SliceIter
+        .filter(IsEven.call) // more derive filter for IterMap
+        .map(Triple.call) // more more derive map for IterFilter
+        .filter_map(Less.call);
     comptime {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(mfm)));
     }
+    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 6 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 12 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 18 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 30 * 3), mfm.next());
+    try testing.expectEqual(@as(?u32, null), mfm.next());
+    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, null), mfm.next());
 }
