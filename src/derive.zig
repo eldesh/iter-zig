@@ -77,6 +77,52 @@ test "derive any" {
     }.greater10));
 }
 
+fn DeriveTake(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "take")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn take(self: Iter, size: usize) iter.Take(Iter) {
+                return iter.Take(Iter).new(self, size);
+            }
+        };
+    }
+}
+
+test "derive take" {
+    var arr = [_]i32{ -3, -2, -1, 0, 1, -2, -3, 4, 5 };
+    const Iter = MakeSliceIter(struct {
+        fn derive(comptime T: type) type {
+            return struct {
+                pub usingnamespace DeriveTake(T);
+                pub usingnamespace DeriveFilter(T);
+            };
+        }
+    }.derive, i32);
+    var take = Iter.new(arr[0..]).filter(struct {
+        fn call(v: *i32) bool {
+            return v.* < 0;
+        }
+    }.call).take(6);
+    comptime {
+        assert(isIterator(Iter));
+        assert(isIterator(@TypeOf(take)));
+    }
+    try testing.expectEqual(@as(i32, -3), take.next().?.*);
+    try testing.expectEqual(@as(i32, -2), take.next().?.*);
+    try testing.expectEqual(@as(i32, -1), take.next().?.*);
+    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+    // 6th (the last of 'take(6)') element
+    try testing.expectEqual(@as(i32, -2), take.next().?.*);
+    // After this, no more non-null values will be returned.
+    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+}
+
 fn DeriveTakeWhile(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -356,6 +402,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveEnumerate(Iter);
         pub usingnamespace DeriveAll(Iter);
         pub usingnamespace DeriveAny(Iter);
+        pub usingnamespace DeriveTake(Iter);
     };
 }
 

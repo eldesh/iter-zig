@@ -312,6 +312,68 @@ test "Enumerate" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
+pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        take: usize,
+
+        pub fn new(iter: Iter, take: usize) Self {
+            return .{ .iter = iter, .take = take };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (0 < self.take) {
+                self.take -= 1;
+                return self.iter.next();
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn Take(comptime Iter: type) type {
+    return MakeTake(derive.Derive, Iter);
+}
+
+comptime {
+    assert(Take(SliceIter(u32)).Self == Take(SliceIter(u32)));
+    assert(Take(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Take(SliceIter(u32))));
+}
+
+test "Take" {
+    var arr = [_]i32{ 3, 2, 1, 0, 1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Take(@TypeOf(siter));
+    var iter = Iter.new(siter, 4);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+test "Take sequence small than 'n'" {
+    var arr = [_]i32{ 3, 2, 1 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Take(@TypeOf(siter));
+    var iter = Iter.new(siter, 4);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
 pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(meta.isIterator(Iter));
     return struct {
