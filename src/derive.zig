@@ -11,6 +11,34 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveFind(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "find")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn find(self: *Iter, p: anytype) ?Iter.Item {
+                while (self.next()) |val| {
+                    if (p(&val))
+                        return val;
+                }
+                return null;
+            }
+        };
+    }
+}
+
+test "derive find" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveFind, u32);
+    try testing.expectEqual(Iter.new(arr[0..]).find(struct {
+        fn call(x: *const *u32) bool {
+            return x.*.* > 3;
+        }
+    }.call).?.*, 4);
+}
+
 fn DeriveCount(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -429,6 +457,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveAny(Iter);
         pub usingnamespace DeriveTake(Iter);
         pub usingnamespace DeriveCount(Iter);
+        pub usingnamespace DeriveFind(Iter);
     };
 }
 
