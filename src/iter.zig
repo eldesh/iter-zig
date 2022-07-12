@@ -486,3 +486,71 @@ test "SkipWhile" {
     try testing.expectEqual(@as(i32, 3), iter.next().?.*);
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
+
+pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        func: fn (*const Iter.Item) void,
+
+        pub fn new(iter: Iter, func: fn (*const Iter.Item) void) Self {
+            return .{ .iter = iter, .func = func };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.iter.next()) |val| {
+                self.func(&val);
+                return val;
+            }
+            return null;
+        }
+    };
+}
+
+pub fn Inspect(comptime Iter: type) type {
+    return MakeInspect(derive.Derive, Iter);
+}
+
+comptime {
+    assert(Inspect(SliceIter(u32)).Self == Inspect(SliceIter(u32)));
+    assert(Inspect(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Inspect(SliceIter(u32))));
+}
+
+test "Inspect" {
+    // The function 'call' cannot access to out of namespace
+    // if it's type is to be 'Fn' rather than 'BoundFn'.
+    try (struct {
+        var i: u32 = 0;
+        fn call(x: *const *i32) void {
+            _ = x;
+            i += 1;
+        }
+        fn dotest(self: @This()) !void {
+            _ = self;
+            var arr = [_]i32{ 3, 1, 0, -1, -2, 3 };
+            var siter = SliceIter(i32).new(arr[0..]);
+            const Iter = Inspect(@TypeOf(siter));
+            var iter = Iter.new(siter, call);
+
+            try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 1), i);
+            try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 2), i);
+            try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 3), i);
+            try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 4), i);
+            try testing.expectEqual(@as(i32, -2), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 5), i);
+            try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 6), i);
+            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        }
+    }{}).dotest();
+}

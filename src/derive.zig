@@ -11,6 +11,49 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveInspect(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "inspect")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn inspect(self: Iter, f: fn (*const Iter.Item) void) iter.Inspect(Iter) {
+                return iter.Inspect(Iter).new(self, f);
+            }
+        };
+    }
+}
+
+test "derive inspect" {
+    try struct {
+        var i: u32 = 0;
+        fn call(x: *const *u32) void {
+            _ = x;
+            i += 1;
+        }
+        fn dotest() !void {
+            var arr = [_]u32{ 1, 2, 3, 4, 5 };
+            const Iter = MakeSliceIter(DeriveInspect, u32);
+            var inspect = Iter.new(arr[0..]).inspect(call);
+            try testing.expectEqual(@as(u32, 1), inspect.next().?.*);
+            try testing.expectEqual(@as(u32, 1), i);
+            try testing.expectEqual(@as(u32, 2), inspect.next().?.*);
+            try testing.expectEqual(@as(u32, 2), i);
+            try testing.expectEqual(@as(u32, 3), inspect.next().?.*);
+            try testing.expectEqual(@as(u32, 3), i);
+            try testing.expectEqual(@as(u32, 4), inspect.next().?.*);
+            try testing.expectEqual(@as(u32, 4), i);
+            try testing.expectEqual(@as(u32, 5), inspect.next().?.*);
+            try testing.expectEqual(@as(u32, 5), i);
+            try testing.expectEqual(@as(?*u32, null), inspect.next());
+            try testing.expectEqual(@as(u32, 5), i);
+            try testing.expectEqual(@as(?*u32, null), inspect.next());
+            try testing.expectEqual(@as(u32, 5), i);
+        }
+    }.dotest();
+}
+
 fn DeriveFind(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -458,6 +501,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveTake(Iter);
         pub usingnamespace DeriveCount(Iter);
         pub usingnamespace DeriveFind(Iter);
+        pub usingnamespace DeriveInspect(Iter);
     };
 }
 
