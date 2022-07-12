@@ -11,6 +11,31 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveCount(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "count")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn count(self: *Iter) usize {
+                var i: usize = 0;
+                while (self.next()) |_| {
+                    i += 1;
+                }
+                return i;
+            }
+        };
+    }
+}
+
+test "derive count" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveCount, u32);
+    try testing.expectEqual(Iter.new(arr[0..0]).count(), 0);
+    try testing.expectEqual(Iter.new(arr[0..]).count(), arr[0..].len);
+}
+
 fn DeriveAll(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -403,6 +428,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveAll(Iter);
         pub usingnamespace DeriveAny(Iter);
         pub usingnamespace DeriveTake(Iter);
+        pub usingnamespace DeriveCount(Iter);
     };
 }
 
