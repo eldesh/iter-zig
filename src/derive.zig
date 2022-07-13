@@ -54,6 +54,40 @@ test "derive inspect" {
     }.dotest();
 }
 
+fn DeriveFindMap(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "find_map")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn find_map(self: *Iter, f: anytype) iter.codomain(@TypeOf(f)) {
+                while (self.next()) |val| {
+                    if (f(&val)) |mval| {
+                        return mval;
+                    }
+                }
+                return null;
+            }
+        };
+    }
+}
+
+test "derive find_map" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveFindMap, u32);
+    try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
+        fn call(x: *const *u32) ?u32 {
+            return if (x.*.* > 3) x.*.* * 2 else null;
+        }
+    }.call), 8);
+    try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
+        fn call(x: *const *u32) ?u32 {
+            return if (x.*.* > 10) x.*.* * 2 else null;
+        }
+    }.call), null);
+}
+
 fn DeriveFind(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -501,6 +535,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveTake(Iter);
         pub usingnamespace DeriveCount(Iter);
         pub usingnamespace DeriveFind(Iter);
+        pub usingnamespace DeriveFindMap(Iter);
         pub usingnamespace DeriveInspect(Iter);
     };
 }

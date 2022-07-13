@@ -29,7 +29,7 @@ fn is_unary_func_type(comptime F: type) bool {
     };
 }
 
-fn domain(comptime F: type) type {
+pub fn domain(comptime F: type) type {
     comptime {
         assert(is_unary_func_type(F));
     }
@@ -37,7 +37,7 @@ fn domain(comptime F: type) type {
     return FInfo.Fn.args[0].arg_type.?;
 }
 
-fn codomain(comptime F: type) type {
+pub fn codomain(comptime F: type) type {
     comptime {
         assert(is_func_type(F));
     }
