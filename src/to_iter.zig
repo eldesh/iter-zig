@@ -3,6 +3,7 @@
 const std = @import("std");
 const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
+const iterty = @import("./iter.zig");
 
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;

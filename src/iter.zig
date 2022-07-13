@@ -3,6 +3,7 @@ const to_iter = @import("./to_iter.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
 const tuple = @import("./tuple.zig");
+const iterty = @import("./iter.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -553,4 +554,57 @@ test "Inspect" {
             try testing.expectEqual(@as(?Iter.Item, null), iter.next());
         }
     }{}).dotest();
+}
+
+pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
+    comptime assert(meta.isIterator(I));
+    comptime assert(I.Item == iterty.domain(P));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = std.meta.Child(iterty.codomain(P));
+        pub usingnamespace F(@This());
+
+        iter: I,
+        pred: P,
+
+        pub fn new(iter: I, pred: P) Self {
+            return .{ .iter = iter, .pred = pred };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            if (self.iter.next()) |val| {
+                if (self.pred(val)) |pval| {
+                    return pval;
+                } else {
+                    return null;
+                }
+            }
+            return null;
+        }
+    };
+}
+
+pub fn MapWhile(comptime I: type, comptime P: type) type {
+    return MakeMapWhile(derive.Derive, I, P);
+}
+
+comptime {
+    assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Self == MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8));
+    assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Item == []const u8);
+    assert(meta.isIterator(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8)));
+}
+
+test "MapWhile" {
+    var arr = [_][]const u8{ "1", "2abc", "3" };
+    const Iter = ArrayIter([]const u8, arr.len);
+    var iter = MapWhile(Iter, fn (*[]const u8) ?u32)
+        .new(Iter.new(&arr), struct {
+        fn call(buf: *[]const u8) ?u32 {
+            return std.fmt.parseInt(u32, buf.*, 10) catch null;
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, 1), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+    try testing.expectEqual(@as(?u32, 3), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
 }

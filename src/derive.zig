@@ -11,6 +11,43 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveMapWhile(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "map_while")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn map_while(self: Iter, pred: anytype) iter.MapWhile(Iter, @TypeOf(pred)) {
+                return iter.MapWhile(Iter, @TypeOf(pred)).new(self, pred);
+            }
+        };
+    }
+}
+
+test "derive map_while" {
+    try struct {
+        var i: u32 = 0;
+        fn call(x: *const *u32) void {
+            _ = x;
+            i += 1;
+        }
+        fn dotest() !void {
+            var arr = [_][]const u8{ "1", "2abc", "3" };
+            const Iter = MakeSliceIter(DeriveMapWhile, []const u8);
+            var map_while = Iter.new(arr[0..]).map_while(struct {
+                fn call(buf: *[]const u8) ?u32 {
+                    return std.fmt.parseInt(u32, buf.*, 10) catch null;
+                }
+            }.call);
+            try testing.expectEqual(@as(?u32, 1), map_while.next().?);
+            try testing.expectEqual(@as(?u32, null), map_while.next());
+            try testing.expectEqual(@as(?u32, 3), map_while.next().?);
+            try testing.expectEqual(@as(?u32, null), map_while.next());
+        }
+    }.dotest();
+}
+
 fn DeriveInspect(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -526,6 +563,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveTakeWhile(Iter);
         pub usingnamespace DeriveSkipWhile(Iter);
         pub usingnamespace DeriveMap(Iter);
+        pub usingnamespace DeriveMapWhile(Iter);
         pub usingnamespace DeriveFilter(Iter);
         pub usingnamespace DeriveFilterMap(Iter);
         pub usingnamespace DeriveChain(Iter);
