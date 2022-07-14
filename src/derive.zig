@@ -11,6 +11,36 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveFold(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "fold")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn fold(self: Iter, init: anytype, f: fn (@TypeOf(init), Iter.Item) @TypeOf(init)) @TypeOf(init) {
+                var it = self;
+                var acc = init;
+                while (it.next()) |value| {
+                    acc = f(acc, value);
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive fold" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveFold, u32);
+    const sum = Iter.new(arr[0..]).fold(@as(u32, 0), struct {
+        fn call(acc: u32, val: *const u32) u32 {
+            return acc + val.*;
+        }
+    }.call);
+    try testing.expectEqual(@as(u32, 15), sum);
+}
+
 fn DeriveForeach(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -19,7 +49,8 @@ fn DeriveForeach(comptime Iter: type) type {
     } else {
         return struct {
             pub fn for_each(self: Iter, f: fn (Iter.Item) void) void {
-                while (self.next()) |value| {
+                var it = self;
+                while (it.next()) |value| {
                     f(value);
                 }
             }
@@ -582,6 +613,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveFold(Iter);
         pub usingnamespace DeriveForeach(Iter);
         pub usingnamespace DeriveTakeWhile(Iter);
         pub usingnamespace DeriveSkipWhile(Iter);
