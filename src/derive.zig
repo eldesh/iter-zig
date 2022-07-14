@@ -153,7 +153,7 @@ fn DeriveFindMap(comptime Iter: type) type {
         return struct {
             pub fn find_map(self: *Iter, f: anytype) iter.codomain(@TypeOf(f)) {
                 while (self.next()) |val| {
-                    if (f(&val)) |mval| {
+                    if (f(val)) |mval| {
                         return mval;
                     }
                 }
@@ -167,13 +167,13 @@ test "derive find_map" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = MakeSliceIter(DeriveFindMap, u32);
     try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
-        fn call(x: *const *u32) ?u32 {
-            return if (x.*.* > 3) x.*.* * 2 else null;
+        fn call(x: *u32) ?u32 {
+            return if (x.* > 3) x.* * 2 else null;
         }
     }.call), 8);
     try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
-        fn call(x: *const *u32) ?u32 {
-            return if (x.*.* > 10) x.*.* * 2 else null;
+        fn call(x: *u32) ?u32 {
+            return if (x.* > 10) x.* * 2 else null;
         }
     }.call), null);
 }
