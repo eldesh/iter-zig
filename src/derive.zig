@@ -11,6 +11,37 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveForeach(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "for_each")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn for_each(self: Iter, f: fn (Iter.Item) void) void {
+                while (self.next()) |value| {
+                    f(value);
+                }
+            }
+        };
+    }
+}
+
+test "derive for_each" {
+    try struct {
+        var i: u32 = 0;
+        fn call(x: *u32) void {
+            i += x.*;
+        }
+        fn dotest() !void {
+            var arr = [_]u32{ 1, 2, 3, 4, 5 };
+            const Iter = MakeSliceIter(DeriveForeach, u32);
+            Iter.new(arr[0..]).for_each(call);
+            try testing.expectEqual(@as(?u32, 15), i);
+        }
+    }.dotest();
+}
+
 fn DeriveMapWhile(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -26,26 +57,17 @@ fn DeriveMapWhile(comptime Iter: type) type {
 }
 
 test "derive map_while" {
-    try struct {
-        var i: u32 = 0;
-        fn call(x: *const *u32) void {
-            _ = x;
-            i += 1;
+    var arr = [_][]const u8{ "1", "2abc", "3" };
+    const Iter = MakeSliceIter(DeriveMapWhile, []const u8);
+    var map_while = Iter.new(arr[0..]).map_while(struct {
+        fn call(buf: *[]const u8) ?u32 {
+            return std.fmt.parseInt(u32, buf.*, 10) catch null;
         }
-        fn dotest() !void {
-            var arr = [_][]const u8{ "1", "2abc", "3" };
-            const Iter = MakeSliceIter(DeriveMapWhile, []const u8);
-            var map_while = Iter.new(arr[0..]).map_while(struct {
-                fn call(buf: *[]const u8) ?u32 {
-                    return std.fmt.parseInt(u32, buf.*, 10) catch null;
-                }
-            }.call);
-            try testing.expectEqual(@as(?u32, 1), map_while.next().?);
-            try testing.expectEqual(@as(?u32, null), map_while.next());
-            try testing.expectEqual(@as(?u32, 3), map_while.next().?);
-            try testing.expectEqual(@as(?u32, null), map_while.next());
-        }
-    }.dotest();
+    }.call);
+    try testing.expectEqual(@as(?u32, 1), map_while.next().?);
+    try testing.expectEqual(@as(?u32, null), map_while.next());
+    try testing.expectEqual(@as(?u32, 3), map_while.next().?);
+    try testing.expectEqual(@as(?u32, null), map_while.next());
 }
 
 fn DeriveInspect(comptime Iter: type) type {
@@ -560,6 +582,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveForeach(Iter);
         pub usingnamespace DeriveTakeWhile(Iter);
         pub usingnamespace DeriveSkipWhile(Iter);
         pub usingnamespace DeriveMap(Iter);
