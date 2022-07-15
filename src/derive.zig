@@ -3,6 +3,7 @@ const meta = @import("./type.zig");
 const iter = @import("./iter.zig");
 const to_iter = @import("./to_iter.zig");
 const tuple = @import("./tuple.zig");
+const range = @import("./range.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -41,6 +42,39 @@ test "derive skip over" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
     try testing.expectEqual(@as(?*u32, null), skip.next());
     try testing.expectEqual(@as(?*u32, null), skip.next());
+}
+
+fn DeriveReduce(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "reduce")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn reduce(self: Iter, f: fn (Iter.Item, Iter.Item) Iter.Item) ?Iter.Item {
+                var it = self;
+                var fst = it.next();
+                if (fst == null)
+                    return null;
+
+                var acc = fst.?;
+                while (it.next()) |value| {
+                    acc = f(acc, value);
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive reduce" {
+    const Iter = range.MakeRangeIter(DeriveReduce, u32);
+    const sum = Iter.new(@as(u32, 0), 10, 1).reduce(struct {
+        fn call(acc: u32, val: u32) u32 {
+            return acc + val;
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, 45), sum);
 }
 
 fn DeriveFold(comptime Iter: type) type {
@@ -645,6 +679,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
         pub usingnamespace DeriveForeach(Iter);
