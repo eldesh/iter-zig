@@ -50,6 +50,44 @@ test "derive max empty" {
     try testing.expectEqual(@as(?u32, null), max);
 }
 
+fn DeriveMin(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "min")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn min(self: Iter) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (acc > val) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive min" {
+    const Iter = range.MakeRangeIter(DeriveMin, u32);
+    const min = Iter.new(@as(u32, 0), 10, 1).min();
+    try testing.expectEqual(@as(?u32, 0), min);
+}
+
+test "derive min empty" {
+    const Iter = range.MakeRangeIter(DeriveMin, u32);
+    const min = Iter.new(@as(u32, 0), 0, 1).min();
+    try testing.expectEqual(@as(?u32, null), min);
+}
+
 fn DeriveSkip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -718,6 +756,7 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveMax(Iter);
+        pub usingnamespace DeriveMin(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
