@@ -12,6 +12,44 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveMax(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "max")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn max(self: Iter) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (acc < val) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive max" {
+    const Iter = range.MakeRangeIter(DeriveMax, u32);
+    const max = Iter.new(@as(u32, 0), 10, 1).max();
+    try testing.expectEqual(@as(?u32, 9), max);
+}
+
+test "derive max empty" {
+    const Iter = range.MakeRangeIter(DeriveMax, u32);
+    const max = Iter.new(@as(u32, 0), 0, 1).max();
+    try testing.expectEqual(@as(?u32, null), max);
+}
+
 fn DeriveSkip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -679,6 +717,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveMax(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
