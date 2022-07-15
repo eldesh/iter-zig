@@ -15,6 +15,82 @@ const Order = std.math.Order;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveEq(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "eq")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn eq(self: Iter, other: anytype) bool {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                var it = self;
+                var jt = other;
+                while (it.next()) |lval| {
+                    if (jt.next()) |rval| {
+                        if (std.meta.eql(lval, rval))
+                            continue;
+                    }
+                    return false;
+                }
+                return jt.next() == null;
+            }
+        };
+    }
+}
+
+test "derive eq" {
+    const Iter = range.MakeRangeIter(DeriveEq, u32);
+    const Range = struct {
+        pub fn new(start: u32, end: u32) Iter {
+            return Iter.new(start, end, 1);
+        }
+    };
+    try testing.expect(Range.new(0, 0).eq(Range.new(0, 0)));
+    try testing.expect(Range.new(1, 6).eq(Range.new(1, 6)));
+    try testing.expect(!Range.new(1, 6).eq(Range.new(1, 7)));
+    try testing.expect(!Range.new(1, 6).eq(Range.new(0, 0)));
+}
+
+fn DeriveNe(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "ne")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn ne(self: Iter, other: anytype) bool {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                var it = self;
+                var jt = other;
+                while (it.next()) |lval| {
+                    if (jt.next()) |rval| {
+                        if (std.meta.eql(lval, rval))
+                            continue;
+                    }
+                    return true;
+                }
+                return jt.next() != null;
+            }
+        };
+    }
+}
+
+test "derive ne" {
+    const Iter = range.MakeRangeIter(DeriveNe, u32);
+    const Range = struct {
+        pub fn new(start: u32, end: u32) Iter {
+            return Iter.new(start, end, 1);
+        }
+    };
+    try testing.expect(!Range.new(0, 0).ne(Range.new(0, 0)));
+    try testing.expect(!Range.new(1, 6).ne(Range.new(1, 6)));
+    try testing.expect(Range.new(1, 6).ne(Range.new(1, 7)));
+    try testing.expect(Range.new(1, 6).ne(Range.new(0, 0)));
+}
+
 fn DeriveMax(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -975,6 +1051,8 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveEq(Iter);
+        pub usingnamespace DeriveNe(Iter);
         pub usingnamespace DeriveMax(Iter);
         pub usingnamespace DeriveMaxBy(Iter);
         pub usingnamespace DeriveMaxByKey(Iter);
