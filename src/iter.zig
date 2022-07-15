@@ -430,6 +430,52 @@ test "TakeWhile" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
+pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        skip: usize,
+
+        pub fn new(iter: Iter, skip: usize) Self {
+            return .{ .iter = iter, .skip = skip };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            while (0 < self.skip) : (self.skip -= 1) {
+                // TODO: destroy if the aquired value is owned
+                _ = self.iter.next();
+            }
+            return self.iter.next();
+        }
+    };
+}
+
+pub fn Skip(comptime Iter: type) type {
+    return MakeSkip(derive.Derive, Iter);
+}
+
+comptime {
+    assert(Skip(SliceIter(u32)).Self == Skip(SliceIter(u32)));
+    assert(Skip(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Skip(SliceIter(u32))));
+}
+
+test "Skip" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Skip(@TypeOf(siter));
+    var iter = Iter.new(siter, 3);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
 pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(meta.isIterator(Iter));
     return struct {

@@ -11,6 +11,38 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveSkip(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "skip")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn skip(self: Iter, size: usize) iter.Skip(Iter) {
+                return iter.Skip(Iter).new(self, size);
+            }
+        };
+    }
+}
+
+test "derive skip" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveSkip, u32);
+    var skip = Iter.new(arr[0..]).skip(3);
+    try testing.expectEqual(@as(u32, 4), skip.next().?.*);
+    try testing.expectEqual(@as(u32, 5), skip.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+}
+
+test "derive skip over" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveSkip, u32);
+    var skip = Iter.new(arr[0..]).skip(10);
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+}
+
 fn DeriveFold(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -613,6 +645,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
         pub usingnamespace DeriveForeach(Iter);
         pub usingnamespace DeriveTakeWhile(Iter);
