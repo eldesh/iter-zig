@@ -100,6 +100,75 @@ test "derive max_by empty" {
     try testing.expectEqual(@as(?u32, null), max_by);
 }
 
+/// Compare values of integral or pointer to integral type
+/// TODO: generalize comparalable type
+fn order(a: anytype, b: @TypeOf(a)) Order {
+    const T = @TypeOf(a);
+    if (comptime std.meta.trait.isIntegral(T)) {
+        return math.order(a, b);
+    }
+    if (comptime std.meta.trait.is(.Pointer)(T)) {
+        if (comptime std.meta.trait.isIntegral(meta.remove_pointer(T))) {
+            return math.order(a.*, b.*);
+        }
+    }
+    unreachable;
+}
+
+fn DeriveMaxByKey(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "max_by_key")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn max_by_key(self: Iter, f: anytype) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (order(f(&acc), f(&val)) == .lt) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive max_by_key" {
+    const T = struct {
+        id: u32,
+    };
+    var arr = [_]T{ .{ .id = 5 }, .{ .id = 3 }, .{ .id = 8 }, .{ .id = 0 } };
+    const Iter = MakeSliceIter(DeriveMaxByKey, T);
+    const max_by_key = Iter.new(arr[0..]).max_by_key(struct {
+        fn call(x: *const *T) u32 {
+            return x.*.id;
+        }
+    }.call);
+    try testing.expectEqual(T{ .id = 8 }, max_by_key.?.*);
+}
+
+test "derive max_by_key empty" {
+    const T = struct {
+        id: u32,
+    };
+    var arr = [_]T{};
+    const Iter = MakeSliceIter(DeriveMaxByKey, T);
+    const max_by_key = Iter.new(arr[0..]).max_by_key(struct {
+        fn call(x: *const *T) u32 {
+            return x.*.id;
+        }
+    }.call);
+    try testing.expectEqual(@as(?*T, null), max_by_key);
+}
+
 fn DeriveMin(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -183,6 +252,60 @@ test "derive min_by empty" {
         }
     }.call);
     try testing.expectEqual(@as(?u32, null), min_by);
+}
+
+fn DeriveMinByKey(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "min_by_key")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn min_by_key(self: Iter, f: anytype) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (order(f(&acc), f(&val)) == .gt) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive min_by_key" {
+    const T = struct {
+        id: u32,
+    };
+    var arr = [_]T{ .{ .id = 5 }, .{ .id = 3 }, .{ .id = 8 }, .{ .id = 0 } };
+    const Iter = MakeSliceIter(DeriveMinByKey, T);
+    const min_by_key = Iter.new(arr[0..]).min_by_key(struct {
+        fn call(x: *const *T) u32 {
+            return x.*.id;
+        }
+    }.call);
+    try testing.expectEqual(T{ .id = 0 }, min_by_key.?.*);
+}
+
+test "derive min_by_key empty" {
+    const T = struct {
+        id: u32,
+    };
+    var arr = [_]T{};
+    const Iter = MakeSliceIter(DeriveMinByKey, T);
+    const min_by_key = Iter.new(arr[0..]).min_by_key(struct {
+        fn call(x: *const *T) u32 {
+            return x.*.id;
+        }
+    }.call);
+    try testing.expectEqual(@as(?*T, null), min_by_key);
 }
 
 fn DeriveSkip(comptime Iter: type) type {
@@ -854,8 +977,10 @@ pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveMax(Iter);
         pub usingnamespace DeriveMaxBy(Iter);
+        pub usingnamespace DeriveMaxByKey(Iter);
         pub usingnamespace DeriveMin(Iter);
         pub usingnamespace DeriveMinBy(Iter);
+        pub usingnamespace DeriveMinByKey(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
