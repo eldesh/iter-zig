@@ -5,9 +5,12 @@ const to_iter = @import("./to_iter.zig");
 const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
 
+const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
+
+const Order = std.math.Order;
 
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
@@ -50,6 +53,52 @@ test "derive max empty" {
     try testing.expectEqual(@as(?u32, null), max);
 }
 
+fn DeriveMaxBy(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "max_by")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn max_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) Order) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (compare(&acc, &val) == .lt) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive max_by" {
+    const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
+    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(struct {
+        fn call(x: *const u32, y: *const u32) Order {
+            return math.order(x.*, y.*);
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, 9), max_by);
+}
+
+test "derive max_by empty" {
+    const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
+    const max_by = Iter.new(@as(u32, 0), 0, 1).max_by(struct {
+        fn call(x: *const u32, y: *const u32) Order {
+            return math.order(x.*, y.*);
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, null), max_by);
+}
+
 fn DeriveMin(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -86,6 +135,52 @@ test "derive min empty" {
     const Iter = range.MakeRangeIter(DeriveMin, u32);
     const min = Iter.new(@as(u32, 0), 0, 1).min();
     try testing.expectEqual(@as(?u32, null), min);
+}
+
+fn DeriveMinBy(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "min_by")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn min_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) Order) ?Iter.Item {
+                var it = self;
+                var acc: Iter.Item = undefined;
+                if (it.next()) |val| {
+                    acc = val;
+                } else {
+                    return null;
+                }
+                while (it.next()) |val| {
+                    if (compare(&acc, &val) == .gt) {
+                        acc = val;
+                    }
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive min_by" {
+    const Iter = range.MakeRangeIter(DeriveMinBy, u32);
+    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(struct {
+        fn call(x: *const u32, y: *const u32) Order {
+            return math.order(x.*, y.*);
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, 0), min_by);
+}
+
+test "derive min_by empty" {
+    const Iter = range.MakeRangeIter(DeriveMinBy, u32);
+    const min_by = Iter.new(@as(u32, 0), 0, 1).min_by(struct {
+        fn call(x: *const u32, y: *const u32) Order {
+            return math.order(x.*, y.*);
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, null), min_by);
 }
 
 fn DeriveSkip(comptime Iter: type) type {
@@ -756,7 +851,9 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveMax(Iter);
+        pub usingnamespace DeriveMaxBy(Iter);
         pub usingnamespace DeriveMin(Iter);
+        pub usingnamespace DeriveMinBy(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
         pub usingnamespace DeriveFold(Iter);
