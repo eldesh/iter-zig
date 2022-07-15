@@ -31,6 +31,7 @@ fn DeriveMax(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
+                    // TODO: generalize to compare values of Ordered type
                     if (acc < val) {
                         acc = val;
                     }
@@ -115,6 +116,7 @@ fn DeriveMin(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
+                    // TODO: generalize to compare values of Ordered type
                     if (acc > val) {
                         acc = val;
                     }
