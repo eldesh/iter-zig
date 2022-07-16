@@ -409,6 +409,47 @@ test "derive skip_by" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
 }
 
+fn DeriveFuse(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "fuse")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn fuse(self: Iter) iter.Fuse(Iter) {
+                return iter.Fuse(Iter).new(self);
+            }
+        };
+    }
+}
+
+test "derive fuse" {
+    // 0, 1, 2, null, 4, null, 6, null, ..
+    const Even = struct {
+        pub const Self: type = @This();
+        pub const Item: type = u32;
+        pub usingnamespace DeriveFuse(@This());
+        val: u32,
+        pub fn next(self: *Self) ?Item {
+            if (self.val <= 2 or self.val % 2 == 0) {
+                const val = self.val;
+                self.val += 1;
+                return val;
+            } else {
+                self.val += 1;
+                return null;
+            }
+        }
+    };
+    var fuse = (Even{ .val = 0 }).fuse();
+    try testing.expectEqual(@as(?u32, 0), fuse.next());
+    try testing.expectEqual(@as(?u32, 1), fuse.next());
+    try testing.expectEqual(@as(?u32, 2), fuse.next());
+    try testing.expectEqual(@as(?u32, null), fuse.next());
+    try testing.expectEqual(@as(?u32, null), fuse.next());
+    try testing.expectEqual(@as(?u32, null), fuse.next());
+}
+
 fn DeriveScan(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1136,6 +1177,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveFind(Iter);
         pub usingnamespace DeriveFindMap(Iter);
         pub usingnamespace DeriveInspect(Iter);
+        pub usingnamespace DeriveFuse(Iter);
     };
 }
 

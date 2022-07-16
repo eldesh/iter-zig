@@ -67,6 +67,8 @@ comptime {
 }
 
 pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
+    comptime assert(meta.isIterator(Iter));
+
     return struct {
         pub const Self: type = @This();
         pub const Item: type = codomain(F);
@@ -777,4 +779,85 @@ test "Scan" {
     try testing.expectEqual(@as(i32, 6), iter.next().?);
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn MakeFuse(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        // 'null' has been occurred
+        none: bool,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter, .none = false };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.none)
+                return null;
+            if (self.iter.next()) |val| {
+                return val;
+            } else {
+                self.none = true;
+                return null;
+            }
+        }
+    };
+}
+
+pub fn Fuse(comptime Iter: type) type {
+    return MakeFuse(derive.Derive, Iter);
+}
+
+comptime {
+    assert(Fuse(SliceIter(u32)).Self == Fuse(SliceIter(u32)));
+    assert(Fuse(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Fuse(SliceIter(u32))));
+}
+
+test "Fuse" {
+    const Divisor = struct {
+        pub const Self: type = @This();
+        pub const Item: type = u32;
+        val: u32,
+        div: u32,
+        fn next(self: *Self) ?Item {
+            if (self.val <= self.div or self.val % self.div == 0) {
+                const val = self.val;
+                self.val += 1;
+                return val;
+            } else {
+                self.val += 1;
+                return null;
+            }
+        }
+    };
+    {
+        const Iter = Divisor;
+        var iter = Divisor{ .val = 0, .div = 2 };
+        try testing.expectEqual(@as(u32, 0), iter.next().?);
+        try testing.expectEqual(@as(u32, 1), iter.next().?);
+        try testing.expectEqual(@as(u32, 2), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(u32, 4), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(u32, 6), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    }
+    {
+        const Iter = Fuse(Divisor);
+        var iter = Iter.new(.{ .val = 0, .div = 2 });
+        try testing.expectEqual(@as(u32, 0), iter.next().?);
+        try testing.expectEqual(@as(u32, 1), iter.next().?);
+        try testing.expectEqual(@as(u32, 2), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    }
 }
