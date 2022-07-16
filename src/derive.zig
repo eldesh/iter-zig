@@ -409,6 +409,37 @@ test "derive skip_by" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
 }
 
+fn DeriveScan(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "scan")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn scan(self: Iter, st: anytype, f: anytype) iter.Scan(Iter, @TypeOf(st), @TypeOf(f)) {
+                return iter.Scan(Iter, @TypeOf(st), @TypeOf(f)).new(self, st, f);
+            }
+        };
+    }
+}
+
+test "derive scan" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveScan, u32);
+    var scan = Iter.new(arr[0..]).scan(@as(u32, 100), struct {
+        fn call(st: *u32, v: *u32) ?i64 {
+            st.* += v.*;
+            return -@as(i64, st.*);
+        }
+    }.call);
+    try testing.expectEqual(@as(i64, -101), scan.next().?);
+    try testing.expectEqual(@as(i64, -103), scan.next().?);
+    try testing.expectEqual(@as(i64, -106), scan.next().?);
+    try testing.expectEqual(@as(i64, -110), scan.next().?);
+    try testing.expectEqual(@as(i64, -115), scan.next().?);
+    try testing.expectEqual(@as(?i64, null), scan.next());
+}
+
 fn DeriveSkip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1086,6 +1117,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveMinByKey(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
+        pub usingnamespace DeriveScan(Iter);
         pub usingnamespace DeriveStepBy(Iter);
         pub usingnamespace DeriveFold(Iter);
         pub usingnamespace DeriveForeach(Iter);

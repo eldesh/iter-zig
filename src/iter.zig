@@ -3,14 +3,16 @@ const to_iter = @import("./to_iter.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
 const tuple = @import("./tuple.zig");
-const iterty = @import("./iter.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
+const assertEqualTuple = meta.assertEqualTuple;
 const debug = std.debug.print;
 
 const SliceIter = to_iter.SliceIter;
 const ArrayIter = to_iter.ArrayIter;
+const Tuple1 = tuple.Tuple1;
+const Tuple2 = tuple.Tuple2;
 
 fn is_func_type(comptime F: type) bool {
     const TypeInfo: type = std.builtin.TypeInfo;
@@ -30,12 +32,19 @@ fn is_unary_func_type(comptime F: type) bool {
     };
 }
 
+fn is_binary_func_type(comptime F: type) bool {
+    const TypeInfo: type = std.builtin.TypeInfo;
+    const FInfo: TypeInfo = @typeInfo(F);
+    return switch (FInfo) {
+        .Fn => |f| f.args.len == 2,
+        else => false,
+    };
+}
+
 pub fn domain(comptime F: type) type {
     comptime {
-        assert(is_unary_func_type(F));
+        return std.meta.ArgsTuple(F);
     }
-    const FInfo: std.builtin.TypeInfo = @typeInfo(F);
-    return FInfo.Fn.args[0].arg_type.?;
 }
 
 pub fn codomain(comptime F: type) type {
@@ -51,9 +60,9 @@ pub fn codomain(comptime F: type) type {
 }
 
 comptime {
-    assert(domain(fn (u32) u16) == u32);
+    assertEqualTuple(domain(fn (u32) u16), Tuple1(u32).StdTuple);
     assert(codomain(fn (u32) u16) == u16);
-    assert(domain(fn (u32) []const u8) == u32);
+    assertEqualTuple(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
@@ -270,7 +279,7 @@ pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = tuple.Tuple2(Iter.Item, usize);
+        pub const Item: type = Tuple2(Iter.Item, usize);
         pub usingnamespace D(@This());
 
         iter: Iter,
@@ -298,7 +307,7 @@ pub fn Enumerate(comptime Iter: type) type {
 
 comptime {
     assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
-    assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
+    assert(Enumerate(SliceIter(u32)).Item == Tuple2(SliceIter(u32).Item, usize));
     assert(meta.isIterator(Enumerate(SliceIter(u32))));
 }
 
@@ -604,10 +613,10 @@ test "Inspect" {
 
 pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
     comptime assert(meta.isIterator(I));
-    comptime assert(I.Item == iterty.domain(P));
+    comptime assertEqualTuple(Tuple1(I.Item).StdTuple, domain(P));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(iterty.codomain(P));
+        pub const Item: type = std.meta.Child(codomain(P));
         pub usingnamespace F(@This());
 
         iter: I,
@@ -700,6 +709,72 @@ test "StepBy" {
     try testing.expectEqual(@as(i32, 3), iter.next().?.*);
     try testing.expectEqual(@as(i32, 0), iter.next().?.*);
     try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.equalTuple(Tuple2(*St, Iter.Item).StdTuple, domain(F)));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = std.meta.Child(codomain(F));
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        state: St,
+        f: F,
+
+        pub fn new(iter: Iter, initial_state: St, f: F) Self {
+            return .{ .iter = iter, .state = initial_state, .f = f };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.iter.next()) |val| {
+                return self.f(&self.state, val);
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn Scan(comptime Iter: type, comptime St: type, comptime F: type) type {
+    return MakeScan(derive.Derive, Iter, St, F);
+}
+
+comptime {
+    const St = std.ArrayList(u32);
+    assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Self == Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8));
+    assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Item == []const u8);
+    assert(meta.isIterator(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8)));
+}
+
+test "Scan" {
+    var arr = [_][]const u8{ "32", "4", "0", "abc", "2", "def", "3" };
+    var siter = SliceIter([]const u8).new(arr[0..]);
+    const Iter = Scan(@TypeOf(siter), i32, fn (*i32, *[]const u8) ?i32);
+    var iter = Iter.new(siter, @as(i32, 1), struct {
+        fn call(st: *i32, v: *[]const u8) ?i32 {
+            if (std.fmt.parseInt(i32, v.*, 10) catch null) |val| {
+                if (st.* == 0) {
+                    st.* = val;
+                } else {
+                    st.* *= val;
+                }
+                return st.*;
+            } else {
+                return null;
+            }
+        }
+    }.call);
+    try testing.expectEqual(@as(i32, 32), iter.next().?);
+    try testing.expectEqual(@as(i32, 128), iter.next().?);
+    try testing.expectEqual(@as(i32, 0), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(i32, 2), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(i32, 6), iter.next().?);
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }

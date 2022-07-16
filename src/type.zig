@@ -11,6 +11,31 @@ const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
 
+/// Compare std tuple types rather than values
+pub fn equalTuple(comptime exp: type, comptime act: type) bool {
+    comptime {
+        if (!std.meta.trait.isTuple(exp))
+            return false;
+        if (!std.meta.trait.isTuple(act))
+            return false;
+
+        const expfs = std.meta.fields(exp);
+        const actfs = std.meta.fields(act);
+        if (expfs.len != actfs.len) // compare arity
+            return false;
+
+        inline for (expfs) |expf, i| {
+            if (expf.field_type != actfs[i].field_type)
+                return false;
+        }
+        return true;
+    }
+}
+
+pub fn assertEqualTuple(comptime x: type, comptime y: type) void {
+    comptime assert(equalTuple(x, y));
+}
+
 pub fn remove_pointer(comptime T: type) type {
     comptime assert(std.meta.trait.is(.Pointer)(T));
     return std.meta.Child(T);
