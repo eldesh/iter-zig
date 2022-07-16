@@ -12,6 +12,14 @@ const assert = std.debug.assert;
 const debug = std.debug.print;
 
 /// Compare std tuple types rather than values
+///
+/// # Details
+/// Compare arity and field types each other.
+/// The `==` operator can not comparing std tuples correctly.
+/// Then the below expression evaluated always to false.
+/// ```
+/// std.meta.Tuple(&[_]type{u32}) == std.meta.Tuple(&[_]type{u32})
+/// ```
 pub fn equalTuple(comptime exp: type, comptime act: type) bool {
     comptime {
         if (!std.meta.trait.isTuple(exp))
@@ -30,6 +38,13 @@ pub fn equalTuple(comptime exp: type, comptime act: type) bool {
         }
         return true;
     }
+}
+
+comptime {
+    assert(equalTuple(std.meta.Tuple(&[_]type{u32}), std.meta.Tuple(&[_]type{u32})));
+    assert(!equalTuple(std.meta.Tuple(&[_]type{ u32, u32 }), std.meta.Tuple(&[_]type{u32})));
+    assert(equalTuple(std.meta.Tuple(&[_]type{ u32, i64 }), std.meta.Tuple(&[_]type{ u32, i64 })));
+    assert(!equalTuple(std.meta.Tuple(&[_]type{}), std.meta.Tuple(&[_]type{ u32, i64 })));
 }
 
 pub fn assertEqualTuple(comptime x: type, comptime y: type) void {
