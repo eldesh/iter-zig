@@ -384,6 +384,31 @@ test "derive min_by_key empty" {
     try testing.expectEqual(@as(?*T, null), min_by_key);
 }
 
+fn DeriveStepBy(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "step_by")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn step_by(self: Iter, skip: usize) iter.StepBy(Iter) {
+                return iter.StepBy(Iter).new(self, skip);
+            }
+        };
+    }
+}
+
+test "derive skip_by" {
+    var arr = [_]u32{ 0, 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveStepBy, u32);
+    var skip = Iter.new(arr[0..]).step_by(2);
+    try testing.expectEqual(@as(u32, 0), skip.next().?.*);
+    try testing.expectEqual(@as(u32, 2), skip.next().?.*);
+    try testing.expectEqual(@as(u32, 4), skip.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+    try testing.expectEqual(@as(?*u32, null), skip.next());
+}
+
 fn DeriveSkip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1061,6 +1086,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveMinByKey(Iter);
         pub usingnamespace DeriveReduce(Iter);
         pub usingnamespace DeriveSkip(Iter);
+        pub usingnamespace DeriveStepBy(Iter);
         pub usingnamespace DeriveFold(Iter);
         pub usingnamespace DeriveForeach(Iter);
         pub usingnamespace DeriveTakeWhile(Iter);

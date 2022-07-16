@@ -654,3 +654,52 @@ test "MapWhile" {
     try testing.expectEqual(@as(?u32, 3), iter.next().?);
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
+
+pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        step_by: usize,
+
+        pub fn new(iter: Iter, step_by: usize) Self {
+            assert(0 < step_by);
+            return .{ .iter = iter, .step_by = step_by };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            var step = self.step_by - 1;
+            var item = self.iter.next();
+            while (0 < step) : (step -= 1) {
+                // TODO: destroy if the aquired value is owned
+                _ = self.iter.next();
+            }
+            return item;
+        }
+    };
+}
+
+pub fn StepBy(comptime Iter: type) type {
+    return MakeStepBy(derive.Derive, Iter);
+}
+
+comptime {
+    assert(StepBy(SliceIter(u32)).Self == StepBy(SliceIter(u32)));
+    assert(StepBy(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(StepBy(SliceIter(u32))));
+}
+
+test "StepBy" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3, 4 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = StepBy(@TypeOf(siter));
+    var iter = Iter.new(siter, 3);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
