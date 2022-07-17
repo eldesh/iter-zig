@@ -53,6 +53,22 @@ pub fn range(start: anytype, upper: @TypeOf(start), step: ?@TypeOf(start)) Range
     }
 }
 
+test "Range" {
+    comptime {
+        assert(meta.isIterator(@TypeOf(range(@as(u32, 0), 10, 1))));
+        assert(meta.isIterator(@TypeOf(range(@as(u32, 0), 10, null))));
+        assert(meta.isIterator(@TypeOf(range(@as(u32, 0), 10, 2))));
+    }
+    var iter = range(@as(u32, 0), 11, 2);
+    try testing.expectEqual(@as(u32, 0), iter.next().?);
+    try testing.expectEqual(@as(u32, 2), iter.next().?);
+    try testing.expectEqual(@as(u32, 4), iter.next().?);
+    try testing.expectEqual(@as(u32, 6), iter.next().?);
+    try testing.expectEqual(@as(u32, 8), iter.next().?);
+    try testing.expectEqual(@as(u32, 10), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
 test "Range Iterator" {
     comptime {
         assert(meta.isIterator(@TypeOf(range(@as(u32, 0), 10, 1))));

@@ -15,6 +15,33 @@ const Order = std.math.Order;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveProduct(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "product")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn product(self: Iter) iter.ProductType(Iter.Item) {
+                return iter.Product(Iter.Item).product(self);
+            }
+        };
+    }
+}
+
+test "derive product int" {
+    const Iter = range.MakeRangeIter(DeriveProduct, u32);
+    try testing.expectEqual(@as(u32, 2 * 4 * 6 * 8 * 10), Iter.new(@as(u32, 2), 11, 2).product());
+    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10, 1).product());
+}
+
+test "derive product ptr" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    const Iter = MakeSliceIter(DeriveProduct, u32);
+    try testing.expectEqual(Iter.new(arr[2..4]).product(), @as(u32, 12));
+    try testing.expectEqual(Iter.new(arr[0..]).product(), @as(u32, 120));
+}
+
 fn DeriveSum(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1176,6 +1203,7 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveSum(Iter);
+        pub usingnamespace DeriveProduct(Iter);
         pub usingnamespace DeriveEq(Iter);
         pub usingnamespace DeriveNe(Iter);
         pub usingnamespace DeriveMax(Iter);

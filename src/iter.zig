@@ -66,6 +66,92 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
+/// The result type of `Product` type for primitive types.
+///
+/// # Details
+/// Returns the type of result of multiplying elements of an iterators.
+/// This functions defines for primitive types like:
+///
+/// - `ProductType(i64) == i64`
+///   Return type itself.
+/// - `ProductType(.signed, Int(N)) == Int(.signed, N)`
+///   In general case.
+/// - `ProductType(*const u32) == u32`
+///   Remove pointer from pointer of number type.
+pub fn ProductType(comptime ty: type) type {
+    if (std.meta.trait.isNumber(ty))
+        return ty;
+    if (std.meta.trait.is(.Pointer)(ty))
+        return meta.remove_pointer(ty);
+    @compileError("iter.ProductType: not defined: " ++ @typeName(ty));
+    // TODO: support simd
+    // if (std.meta.trait.is(.Vector)(ty))
+    //     return ty;
+}
+
+comptime {
+    assert(ProductType(i64) == i64);
+    assert(ProductType(std.meta.Int(.signed, 32)) == std.meta.Int(.signed, 32));
+    assert(ProductType(*const u32) == u32);
+}
+
+/// Define `Sum` trait
+///
+/// # Details
+/// Trait to represent types that can be created by multiplying elements of an iterator.
+/// `Sum` itself is not an iterator.
+///
+pub fn Product(comptime Item: type) type {
+    return struct {
+        fn product_ptr(comptime Iter: type, comptime R: type, iter: Iter) R {
+            var acc: R = 1;
+            var it = iter;
+            while (it.next()) |val| {
+                acc *= val.*;
+            }
+            return acc;
+        }
+
+        fn product_prim(comptime Iter: type, comptime R: type, iter: Iter) R {
+            var acc: R = 1;
+            var it = iter;
+            while (it.next()) |val| {
+                acc *= val;
+            }
+            return acc;
+        }
+
+        pub fn product(iter: anytype) ProductType(Item) {
+            const Iter = @TypeOf(iter);
+            comptime assert(meta.isIterator(Iter));
+            return if (comptime std.meta.trait.is(.Pointer)(Item))
+                product_ptr(Iter, ProductType(Item), iter)
+            else
+                product_prim(Iter, ProductType(Item), iter);
+        }
+    };
+}
+
+comptime {
+    var arr1 = [_]u32{};
+    var arr2 = [_]i64{};
+    const I = struct {
+        fn call(comptime T: type) type {
+            return SliceIter(T);
+        }
+    }.call;
+    assert(@TypeOf(Product(I(u32).Item).product(I(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Product(I(i64).Item).product(I(i64).new(arr2[0..]))) == i64);
+}
+
+test "Product" {
+    var arr = [_]u32{ 1, 1, 2, 3, 5, 8, 13, 21, 34 };
+    const I = SliceIter(u32);
+    try testing.expectEqual(@as(u32, 1), Product(I.Item).product(I.new(arr[5..5])));
+    try testing.expectEqual(@as(u32, 6), Product(I.Item).product(I.new(arr[0..4])));
+    try testing.expectEqual(@as(u32, 104), Product(I.Item).product(I.new(arr[5..7])));
+}
+
 /// The result type of `Sum` type for primitive types.
 ///
 /// # Details
