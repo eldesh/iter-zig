@@ -22,7 +22,7 @@ fn DeriveProduct(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn product(self: Iter) iter.ProductType(Iter.Item) {
+            pub fn product(self: Iter) error{Overflow}!iter.ProductType(Iter.Item) {
                 return iter.Product(Iter.Item).product(self);
             }
         };
@@ -31,8 +31,8 @@ fn DeriveProduct(comptime Iter: type) type {
 
 test "derive product int" {
     const Iter = range.MakeRangeIter(DeriveProduct, u32);
-    try testing.expectEqual(@as(u32, 2 * 4 * 6 * 8 * 10), Iter.new(@as(u32, 2), 11, 2).product());
-    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10, 1).product());
+    try testing.expectEqual(@as(u32, 3840), try Iter.new(@as(u32, 2), 11, 2).product());
+    try testing.expectEqual(@as(u32, 0), try Iter.new(@as(u32, 0), 10, 1).product());
 }
 
 test "derive product ptr" {
@@ -49,7 +49,7 @@ fn DeriveSum(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn sum(self: Iter) iter.SumType(Iter.Item) {
+            pub fn sum(self: Iter) error{Overflow}!iter.SumType(Iter.Item) {
                 return iter.Sum(Iter.Item).sum(self);
             }
         };
@@ -58,8 +58,8 @@ fn DeriveSum(comptime Iter: type) type {
 
 test "derive sum int" {
     const Iter = range.MakeRangeIter(DeriveSum, u32);
-    try testing.expectEqual(Iter.new(@as(u32, 0), 0, 1).sum(), @as(u32, 0));
-    try testing.expectEqual(Iter.new(@as(u32, 0), 11, 1).sum(), @as(u32, 55));
+    try testing.expectEqual(@as(u32, 0), try Iter.new(@as(u32, 0), 0, 1).sum());
+    try testing.expectEqual(@as(u32, 55), try Iter.new(@as(u32, 0), 11, 1).sum());
 }
 
 test "derive sum ptr" {

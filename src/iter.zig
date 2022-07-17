@@ -4,6 +4,7 @@ const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
 const tuple = @import("./tuple.zig");
 
+const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
 const assertEqualTuple = meta.assertEqualTuple;
@@ -103,25 +104,25 @@ comptime {
 ///
 pub fn Product(comptime Item: type) type {
     return struct {
-        fn product_ptr(comptime Iter: type, comptime R: type, iter: Iter) R {
+        fn product_ptr(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
             var acc: R = 1;
             var it = iter;
             while (it.next()) |val| {
-                acc *= val.*;
+                acc = try math.mul(R, acc, val.*);
             }
             return acc;
         }
 
-        fn product_prim(comptime Iter: type, comptime R: type, iter: Iter) R {
+        fn product_prim(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
             var acc: R = 1;
             var it = iter;
             while (it.next()) |val| {
-                acc *= val;
+                acc = try math.mul(R, acc, val);
             }
             return acc;
         }
 
-        pub fn product(iter: anytype) ProductType(Item) {
+        pub fn product(iter: anytype) error{Overflow}!ProductType(Item) {
             const Iter = @TypeOf(iter);
             comptime assert(meta.isIterator(Iter));
             return if (comptime std.meta.trait.is(.Pointer)(Item))
@@ -140,16 +141,16 @@ comptime {
             return SliceIter(T);
         }
     }.call;
-    assert(@TypeOf(Product(I(u32).Item).product(I(u32).new(arr1[0..]))) == u32);
-    assert(@TypeOf(Product(I(i64).Item).product(I(i64).new(arr2[0..]))) == i64);
+    assert(@TypeOf(Product(I(u32).Item).product(I(u32).new(arr1[0..])) catch unreachable) == u32);
+    assert(@TypeOf(Product(I(i64).Item).product(I(i64).new(arr2[0..])) catch unreachable) == i64);
 }
 
 test "Product" {
     var arr = [_]u32{ 1, 1, 2, 3, 5, 8, 13, 21, 34 };
     const I = SliceIter(u32);
-    try testing.expectEqual(@as(u32, 1), Product(I.Item).product(I.new(arr[5..5])));
-    try testing.expectEqual(@as(u32, 6), Product(I.Item).product(I.new(arr[0..4])));
-    try testing.expectEqual(@as(u32, 104), Product(I.Item).product(I.new(arr[5..7])));
+    try testing.expectEqual(@as(u32, 1), try Product(I.Item).product(I.new(arr[5..5])));
+    try testing.expectEqual(@as(u32, 6), try Product(I.Item).product(I.new(arr[0..4])));
+    try testing.expectEqual(@as(u32, 104), try Product(I.Item).product(I.new(arr[5..7])));
 }
 
 /// The result type of `Sum` type for primitive types.
@@ -189,25 +190,25 @@ comptime {
 ///
 pub fn Sum(comptime Item: type) type {
     return struct {
-        fn sum_ptr(comptime Iter: type, comptime R: type, iter: Iter) R {
+        fn sum_ptr(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
             var acc: R = 0;
             var it = iter;
             while (it.next()) |val| {
-                acc += val.*;
+                acc = try math.add(R, acc, val.*);
             }
             return acc;
         }
 
-        fn sum_prim(comptime Iter: type, comptime R: type, iter: Iter) R {
+        fn sum_prim(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
             var acc: R = 0;
             var it = iter;
             while (it.next()) |val| {
-                acc += val;
+                acc = try math.add(R, acc, val);
             }
             return acc;
         }
 
-        pub fn sum(iter: anytype) SumType(Item) {
+        pub fn sum(iter: anytype) error{Overflow}!SumType(Item) {
             const Iter = @TypeOf(iter);
             comptime assert(meta.isIterator(Iter));
             return if (comptime std.meta.trait.is(.Pointer)(Item))
@@ -221,17 +222,18 @@ pub fn Sum(comptime Item: type) type {
 comptime {
     var arr1 = [_]u32{};
     var arr2 = [_]i64{};
-    assert(@TypeOf(Sum(SliceIter(u32).Item).sum(SliceIter(u32).new(arr1[0..]))) == u32);
-    assert(@TypeOf(Sum(SliceIter(i64).Item).sum(SliceIter(i64).new(arr2[0..]))) == i64);
+    const I = SliceIter;
+    assert(@TypeOf(Sum(I(u32).Item).sum(I(u32).new(arr1[0..])) catch unreachable) == u32);
+    assert(@TypeOf(Sum(I(i64).Item).sum(I(i64).new(arr2[0..])) catch unreachable) == i64);
 }
 
 test "Sum" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     const I = SliceIter(u32);
-    try testing.expectEqual(@as(u32, 0), Sum(I.Item).sum(I.new(arr[0..0])));
-    try testing.expectEqual(@as(u32, 15), Sum(I.Item).sum(I.new(arr[0..5])));
-    try testing.expectEqual(@as(u32, 36), Sum(I.Item).sum(I.new(arr[0..8])));
-    try testing.expectEqual(@as(u32, 55), Sum(I.Item).sum(I.new(arr[0..])));
+    try testing.expectEqual(@as(u32, 0), try Sum(I.Item).sum(I.new(arr[0..0])));
+    try testing.expectEqual(@as(u32, 15), try Sum(I.Item).sum(I.new(arr[0..5])));
+    try testing.expectEqual(@as(u32, 36), try Sum(I.Item).sum(I.new(arr[0..8])));
+    try testing.expectEqual(@as(u32, 55), try Sum(I.Item).sum(I.new(arr[0..])));
 }
 
 pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
