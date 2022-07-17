@@ -66,6 +66,88 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
+/// The result type of `Sum` type for primitive types.
+///
+/// # Details
+/// Returns the type of result of summing up an iterators.
+/// This functions defines for primitive types like:
+///
+/// - `SumType(i64) == i64`
+///   Return type itself.
+/// - `SumType(.signed, Int(N)) == Int(.signed, N)`
+///   In general case.
+/// - `SumType(*const u32) == u32`
+///   Remove pointer from pointer of number type.
+pub fn SumType(comptime ty: type) type {
+    if (std.meta.trait.isNumber(ty))
+        return ty;
+    if (std.meta.trait.is(.Pointer)(ty))
+        return meta.remove_pointer(ty);
+    @compileError("iter.SumType: not defined: " ++ @typeName(ty));
+    // TODO: support simd
+    // if (std.meta.trait.is(.Vector)(ty))
+    //     return ty;
+}
+
+comptime {
+    assert(SumType(i64) == i64);
+    assert(SumType(std.meta.Int(.signed, 32)) == std.meta.Int(.signed, 32));
+    assert(SumType(*const u32) == u32);
+}
+
+/// Define `Sum` trait
+///
+/// # Details
+/// Trait to represent types that can be created by summing up an iterator.
+/// `Sum` itself is not an iterator.
+///
+pub fn Sum(comptime Item: type) type {
+    return struct {
+        fn sum_ptr(comptime Iter: type, comptime R: type, iter: Iter) R {
+            var acc: R = 0;
+            var it = iter;
+            while (it.next()) |val| {
+                acc += val.*;
+            }
+            return acc;
+        }
+
+        fn sum_prim(comptime Iter: type, comptime R: type, iter: Iter) R {
+            var acc: R = 0;
+            var it = iter;
+            while (it.next()) |val| {
+                acc += val;
+            }
+            return acc;
+        }
+
+        pub fn sum(iter: anytype) SumType(Item) {
+            const Iter = @TypeOf(iter);
+            comptime assert(meta.isIterator(Iter));
+            return if (comptime std.meta.trait.is(.Pointer)(Item))
+                sum_ptr(Iter, SumType(Item), iter)
+            else
+                sum_prim(Iter, SumType(Item), iter);
+        }
+    };
+}
+
+comptime {
+    var arr1 = [_]u32{};
+    var arr2 = [_]i64{};
+    assert(@TypeOf(Sum(SliceIter(u32).Item).sum(SliceIter(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Sum(SliceIter(i64).Item).sum(SliceIter(i64).new(arr2[0..]))) == i64);
+}
+
+test "Sum" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    const I = SliceIter(u32);
+    try testing.expectEqual(@as(u32, 0), Sum(I.Item).sum(I.new(arr[0..0])));
+    try testing.expectEqual(@as(u32, 15), Sum(I.Item).sum(I.new(arr[0..5])));
+    try testing.expectEqual(@as(u32, 36), Sum(I.Item).sum(I.new(arr[0..8])));
+    try testing.expectEqual(@as(u32, 55), Sum(I.Item).sum(I.new(arr[0..])));
+}
+
 pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
 
