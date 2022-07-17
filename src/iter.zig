@@ -80,9 +80,10 @@ comptime {
 /// - `ProductType(*const u32) == u32`
 ///   Remove pointer from pointer of number type.
 pub fn ProductType(comptime ty: type) type {
-    if (std.meta.trait.isNumber(ty))
+    const trait = std.meta.trait;
+    if (trait.isNumber(ty))
         return ty;
-    if (std.meta.trait.is(.Pointer)(ty))
+    if (trait.is(.Pointer)(ty) and trait.isNumber(meta.remove_pointer(ty)))
         return meta.remove_pointer(ty);
     @compileError("iter.ProductType: not defined: " ++ @typeName(ty));
     // TODO: support simd
@@ -166,9 +167,10 @@ test "Product" {
 /// - `SumType(*const u32) == u32`
 ///   Remove pointer from pointer of number type.
 pub fn SumType(comptime ty: type) type {
-    if (std.meta.trait.isNumber(ty))
+    const trait = std.meta.trait;
+    if (trait.isNumber(ty))
         return ty;
-    if (std.meta.trait.is(.Pointer)(ty))
+    if (trait.is(.Pointer)(ty) and trait.isNumber(meta.remove_pointer(ty)))
         return meta.remove_pointer(ty);
     @compileError("iter.SumType: not defined: " ++ @typeName(ty));
     // TODO: support simd
