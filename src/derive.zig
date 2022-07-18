@@ -120,6 +120,76 @@ test "derive ge Ptr" {
     try testing.expect(Iter.new(arr1[0..3]).ge(Iter.new(arr2[0..2])));
 }
 
+fn DeriveLt(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "lt")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn lt(self: Iter, other: anytype) bool {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                return iter.Cmp(Iter.Item).cmp(self, other).compare(.lt);
+            }
+        };
+    }
+}
+
+test "derive lt Int" {
+    const Iter = range.MakeRangeIter(DeriveLt, u32);
+    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 2), 11, 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 2, 2).lt(Iter.new(@as(u32, 2), 2, 2)));
+    try testing.expect(Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 3), 11, 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 2), 9, 2)));
+}
+
+test "derive lt Ptr" {
+    var arr1 = [_]u32{ 0, 1, 2, 3 };
+    var arr2 = [_]u32{ 0, 1, 2, 3 };
+    const Iter = MakeSliceIter(DeriveLt, u32);
+
+    try testing.expect(!Iter.new(arr1[0..]).lt(Iter.new(arr2[0..])));
+    try testing.expect(!Iter.new(arr1[0..0]).lt(Iter.new(arr2[0..0])));
+    try testing.expect(Iter.new(arr1[0..2]).lt(Iter.new(arr2[0..3])));
+    try testing.expect(!Iter.new(arr1[0..3]).lt(Iter.new(arr2[0..2])));
+}
+
+fn DeriveGt(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "gt")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn gt(self: Iter, other: anytype) bool {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                return iter.Cmp(Iter.Item).cmp(self, other).compare(.gt);
+            }
+        };
+    }
+}
+
+test "derive gt Int" {
+    const Iter = range.MakeRangeIter(DeriveGt, u32);
+    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 2), 11, 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 2, 2).gt(Iter.new(@as(u32, 2), 2, 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 3), 11, 2)));
+    try testing.expect(Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 2), 9, 2)));
+}
+
+test "derive gt Ptr" {
+    var arr1 = [_]u32{ 0, 1, 2, 3 };
+    var arr2 = [_]u32{ 0, 1, 2, 3 };
+    const Iter = MakeSliceIter(DeriveGt, u32);
+
+    try testing.expect(!Iter.new(arr1[0..]).gt(Iter.new(arr2[0..])));
+    try testing.expect(!Iter.new(arr1[0..0]).gt(Iter.new(arr2[0..0])));
+    try testing.expect(!Iter.new(arr1[0..2]).gt(Iter.new(arr2[0..3])));
+    try testing.expect(Iter.new(arr1[0..3]).gt(Iter.new(arr2[0..2])));
+}
+
 fn DeriveProduct(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1310,6 +1380,8 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveCmp(Iter);
         pub usingnamespace DeriveLe(Iter);
         pub usingnamespace DeriveGe(Iter);
+        pub usingnamespace DeriveLt(Iter);
+        pub usingnamespace DeriveGt(Iter);
         pub usingnamespace DeriveSum(Iter);
         pub usingnamespace DeriveProduct(Iter);
         pub usingnamespace DeriveEq(Iter);
