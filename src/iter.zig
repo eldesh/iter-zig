@@ -3,6 +3,7 @@ const to_iter = @import("./to_iter.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./type.zig");
 const tuple = @import("./tuple.zig");
+const range = @import("./range.zig");
 
 const math = std.math;
 const testing = std.testing;
@@ -268,6 +269,69 @@ test "Sum" {
     try testing.expectEqual(@as(u32, 15), try Sum(I.Item).sum(I.new(arr[0..5])));
     try testing.expectEqual(@as(u32, 36), try Sum(I.Item).sum(I.new(arr[0..8])));
     try testing.expectEqual(@as(u32, 55), try Sum(I.Item).sum(I.new(arr[0..])));
+}
+
+pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isIterator(Iter.Item));
+
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        curr: ?Iter.Item,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter, .curr = null };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.curr == null)
+                self.curr = self.iter.next();
+            while (self.curr) |_| : (self.curr = self.iter.next()) {
+                if (self.curr.?.next()) |curr| {
+                    return curr;
+                }
+            }
+            return null;
+        }
+    };
+}
+
+pub fn Flatten(comptime Iter: type) type {
+    return MakeFlatten(derive.Derive, Iter);
+}
+
+comptime {
+    const Range = range.RangeIter;
+    assert(Flatten(IterMap(Range(u32), fn (u32) Range(u32))).Self == Flatten(IterMap(Range(u32), fn (u32) Range(u32))));
+    assert(Flatten(IterMap(Range(u32), fn (u32) Range(u32))).Item == u32);
+    assert(meta.isIterator(Flatten(IterMap(Range(u32), fn (u32) Range(u32)))));
+}
+
+test "Flatten" {
+    const Range = range.RangeIter;
+    const Gen = struct {
+        fn call(x: u32) Range(u32) {
+            return Range(u32).new(@as(u32, 0), x, 1);
+        }
+    };
+    const Iter = Flatten(IterMap(Range(u32), fn (u32) Range(u32)));
+    var iter = Iter.new(IterMap(Range(u32), fn (u32) Range(u32))
+        .new(Gen.call, Range(u32).new(@as(u32, 1), 4, 1)));
+
+    // range(0, 1)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    // range(0, 2)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    // range(0, 3)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
 pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {

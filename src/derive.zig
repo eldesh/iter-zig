@@ -742,6 +742,40 @@ test "derive skip over" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
 }
 
+fn DeriveFlatten(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "flatten")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn flatten(self: Iter) iter.Flatten(Iter) {
+                return iter.Flatten(Iter).new(self);
+            }
+        };
+    }
+}
+
+test "derive flatten" {
+    const Gen = struct {
+        fn call(x: u32) range.RangeIter(u32) {
+            return range.range(@as(u32, 0), x, 1);
+        }
+    };
+    var it = range.range(@as(u32, 1), 4, 1).map(Gen.call).flatten();
+
+    // range(0, 1)
+    try testing.expectEqual(@as(?u32, 0), it.next());
+    // range(0, 2)
+    try testing.expectEqual(@as(?u32, 0), it.next());
+    try testing.expectEqual(@as(?u32, 1), it.next());
+    // range(0, 3)
+    try testing.expectEqual(@as(?u32, 0), it.next());
+    try testing.expectEqual(@as(?u32, 1), it.next());
+    try testing.expectEqual(@as(?u32, 2), it.next());
+    try testing.expectEqual(@as(?u32, null), it.next());
+}
+
 fn DeriveReduce(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1377,6 +1411,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveFlatten(Iter);
         pub usingnamespace DeriveCmp(Iter);
         pub usingnamespace DeriveLe(Iter);
         pub usingnamespace DeriveGe(Iter);
