@@ -15,6 +15,41 @@ const Order = std.math.Order;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveCmp(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "cmp")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn cmp(self: Iter, other: anytype) math.Order {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                return iter.Cmp(Iter.Item).cmp(self, other);
+            }
+        };
+    }
+}
+
+test "derive cmp Int" {
+    const Iter = range.MakeRangeIter(DeriveCmp, u32);
+    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 2), 11, 2)));
+    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 2, 2).cmp(Iter.new(@as(u32, 2), 2, 2)));
+    try testing.expectEqual(math.Order.lt, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 3), 11, 2)));
+    try testing.expectEqual(math.Order.gt, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 2), 9, 2)));
+}
+
+test "derive cmp Ptr" {
+    var arr1 = [_]u32{ 0, 1, 2, 3 };
+    var arr2 = [_]u32{ 0, 1, 2, 3 };
+    const Iter = MakeSliceIter(DeriveCmp, u32);
+
+    try testing.expectEqual(math.Order.eq, Iter.new(arr1[0..]).cmp(Iter.new(arr2[0..])));
+    try testing.expectEqual(math.Order.eq, Iter.new(arr1[0..0]).cmp(Iter.new(arr2[0..0])));
+    try testing.expectEqual(math.Order.lt, Iter.new(arr1[0..2]).cmp(Iter.new(arr2[0..3])));
+    try testing.expectEqual(math.Order.gt, Iter.new(arr1[0..3]).cmp(Iter.new(arr2[0..2])));
+}
+
 fn DeriveProduct(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1202,6 +1237,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveCmp(Iter);
         pub usingnamespace DeriveSum(Iter);
         pub usingnamespace DeriveProduct(Iter);
         pub usingnamespace DeriveEq(Iter);

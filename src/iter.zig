@@ -67,6 +67,38 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
+pub fn Cmp(comptime Item: type) type {
+    return struct {
+        pub fn cmp(iter: anytype, other: anytype) math.Order {
+            const trait = std.meta.trait;
+            const Iter = @TypeOf(iter);
+            const Other = @TypeOf(other);
+            comptime assert(Iter.Item == Item);
+            comptime assert(Other.Item == Item);
+            var it = iter;
+            var ot = other;
+
+            while (it.next()) |lval| {
+                if (ot.next()) |rval| {
+                    const ord = if (comptime trait.isNumber(Iter.Item))
+                        // compares directly
+                        math.order(lval, rval)
+                    else if (comptime trait.is(.Pointer)(Iter.Item) and trait.isNumber(meta.remove_pointer(Iter.Item)))
+                        // compares with dereference
+                        math.order(lval.*, rval.*);
+                    switch (ord) {
+                        .eq => continue,
+                        .lt, .gt => return ord,
+                    }
+                } else {
+                    return .gt;
+                }
+            }
+            return if (ot.next()) |_| .lt else .eq;
+        }
+    };
+}
+
 /// The result type of `Product` type for primitive types.
 ///
 /// # Details
