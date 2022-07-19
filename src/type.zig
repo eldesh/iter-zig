@@ -103,7 +103,7 @@ pub fn have_fun(comptime T: type, name: []const u8) ?type {
         .Struct => |s| s.decls,
         .Union => |u| u.decls,
         .Enum => |e| e.decls,
-        else => false,
+        else => return null,
     };
 
     inline for (decls) |decl| {
