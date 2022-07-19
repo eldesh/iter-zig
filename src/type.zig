@@ -7,6 +7,7 @@ const ArrayIter = @import("./to_iter.zig").ArrayIter;
 const ArrayListIter = @import("./to_iter.zig").ArrayListIter;
 const SinglyLinkedListIter = @import("./to_iter.zig").SinglyLinkedListIter;
 
+const trait = std.meta.trait;
 const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
@@ -71,14 +72,26 @@ comptime {
 }
 
 pub fn have_type(comptime T: type, name: []const u8) ?type {
-    if (!@hasDecl(T, name)) {
+    if (!trait.isContainer(T))
         return null;
-    }
+    if (!@hasDecl(T, name))
+        return null;
+
     const field = @field(T, name);
     if (@typeInfo(@TypeOf(field)) == .Type) {
         return field;
     }
     return null;
+}
+
+comptime {
+    const E = struct {};
+    const C = struct {
+        pub const Self = @This();
+    };
+    assert(have_type(E, "Self") == null);
+    assert(have_type(C, "Self") != null);
+    assert(have_type(u32, "cmp") == null);
 }
 
 pub fn have_field(comptime T: type, name: []const u8) ?type {
