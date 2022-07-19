@@ -72,16 +72,18 @@ comptime {
 }
 
 pub fn have_type(comptime T: type, name: []const u8) ?type {
-    if (!trait.isContainer(T))
-        return null;
-    if (!@hasDecl(T, name))
-        return null;
+    comptime {
+        if (!trait.isContainer(T))
+            return null;
+        if (!@hasDecl(T, name))
+            return null;
 
-    const field = @field(T, name);
-    if (@typeInfo(@TypeOf(field)) == .Type) {
-        return field;
+        const field = @field(T, name);
+        if (@typeInfo(@TypeOf(field)) == .Type) {
+            return field;
+        }
+        return null;
     }
-    return null;
 }
 
 comptime {
