@@ -154,3 +154,90 @@ comptime {
     assert(isIterator(ArrayListIter(u32)));
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
+
+fn isComparableType(comptime T: type) bool {
+    comptime {
+        // primitive type
+        if (trait.isNumber(T) or trait.is(.Vector)(T))
+            return true;
+        // complex type impl 'cmp' method
+        if (have_fun(T, "cmp")) |ty| {
+            if (ty == fn (*const T, *const T) std.math.Order or
+                ty == fn (T, T) std.math.Order)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+// TODO: to be comparable tuple
+// TODO: to be comparable optional
+pub fn isComparable(comptime T: type) bool {
+    comptime {
+        // comparable type or ..
+        if (isComparableType(T))
+            return true;
+        // a pointer type that points to comparable type
+        if (trait.isSingleItemPtr(T) and isComparableType(std.meta.Child(T)))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(isComparable(u32));
+    assert(isComparable(*u32));
+    assert(!isComparable([]u32));
+    assert(!isComparable([*]u32));
+    assert(isComparable(i64));
+    assert(isComparable(*const i64));
+    assert(!isComparable(*[]const i64));
+    assert(!isComparable([8]u64));
+    assert(isComparable(f64));
+    const C = struct {
+        val: u32,
+        pub fn cmp(x: *const @This(), y: *const @This()) std.math.Order {
+            _ = x;
+            _ = y;
+            return .lt;
+        }
+    };
+    assert(isComparable(C));
+    assert(isComparable(*C));
+    const D = struct {
+        val: u32,
+        pub fn cmp(x: @This(), y: @This()) std.math.Order {
+            _ = x;
+            _ = y;
+            return .lt;
+        }
+    };
+    assert(isComparable(D));
+    assert(isComparable(*D));
+}
+
+pub const Comparable = struct {
+    /// Compare `Comparable` values
+    /// If the type of `x` is a primitive type, `cmp` would be used like `cmp(5, 6)`.
+    /// And for others, like `cmp(&x, &y)`.
+    pub fn cmp(x: anytype, y: @TypeOf(x)) std.math.Order {
+        const T = @TypeOf(x);
+        comptime assert(isComparable(T));
+
+        // primitive types
+        if (comptime trait.isNumber(T) or trait.is(.Vector)(T))
+            return std.math.order(x, y);
+        // pointer that points to
+        if (comptime trait.isSingleItemPtr(T)) {
+            const E = std.meta.Child(T);
+            // primitive types
+            if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
+                return std.math.order(x.*, y.*);
+        }
+        // - composed type implements 'cmp' or
+        // - pointer that points to 'cmp'able type
+        return x.cmp(y);
+    }
+};
