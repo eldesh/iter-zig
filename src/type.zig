@@ -146,6 +146,9 @@ pub fn isIterator(comptime T: type) bool {
 }
 
 comptime {
+    assert(!isIterator(u32));
+    assert(!isIterator([]const u8));
+    assert(!isIterator([5]u64));
     assert(isIterator(ArrayIter(u32, 3)));
     assert(isIterator(SliceIter(u32)));
     assert(isIterator(ArrayListIter(u32)));
