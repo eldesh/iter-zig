@@ -398,11 +398,7 @@ fn DeriveMaxBy(comptime Iter: type) type {
 
 test "derive max_by" {
     const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
-    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(struct {
-        fn call(x: *const u32, y: *const u32) Order {
-            return math.order(x.*, y.*);
-        }
-    }.call);
+    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(meta.Comparable.set(*const u32));
     try testing.expectEqual(@as(?u32, 9), max_by);
 }
 
@@ -538,11 +534,7 @@ fn DeriveMinBy(comptime Iter: type) type {
 
 test "derive min_by" {
     const Iter = range.MakeRangeIter(DeriveMinBy, u32);
-    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(struct {
-        fn call(x: *const u32, y: *const u32) Order {
-            return math.order(x.*, y.*);
-        }
-    }.call);
+    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(meta.Comparable.set(*const u32));
     try testing.expectEqual(@as(?u32, 0), min_by);
 }
 

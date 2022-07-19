@@ -219,9 +219,12 @@ comptime {
 }
 
 pub const Comparable = struct {
-    /// Compare `Comparable` values
+    /// General comparing function
+    ///
+    /// # Details
+    /// Compares `Comparable` values.
     /// If the type of `x` is a primitive type, `cmp` would be used like `cmp(5, 6)`.
-    /// And for others, like `cmp(&x, &y)`.
+    /// And for others, like `cmp(&x, &y)` where the typeof x is comparable.
     pub fn cmp(x: anytype, y: @TypeOf(x)) std.math.Order {
         const T = @TypeOf(x);
         comptime assert(isComparable(T));
@@ -240,4 +243,26 @@ pub const Comparable = struct {
         // - pointer that points to 'cmp'able type
         return x.cmp(y);
     }
+
+    /// Acquire the specilized 'cmp' function with 'T'.
+    ///
+    /// # Details
+    /// The type of 'cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
+    /// To using the function specialized to a type, pass the function like `set(T)`.
+    pub fn set(comptime T: type) fn (T, T) std.math.Order {
+        return struct {
+            fn call(x: T, y: T) std.math.Order {
+                return cmp(x, y);
+            }
+        }.call;
+    }
 };
+
+comptime {
+    const zero = @as(u32, 0);
+    var pzero = &zero;
+    const one = @as(u32, 1);
+    var pone = &one;
+    assert(Comparable.set(u32)(0, 1) == .lt);
+    assert(Comparable.set(*const u32)(pzero, pone) == .lt);
+}
