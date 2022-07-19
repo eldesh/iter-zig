@@ -20,7 +20,7 @@ fn DeriveCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cmp")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn cmp(self: Iter, other: anytype) math.Order {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -28,6 +28,8 @@ fn DeriveCmp(comptime Iter: type) type {
                 return iter.Cmp(Iter.Item).cmp(self, other);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -55,7 +57,7 @@ fn DeriveLe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "le")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn le(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -63,6 +65,8 @@ fn DeriveLe(comptime Iter: type) type {
                 return iter.Cmp(Iter.Item).cmp(self, other).compare(.lte);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -90,7 +94,7 @@ fn DeriveGe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "ge")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn ge(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -98,6 +102,8 @@ fn DeriveGe(comptime Iter: type) type {
                 return iter.Cmp(Iter.Item).cmp(self, other).compare(.gte);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -125,7 +131,7 @@ fn DeriveLt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "lt")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn lt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -133,6 +139,8 @@ fn DeriveLt(comptime Iter: type) type {
                 return iter.Cmp(Iter.Item).cmp(self, other).compare(.lt);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -160,7 +168,7 @@ fn DeriveGt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "gt")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn gt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -168,6 +176,8 @@ fn DeriveGt(comptime Iter: type) type {
                 return iter.Cmp(Iter.Item).cmp(self, other).compare(.gt);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -325,7 +335,7 @@ fn DeriveMax(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "max")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn max(self: Iter) ?Iter.Item {
                 var it = self;
@@ -336,14 +346,15 @@ fn DeriveMax(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    // TODO: generalize to compare values of Ordered type
-                    if (acc < val) {
+                    if (meta.Comparable.cmp(acc, val) == std.math.Order.lt) {
                         acc = val;
                     }
                 }
                 return acc;
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -405,21 +416,6 @@ test "derive max_by empty" {
     try testing.expectEqual(@as(?u32, null), max_by);
 }
 
-/// Compare values of integral or pointer to integral type
-/// TODO: generalize comparalable type
-fn order(a: anytype, b: @TypeOf(a)) Order {
-    const T = @TypeOf(a);
-    if (comptime std.meta.trait.isIntegral(T)) {
-        return math.order(a, b);
-    }
-    if (comptime std.meta.trait.is(.Pointer)(T)) {
-        if (comptime std.meta.trait.isIntegral(meta.remove_pointer(T))) {
-            return math.order(a.*, b.*);
-        }
-    }
-    unreachable;
-}
-
 fn DeriveMaxByKey(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -436,7 +432,7 @@ fn DeriveMaxByKey(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (order(f(&acc), f(&val)) == .lt) {
+                    if (meta.Comparable.cmp(f(&acc), f(&val)) == .lt) {
                         acc = val;
                     }
                 }
@@ -479,7 +475,7 @@ fn DeriveMin(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "min")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isComparable(Iter.Item)) {
         return struct {
             pub fn min(self: Iter) ?Iter.Item {
                 var it = self;
@@ -490,14 +486,15 @@ fn DeriveMin(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    // TODO: generalize to compare values of Ordered type
-                    if (acc > val) {
+                    if (meta.Comparable.cmp(acc, val) == std.math.Order.gt) {
                         acc = val;
                     }
                 }
                 return acc;
             }
         };
+    } else {
+        return struct {};
     }
 }
 
@@ -575,7 +572,7 @@ fn DeriveMinByKey(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (order(f(&acc), f(&val)) == .gt) {
+                    if (meta.Comparable.cmp(f(&acc), f(&val)) == .gt) {
                         acc = val;
                     }
                 }
@@ -747,12 +744,14 @@ fn DeriveFlatten(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "flatten")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isIterator(Iter.Item)) {
         return struct {
             pub fn flatten(self: Iter) iter.Flatten(Iter) {
                 return iter.Flatten(Iter).new(self);
             }
         };
+    } else {
+        return struct {};
     }
 }
 

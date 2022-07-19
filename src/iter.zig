@@ -69,9 +69,9 @@ comptime {
 }
 
 pub fn Cmp(comptime Item: type) type {
+    comptime assert(meta.isComparable(Item));
     return struct {
         pub fn cmp(iter: anytype, other: anytype) math.Order {
-            const trait = std.meta.trait;
             const Iter = @TypeOf(iter);
             const Other = @TypeOf(other);
             comptime assert(Iter.Item == Item);
@@ -81,12 +81,7 @@ pub fn Cmp(comptime Item: type) type {
 
             while (it.next()) |lval| {
                 if (ot.next()) |rval| {
-                    const ord = if (comptime trait.isNumber(Iter.Item))
-                        // compares directly
-                        math.order(lval, rval)
-                    else if (comptime trait.is(.Pointer)(Iter.Item) and trait.isNumber(meta.remove_pointer(Iter.Item)))
-                        // compares with dereference
-                        math.order(lval.*, rval.*);
+                    const ord = meta.Comparable.cmp(lval, rval);
                     switch (ord) {
                         .eq => continue,
                         .lt, .gt => return ord,

@@ -53,12 +53,12 @@ pub fn assertEqualTuple(comptime x: type, comptime y: type) void {
 }
 
 pub fn remove_pointer(comptime T: type) type {
-    comptime assert(std.meta.trait.is(.Pointer)(T));
+    comptime assert(trait.isSingleItemPtr(T));
     return std.meta.Child(T);
 }
 
 pub fn remove_const_pointer(comptime T: type) type {
-    comptime assert(std.meta.trait.isConstPtr(T));
+    comptime assert(trait.isSingleItemPtr(T) and trait.isConstPtr(T));
     var info = @typeInfo(T);
     info.Pointer.is_const = false;
     return remove_pointer(@Type(info));
