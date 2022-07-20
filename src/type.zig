@@ -1,11 +1,12 @@
 const std = @import("std");
 
-const iter = @import("./iter.zig");
+const range = @import("./range.zig");
 
 const SliceIter = @import("./to_iter.zig").SliceIter;
 const ArrayIter = @import("./to_iter.zig").ArrayIter;
 const ArrayListIter = @import("./to_iter.zig").ArrayListIter;
 const SinglyLinkedListIter = @import("./to_iter.zig").SinglyLinkedListIter;
+const Range = range.RangeIter;
 
 const trait = std.meta.trait;
 const testing = std.testing;
@@ -266,3 +267,307 @@ comptime {
     assert(Comparable.set(u32)(0, 1) == .lt);
     assert(Comparable.set(*const u32)(pzero, pone) == .lt);
 }
+
+pub fn isSumableType(comptime T: type) bool {
+    comptime {
+        if (trait.isNumber(T) or trait.is(.Vector)(T))
+            return true;
+        if (have_fun(T, "sum")) |sum_ty| {
+            const info = @typeInfo(sum_ty);
+            // fn (?) ...
+            if (info.Fn.args.len != 1)
+                return false;
+            // fn (anytype) ...
+            if (!info.Fn.is_generic or info.Fn.args[0].arg_type != null)
+                return false;
+
+            if (info.Fn.return_type != null)
+                return false;
+
+            // Following constraints should be verified to be met if possible.
+            // But this is not allowed by Zig 0.9.1 type system.
+            //
+            // ```
+            // fn (iter: anytype) @TypeOf(iter).Item
+            // where @TypeOf(iter).Item == T
+            // ```
+            //
+            // However, when calling 'Sumable.sum', above constraints will be verified in type checking of it's declaration.
+            // That signature is `fn (iter: anytype) @TypeOf(iter).Item`.
+            //
+            return true;
+
+            // or
+
+            // // A dummy iterator
+            // // that `Item` equals to `T`.
+            // const O: type = struct {
+            //     pub const Self: type = @This();
+            //     pub const Item: type = T;
+            //     pub fn next(self: *Self) ?Item {
+            //         _ = self;
+            //         return null;
+            //     }
+            // };
+            // // T.sum(O) evaluation involves performs a type check, type error can occur,
+            // // resuling in compilation failure.
+            // return @TypeOf(T.sum(O)) == fn (O) O.Item;
+        }
+        return false;
+    }
+}
+
+pub fn isSumable(comptime T: type) bool {
+    comptime {
+        if (isSumableType(T))
+            return true;
+        if (trait.isSingleItemPtr(T) and isSumableType(std.meta.Child(T)))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(isSumable(u32));
+    assert(isSumable(f64));
+    assert(!isSumable([]f64));
+    assert(!isSumable([*]const u8));
+    assert(!isSumable(SliceIter(u64)));
+    const T = struct {
+        const T = @This();
+        val: u32,
+        // requires an Iterator that Item is equals to T.
+        pub fn sum(iter: anytype) T {
+            var acc = T{ .val = 0 };
+            var it = iter;
+            while (it.next()) |v| {
+                acc.val += v.val;
+            }
+            return acc;
+        }
+    };
+    assert(isSumable(T));
+    const U = struct {
+        const U = @This();
+        val: u32,
+        pub fn sum(iter: Range(u32)) U {
+            var acc = U{ .val = 0 };
+            var it = iter;
+            while (it.next()) |v| {
+                acc.val += v;
+            }
+            return acc;
+        }
+    };
+    assert(!isSumable(U));
+}
+
+test "sum" {
+    const T = struct {
+        const T = @This();
+        val: u32,
+        pub fn sum(iter: anytype) T {
+            var acc: u32 = 0;
+            var it = iter;
+            while (it.next()) |v| {
+                acc += v.val;
+            }
+            return T{ .val = acc };
+        }
+    };
+    comptime assert(isSumable(T));
+    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
+    const sum = T.sum(SliceIter(T).new(arr[0..]).map(struct {
+        fn call(x: *const T) T {
+            return x.*;
+        }
+    }.call));
+    try testing.expectEqual(T{ .val = 10 }, sum);
+}
+
+pub const Sumable = struct {
+    pub fn Output(comptime T: type) type {
+        comptime assert(isSumable(T));
+        return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
+    }
+
+    pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Iter = @TypeOf(iter);
+        const Item = Iter.Item;
+
+        comptime assert(isSumable(Item));
+        var it = iter;
+        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item)) {
+            var acc: Item = 0;
+            while (it.next()) |val| {
+                acc += val;
+            }
+            return acc;
+        } else if (comptime trait.isSingleItemPtr(Item)) {
+            const E = std.meta.Child(Item);
+            if (comptime trait.isNumber(E) or trait.is(.Vector)(E)) {
+                var acc: E = 0;
+                while (it.next()) |val| {
+                    acc += val.*;
+                }
+                return acc;
+            } else {
+                return E.sum(iter);
+            }
+        } else {
+            return Item.sum(iter);
+        }
+    }
+};
+
+pub fn isMultiplyableType(comptime T: type) bool {
+    comptime {
+        if (trait.isNumber(T) or trait.is(.Vector)(T))
+            return true;
+        if (have_fun(T, "product")) |product_ty| {
+            const info = @typeInfo(product_ty);
+            // fn (?) ...
+            if (info.Fn.args.len != 1)
+                return false;
+            // fn (anytype) ...
+            if (!info.Fn.is_generic or info.Fn.args[0].arg_type != null)
+                return false;
+
+            if (info.Fn.return_type != null)
+                return false;
+
+            // Following constraints should be verified to be met if possible.
+            // But this is not allowed by Zig 0.9.1 type system.
+            //
+            // ```
+            // fn (iter: anytype) @TypeOf(iter).Item
+            // where @TypeOf(iter).Item == T
+            // ```
+            //
+            // However, when calling 'Multiplyable.product', above constraints will be verified in type checking of it's declaration.
+            // That signature is `fn (iter: anytype) @TypeOf(iter).Item`.
+            //
+            return true;
+
+            // or
+
+            // // A dummy iterator
+            // // that `Item` equals to `T`.
+            // const O: type = struct {
+            //     pub const Self: type = @This();
+            //     pub const Item: type = T;
+            //     pub fn next(self: *Self) ?Item {
+            //         _ = self;
+            //         return null;
+            //     }
+            // };
+            // // T.product(O) evaluation involves performs a type check, type error can occur,
+            // // resuling in compilation failure.
+            // return @TypeOf(T.product(O)) == fn (O) O.Item;
+        }
+        return false;
+    }
+}
+
+pub fn isMultiplyable(comptime T: type) bool {
+    comptime {
+        if (isMultiplyableType(T))
+            return true;
+        if (trait.isSingleItemPtr(T) and isMultiplyableType(std.meta.Child(T)))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(isMultiplyable(u32));
+    assert(isMultiplyable(f64));
+    assert(!isMultiplyable([]f64));
+    assert(!isMultiplyable([*]const u8));
+    assert(!isMultiplyable(SliceIter(u64)));
+    const T = struct {
+        const T = @This();
+        val: u32,
+        // requires an Iterator that Item is equals to T.
+        pub fn product(iter: anytype) T {
+            var acc = T{ .val = 0 };
+            var it = iter;
+            while (it.next()) |v| {
+                acc.val += v.val;
+            }
+            return acc;
+        }
+    };
+    assert(isMultiplyable(T));
+    const U = struct {
+        const U = @This();
+        val: u32,
+        pub fn product(iter: Range(u32)) U {
+            var acc = U{ .val = 0 };
+            var it = iter;
+            while (it.next()) |v| {
+                acc.val += v;
+            }
+            return acc;
+        }
+    };
+    assert(!isMultiplyable(U));
+}
+
+test "product" {
+    const T = struct {
+        const T = @This();
+        val: u32,
+        pub fn product(iter: anytype) T {
+            var acc: u32 = 0;
+            var it = iter;
+            while (it.next()) |v| {
+                acc += v.val;
+            }
+            return T{ .val = acc };
+        }
+    };
+    comptime assert(isMultiplyable(T));
+    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
+    const product = T.product(SliceIter(T).new(arr[0..]).map(struct {
+        fn call(x: *const T) T {
+            return x.*;
+        }
+    }.call));
+    try testing.expectEqual(T{ .val = 10 }, product);
+}
+
+pub const Multiplyable = struct {
+    pub fn Output(comptime T: type) type {
+        comptime assert(isMultiplyable(T));
+        return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
+    }
+
+    pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Iter = @TypeOf(iter);
+        const Item = Iter.Item;
+
+        comptime assert(isMultiplyable(Item));
+        var it = iter;
+        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item)) {
+            var acc: Item = 1;
+            while (it.next()) |val| {
+                acc *= val;
+            }
+            return acc;
+        } else if (comptime trait.isSingleItemPtr(Item)) {
+            const E = std.meta.Child(Item);
+            if (comptime trait.isNumber(E) or trait.is(.Vector)(E)) {
+                var acc: E = 1;
+                while (it.next()) |val| {
+                    acc *= val.*;
+                }
+                return acc;
+            } else {
+                return E.product(iter);
+            }
+        } else {
+            return Item.product(iter);
+        }
+    }
+};

@@ -205,19 +205,21 @@ fn DeriveProduct(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "product")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isMultiplyable(Iter.Item)) {
         return struct {
-            pub fn product(self: Iter) error{Overflow}!iter.ProductType(Iter.Item) {
+            pub fn product(self: Iter) meta.Multiplyable.Output(Iter.Item) {
                 return iter.Product(Iter.Item).product(self);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
 test "derive product int" {
     const Iter = range.MakeRangeIter(DeriveProduct, u32);
-    try testing.expectEqual(@as(u32, 3840), try Iter.new(@as(u32, 2), 11, 2).product());
-    try testing.expectEqual(@as(u32, 0), try Iter.new(@as(u32, 0), 10, 1).product());
+    try testing.expectEqual(@as(u32, 3840), Iter.new(@as(u32, 2), 11, 2).product());
+    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10, 1).product());
 }
 
 test "derive product ptr" {
@@ -232,26 +234,47 @@ fn DeriveSum(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "sum")) |_| {
         return struct {};
-    } else {
+    } else if (meta.isSumable(Iter.Item)) {
         return struct {
-            pub fn sum(self: Iter) error{Overflow}!iter.SumType(Iter.Item) {
+            pub fn sum(self: Iter) meta.Sumable.Output(Iter.Item) {
                 return iter.Sum(Iter.Item).sum(self);
             }
         };
+    } else {
+        return struct {};
     }
 }
 
 test "derive sum int" {
     const Iter = range.MakeRangeIter(DeriveSum, u32);
-    try testing.expectEqual(@as(u32, 0), try Iter.new(@as(u32, 0), 0, 1).sum());
-    try testing.expectEqual(@as(u32, 55), try Iter.new(@as(u32, 0), 11, 1).sum());
+    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 0, 1).sum());
+    try testing.expectEqual(@as(u32, 55), Iter.new(@as(u32, 0), 11, 1).sum());
 }
 
 test "derive sum ptr" {
-    var arr = [_]u32{ 1, 2, 3, 4, 5 };
-    const Iter = MakeSliceIter(DeriveSum, u32);
-    try testing.expectEqual(Iter.new(arr[0..0]).sum(), @as(u32, 0));
-    try testing.expectEqual(Iter.new(arr[0..]).sum(), @as(u32, 15));
+    {
+        var arr = [_]u32{ 1, 2, 3, 4, 5 };
+        const Iter = MakeSliceIter(DeriveSum, u32);
+        try testing.expectEqual(Iter.new(arr[0..0]).sum(), @as(u32, 0));
+        try testing.expectEqual(Iter.new(arr[0..]).sum(), @as(u32, 15));
+    }
+    {
+        const T = struct {
+            val: u32,
+            pub fn sum(it: anytype) meta.Sumable.Output(@TypeOf(it).Item) {
+                var jt = it;
+                var acc: @This() = .{ .val = 0 };
+                while (jt.next()) |t| {
+                    if (t.val % 2 == 0)
+                        acc.val += t.val;
+                }
+                return acc;
+            }
+        };
+        var arr1 = [_]T{ T{ .val = 1 }, T{ .val = 2 }, T{ .val = 3 }, T{ .val = 4 } };
+        const Iter = MakeSliceIter(DeriveSum, T);
+        try testing.expectEqual(T{ .val = 6 }, Iter.new(arr1[0..]).sum());
+    }
 }
 
 fn DeriveEq(comptime Iter: type) type {

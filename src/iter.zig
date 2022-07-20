@@ -5,6 +5,7 @@ const meta = @import("./type.zig");
 const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
 
+const trait = std.meta.trait;
 const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -25,22 +26,17 @@ fn is_func_type(comptime F: type) bool {
     };
 }
 
+fn func_arity(comptime F: type) usize {
+    comptime assert(is_func_type(F));
+    return @typeInfo(F).Fn.args.len;
+}
+
 fn is_unary_func_type(comptime F: type) bool {
-    const TypeInfo: type = std.builtin.TypeInfo;
-    const FInfo: TypeInfo = @typeInfo(F);
-    return switch (FInfo) {
-        .Fn => |f| f.args.len == 1,
-        else => false,
-    };
+    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 1;
 }
 
 fn is_binary_func_type(comptime F: type) bool {
-    const TypeInfo: type = std.builtin.TypeInfo;
-    const FInfo: TypeInfo = @typeInfo(F);
-    return switch (FInfo) {
-        .Fn => |f| f.args.len == 2,
-        else => false,
-    };
+    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 2;
 }
 
 pub fn domain(comptime F: type) type {
@@ -108,7 +104,6 @@ pub fn Cmp(comptime Item: type) type {
 /// - `ProductType(*const u32) == u32`
 ///   Remove pointer from pointer of number type.
 pub fn ProductType(comptime ty: type) type {
-    const trait = std.meta.trait;
     if (trait.isNumber(ty))
         return ty;
     if (trait.is(.Pointer)(ty) and trait.isNumber(meta.remove_pointer(ty)))
@@ -125,39 +120,16 @@ comptime {
     assert(ProductType(*const u32) == u32);
 }
 
-/// Define `Sum` trait
+/// Define `Product` trait
 ///
 /// # Details
 /// Trait to represent types that can be created by multiplying elements of an iterator.
-/// `Sum` itself is not an iterator.
+/// `Product` itself is not an iterator.
 ///
 pub fn Product(comptime Item: type) type {
     return struct {
-        fn product_ptr(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
-            var acc: R = 1;
-            var it = iter;
-            while (it.next()) |val| {
-                acc = try math.mul(R, acc, val.*);
-            }
-            return acc;
-        }
-
-        fn product_prim(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
-            var acc: R = 1;
-            var it = iter;
-            while (it.next()) |val| {
-                acc = try math.mul(R, acc, val);
-            }
-            return acc;
-        }
-
-        pub fn product(iter: anytype) error{Overflow}!ProductType(Item) {
-            const Iter = @TypeOf(iter);
-            comptime assert(meta.isIterator(Iter));
-            return if (comptime std.meta.trait.is(.Pointer)(Item))
-                product_ptr(Iter, ProductType(Item), iter)
-            else
-                product_prim(Iter, ProductType(Item), iter);
+        pub fn product(iter: anytype) meta.Multiplyable.Output(Item) {
+            return meta.Multiplyable.product(iter);
         }
     };
 }
@@ -170,49 +142,19 @@ comptime {
             return SliceIter(T);
         }
     }.call;
-    assert(@TypeOf(Product(I(u32).Item).product(I(u32).new(arr1[0..])) catch unreachable) == u32);
-    assert(@TypeOf(Product(I(i64).Item).product(I(i64).new(arr2[0..])) catch unreachable) == i64);
+    assert(@TypeOf(Product(I(u32).Item).product(I(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Product(I(i64).Item).product(I(i64).new(arr2[0..]))) == i64);
 }
 
 test "Product" {
     var arr = [_]u32{ 1, 1, 2, 3, 5, 8, 13, 21, 34 };
     const I = SliceIter(u32);
-    try testing.expectEqual(@as(u32, 1), try Product(I.Item).product(I.new(arr[5..5])));
-    try testing.expectEqual(@as(u32, 6), try Product(I.Item).product(I.new(arr[0..4])));
-    try testing.expectEqual(@as(u32, 104), try Product(I.Item).product(I.new(arr[5..7])));
+    try testing.expectEqual(@as(u32, 1), Product(I.Item).product(I.new(arr[5..5])));
+    try testing.expectEqual(@as(u32, 6), Product(I.Item).product(I.new(arr[0..4])));
+    try testing.expectEqual(@as(u32, 104), Product(I.Item).product(I.new(arr[5..7])));
 }
 
-/// The result type of `Sum` type for primitive types.
-///
-/// # Details
-/// Returns the type of result of summing up an iterators.
-/// This functions defines for primitive types like:
-///
-/// - `SumType(i64) == i64`
-///   Return type itself.
-/// - `SumType(.signed, Int(N)) == Int(.signed, N)`
-///   In general case.
-/// - `SumType(*const u32) == u32`
-///   Remove pointer from pointer of number type.
-pub fn SumType(comptime ty: type) type {
-    const trait = std.meta.trait;
-    if (trait.isNumber(ty))
-        return ty;
-    if (trait.is(.Pointer)(ty) and trait.isNumber(meta.remove_pointer(ty)))
-        return meta.remove_pointer(ty);
-    @compileError("iter.SumType: not defined: " ++ @typeName(ty));
-    // TODO: support simd
-    // if (std.meta.trait.is(.Vector)(ty))
-    //     return ty;
-}
-
-comptime {
-    assert(SumType(i64) == i64);
-    assert(SumType(std.meta.Int(.signed, 32)) == std.meta.Int(.signed, 32));
-    assert(SumType(*const u32) == u32);
-}
-
-/// Define `Sum` trait
+/// Summation on an Iterator
 ///
 /// # Details
 /// Trait to represent types that can be created by summing up an iterator.
@@ -220,31 +162,8 @@ comptime {
 ///
 pub fn Sum(comptime Item: type) type {
     return struct {
-        fn sum_ptr(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
-            var acc: R = 0;
-            var it = iter;
-            while (it.next()) |val| {
-                acc = try math.add(R, acc, val.*);
-            }
-            return acc;
-        }
-
-        fn sum_prim(comptime Iter: type, comptime R: type, iter: Iter) error{Overflow}!R {
-            var acc: R = 0;
-            var it = iter;
-            while (it.next()) |val| {
-                acc = try math.add(R, acc, val);
-            }
-            return acc;
-        }
-
-        pub fn sum(iter: anytype) error{Overflow}!SumType(Item) {
-            const Iter = @TypeOf(iter);
-            comptime assert(meta.isIterator(Iter));
-            return if (comptime std.meta.trait.is(.Pointer)(Item))
-                sum_ptr(Iter, SumType(Item), iter)
-            else
-                sum_prim(Iter, SumType(Item), iter);
+        pub fn sum(iter: anytype) meta.Sumable.Output(Item) {
+            return meta.Sumable.sum(iter);
         }
     };
 }
@@ -253,17 +172,17 @@ comptime {
     var arr1 = [_]u32{};
     var arr2 = [_]i64{};
     const I = SliceIter;
-    assert(@TypeOf(Sum(I(u32).Item).sum(I(u32).new(arr1[0..])) catch unreachable) == u32);
-    assert(@TypeOf(Sum(I(i64).Item).sum(I(i64).new(arr2[0..])) catch unreachable) == i64);
+    assert(@TypeOf(Sum(I(u32).Item).sum(I(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Sum(I(i64).Item).sum(I(i64).new(arr2[0..]))) == i64);
 }
 
 test "Sum" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     const I = SliceIter(u32);
-    try testing.expectEqual(@as(u32, 0), try Sum(I.Item).sum(I.new(arr[0..0])));
-    try testing.expectEqual(@as(u32, 15), try Sum(I.Item).sum(I.new(arr[0..5])));
-    try testing.expectEqual(@as(u32, 36), try Sum(I.Item).sum(I.new(arr[0..8])));
-    try testing.expectEqual(@as(u32, 55), try Sum(I.Item).sum(I.new(arr[0..])));
+    try testing.expectEqual(@as(u32, 0), Sum(I.Item).sum(I.new(arr[0..0])));
+    try testing.expectEqual(@as(u32, 15), Sum(I.Item).sum(I.new(arr[0..5])));
+    try testing.expectEqual(@as(u32, 36), Sum(I.Item).sum(I.new(arr[0..8])));
+    try testing.expectEqual(@as(u32, 55), Sum(I.Item).sum(I.new(arr[0..])));
 }
 
 pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
