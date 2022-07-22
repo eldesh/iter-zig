@@ -131,7 +131,7 @@ test "FlatMap" {
 }
 
 pub fn Cmp(comptime Item: type) type {
-    comptime assert(meta.isComparable(Item));
+    comptime assert(meta.isOrd(Item));
     return struct {
         pub fn cmp(iter: anytype, other: anytype) math.Order {
             const Iter = @TypeOf(iter);
@@ -143,7 +143,7 @@ pub fn Cmp(comptime Item: type) type {
 
             while (it.next()) |lval| {
                 if (ot.next()) |rval| {
-                    const ord = meta.Comparable.cmp(lval, rval);
+                    const ord = meta.Ord.cmp(lval, rval);
                     switch (ord) {
                         .eq => continue,
                         .lt, .gt => return ord,

@@ -91,7 +91,7 @@ fn DeriveCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cmp")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn cmp(self: Iter, other: anytype) math.Order {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -128,7 +128,7 @@ fn DeriveLe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "le")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn le(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -165,7 +165,7 @@ fn DeriveGe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "ge")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn ge(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -202,7 +202,7 @@ fn DeriveLt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "lt")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn lt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -239,7 +239,7 @@ fn DeriveGt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "gt")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn gt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -429,7 +429,7 @@ fn DeriveMax(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "max")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn max(self: Iter) ?Iter.Item {
                 var it = self;
@@ -440,7 +440,7 @@ fn DeriveMax(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (meta.Comparable.cmp(acc, val) == std.math.Order.lt) {
+                    if (meta.Ord.cmp(acc, val) == std.math.Order.lt) {
                         acc = val;
                     }
                 }
@@ -492,7 +492,7 @@ fn DeriveMaxBy(comptime Iter: type) type {
 
 test "derive max_by" {
     const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
-    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(meta.Comparable.set(*const u32));
+    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(meta.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 9), max_by);
 }
 
@@ -522,7 +522,7 @@ fn DeriveMaxByKey(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (meta.Comparable.cmp(f(&acc), f(&val)) == .lt) {
+                    if (meta.Ord.cmp(f(&acc), f(&val)) == .lt) {
                         acc = val;
                     }
                 }
@@ -565,7 +565,7 @@ fn DeriveMin(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "min")) |_| {
         return struct {};
-    } else if (meta.isComparable(Iter.Item)) {
+    } else if (meta.isOrd(Iter.Item)) {
         return struct {
             pub fn min(self: Iter) ?Iter.Item {
                 var it = self;
@@ -576,7 +576,7 @@ fn DeriveMin(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (meta.Comparable.cmp(acc, val) == std.math.Order.gt) {
+                    if (meta.Ord.cmp(acc, val) == std.math.Order.gt) {
                         acc = val;
                     }
                 }
@@ -628,7 +628,7 @@ fn DeriveMinBy(comptime Iter: type) type {
 
 test "derive min_by" {
     const Iter = range.MakeRangeIter(DeriveMinBy, u32);
-    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(meta.Comparable.set(*const u32));
+    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(meta.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 0), min_by);
 }
 
@@ -658,7 +658,7 @@ fn DeriveMinByKey(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (meta.Comparable.cmp(f(&acc), f(&val)) == .gt) {
+                    if (meta.Ord.cmp(f(&acc), f(&val)) == .gt) {
                         acc = val;
                     }
                 }

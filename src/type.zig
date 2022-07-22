@@ -8,6 +8,7 @@ const ArrayListIter = @import("./to_iter.zig").ArrayListIter;
 const SinglyLinkedListIter = @import("./to_iter.zig").SinglyLinkedListIter;
 const Range = range.RangeIter;
 
+const math = std.math;
 const trait = std.meta.trait;
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -156,18 +157,20 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
-fn isComparableType(comptime T: type) bool {
+fn isOrdType(comptime T: type) bool {
     comptime {
+        // requires PartialOrd
+        if (!isPartialOrdType(T))
+            return false;
         // primitive type
-        if (trait.isNumber(T) or trait.is(.Vector)(T))
+        if (trait.isIntegral(T))
+            return true;
+        if (trait.is(.Vector)(T) and trait.isIntegral(std.meta.Child(T)))
             return true;
         // complex type impl 'cmp' method
         if (have_fun(T, "cmp")) |ty| {
-            if (ty == fn (*const T, *const T) std.math.Order or
-                ty == fn (T, T) std.math.Order)
-            {
+            if (ty == fn (*const T, *const T) std.math.Order)
                 return true;
-            }
         }
         return false;
     }
@@ -175,38 +178,44 @@ fn isComparableType(comptime T: type) bool {
 
 // TODO: to be comparable tuple
 // TODO: to be comparable optional
-pub fn isComparable(comptime T: type) bool {
+pub fn isOrd(comptime T: type) bool {
     comptime {
         // comparable type or ..
-        if (isComparableType(T))
+        if (isOrdType(T))
             return true;
         // a pointer type that points to comparable type
-        if (trait.isSingleItemPtr(T) and isComparableType(std.meta.Child(T)))
+        if (trait.isSingleItemPtr(T) and isOrdType(std.meta.Child(T)))
             return true;
         return false;
     }
 }
 
 comptime {
-    assert(isComparable(u32));
-    assert(isComparable(*u32));
-    assert(!isComparable([]u32));
-    assert(!isComparable([*]u32));
-    assert(isComparable(i64));
-    assert(isComparable(*const i64));
-    assert(!isComparable(*[]const i64));
-    assert(!isComparable([8]u64));
-    assert(isComparable(f64));
+    assert(isOrd(u32));
+    assert(isOrd(*u32));
+    assert(!isOrd([]u32));
+    assert(!isOrd([*]u32));
+    assert(isOrd(i64));
+    assert(isOrd(*const i64));
+    assert(!isOrd(*[]const i64));
+    assert(!isOrd([8]u64));
+    assert(!isOrd(f64));
+    assert(!isOrd(f32));
     const C = struct {
         val: u32,
+        pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
+            _ = x;
+            _ = y;
+            return null;
+        }
         pub fn cmp(x: *const @This(), y: *const @This()) std.math.Order {
             _ = x;
             _ = y;
             return .lt;
         }
     };
-    assert(isComparable(C));
-    assert(isComparable(*C));
+    assert(isOrd(C));
+    assert(isOrd(*C));
     const D = struct {
         val: u32,
         pub fn cmp(x: @This(), y: @This()) std.math.Order {
@@ -215,29 +224,29 @@ comptime {
             return .lt;
         }
     };
-    assert(isComparable(D));
-    assert(isComparable(*D));
+    assert(!isOrd(D)); // partial_cmp is not implemented
+    assert(!isOrd(*D));
 }
 
-pub const Comparable = struct {
+pub const Ord = struct {
     /// General comparing function
     ///
     /// # Details
-    /// Compares `Comparable` values.
+    /// Compares `Ord` values.
     /// If the type of `x` is a primitive type, `cmp` would be used like `cmp(5, 6)`.
     /// And for others, like `cmp(&x, &y)` where the typeof x is comparable.
     pub fn cmp(x: anytype, y: @TypeOf(x)) std.math.Order {
         const T = @TypeOf(x);
-        comptime assert(isComparable(T));
+        comptime assert(isOrd(T));
 
         // primitive types
-        if (comptime trait.isNumber(T) or trait.is(.Vector)(T))
+        if (comptime trait.isIntegral(T) or trait.is(.Vector)(T))
             return std.math.order(x, y);
         // pointer that points to
         if (comptime trait.isSingleItemPtr(T)) {
             const E = std.meta.Child(T);
             // primitive types
-            if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
+            if (comptime trait.isIntegral(E) or trait.is(.Vector)(E))
                 return std.math.order(x.*, y.*);
         }
         // - composed type implements 'cmp' or
@@ -250,7 +259,7 @@ pub const Comparable = struct {
     /// # Details
     /// The type of 'cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
     /// To using the function specialized to a type, pass the function like `set(T)`.
-    pub fn set(comptime T: type) fn (T, T) std.math.Order {
+    pub fn on(comptime T: type) fn (T, T) std.math.Order {
         return struct {
             fn call(x: T, y: T) std.math.Order {
                 return cmp(x, y);
@@ -264,8 +273,122 @@ comptime {
     var pzero = &zero;
     const one = @as(u32, 1);
     var pone = &one;
-    assert(Comparable.set(u32)(0, 1) == .lt);
-    assert(Comparable.set(*const u32)(pzero, pone) == .lt);
+    assert(Ord.on(u32)(0, 1) == .lt);
+    assert(Ord.on(*const u32)(pzero, pone) == .lt);
+}
+
+fn isPartialOrdType(comptime T: type) bool {
+    comptime {
+        // primitive type
+        if (trait.isNumber(T))
+            return true;
+        if (trait.is(.Vector)(T) and trait.isNumber(std.meta.Child(T)))
+            return true;
+        // complex type impl 'partial_cmp' method
+        if (have_fun(T, "partial_cmp")) |ty| {
+            if (ty == fn (*const T, *const T) ?std.math.Order)
+                return true;
+        }
+        return false;
+    }
+}
+
+pub fn isPartialOrd(comptime T: type) bool {
+    comptime {
+        // comparable type or ..
+        if (isPartialOrdType(T))
+            return true;
+        // a pointer type that points to comparable type
+        if (trait.isSingleItemPtr(T) and isPartialOrdType(std.meta.Child(T)))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(isPartialOrd(i64));
+    assert(isPartialOrd(*const i64));
+    assert(!isPartialOrd(*[]const i64));
+    assert(!isPartialOrd([8]u64));
+    assert(isPartialOrd(f64));
+    const C = struct {
+        val: u32,
+        pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
+            _ = x;
+            _ = y;
+            return null;
+        }
+    };
+    assert(isPartialOrd(C));
+    assert(isPartialOrd(*C));
+    const D = struct {
+        val: u32,
+        pub fn partial_cmp(x: @This(), y: @This()) ?std.math.Order {
+            _ = x;
+            _ = y;
+            return null;
+        }
+    };
+    assert(!isPartialOrd(D));
+    assert(!isPartialOrd(*D));
+}
+
+pub const PartialOrd = struct {
+    fn partial_cmp_float(x: anytype, y: @TypeOf(x)) ?math.Order {
+        comptime assert(trait.isFloat(@TypeOf(x)));
+        if (math.isNan(x) or math.isNan(y))
+            return null;
+        if (math.isInf(x) or math.isInf(y))
+            return null;
+        return std.math.order(x, y);
+    }
+
+    pub fn partial_cmp(x: anytype, y: @TypeOf(x)) ?std.math.Order {
+        const T = @TypeOf(x);
+        comptime assert(isPartialOrd(T));
+
+        // primitive types
+        if (comptime trait.isFloat(T))
+            return partial_cmp_float(x, y);
+
+        // pointer that points to
+        if (comptime trait.isSingleItemPtr(T)) {
+            const E = std.meta.Child(T);
+            comptime assert(isPartialOrdType(E));
+            // primitive types
+            if (comptime trait.isFloat(E))
+                return partial_cmp_float(x.*, y.*);
+            if (comptime trait.isNumber(E))
+                return math.order(x.*, y.*);
+        }
+        // - composed type implements 'partial_cmp' or
+        // - pointer that points to 'partial_cmp'able type
+        return x.partial_cmp(y);
+    }
+
+    /// Acquire the specilized 'partial_cmp' function with 'T'.
+    ///
+    /// # Details
+    /// The type of 'partial_cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
+    /// To using the function specialized to a type, pass the function like `with(T)`.
+    pub fn on(comptime T: type) fn (T, T) ?std.math.Order {
+        return struct {
+            fn call(x: T, y: T) ?std.math.Order {
+                return partial_cmp(x, y);
+            }
+        }.call;
+    }
+};
+
+comptime {
+    const x = @as(f32, 0.5);
+    var px = &x;
+    const y = @as(f32, 1.1);
+    var py = &y;
+    assert(PartialOrd.on(f32)(x, y).? == .lt);
+    assert(PartialOrd.on(*const f32)(px, py).? == .lt);
+    assert(PartialOrd.on(f32)(x, math.nan(f32)) == null);
+    assert(PartialOrd.on(*const f32)(px, &math.nan(f32)) == null);
 }
 
 pub fn isSumableType(comptime T: type) bool {
