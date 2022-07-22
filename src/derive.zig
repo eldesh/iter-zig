@@ -15,6 +15,45 @@ const Order = std.math.Order;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveFlatMap(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "flat_map")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn flat_map(self: Iter, f: anytype) iter.FlatMap(Iter, @TypeOf(f), iter.codomain(@TypeOf(f))) {
+                const I = comptime iter.FlatMap(Iter, @TypeOf(f), iter.codomain(@TypeOf(f)));
+                return I.new(self, f);
+            }
+        };
+    }
+}
+
+test "derive flat_map" {
+    var arr = [_]u32{ 2, 3, 4 };
+    const Iter = MakeSliceIter(DeriveFlatMap, u32);
+    var flat_map = Iter.new(arr[0..]).flat_map(struct {
+        fn call(i: *u32) range.RangeIter(u32) {
+            return range.range(@as(u32, 0), i.*, 1);
+        }
+    }.call);
+    comptime {
+        assert(isIterator(Iter));
+        assert(isIterator(@TypeOf(flat_map)));
+    }
+    try testing.expectEqual(@as(?u32, 0), flat_map.next());
+    try testing.expectEqual(@as(?u32, 1), flat_map.next());
+    try testing.expectEqual(@as(?u32, 0), flat_map.next());
+    try testing.expectEqual(@as(?u32, 1), flat_map.next());
+    try testing.expectEqual(@as(?u32, 2), flat_map.next());
+    try testing.expectEqual(@as(?u32, 0), flat_map.next());
+    try testing.expectEqual(@as(?u32, 1), flat_map.next());
+    try testing.expectEqual(@as(?u32, 2), flat_map.next());
+    try testing.expectEqual(@as(?u32, 3), flat_map.next());
+    try testing.expectEqual(@as(?u32, null), flat_map.next());
+}
+
 fn DeriveCmp(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1425,6 +1464,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveFlatMap(Iter);
         pub usingnamespace DeriveFlatten(Iter);
         pub usingnamespace DeriveCmp(Iter);
         pub usingnamespace DeriveLe(Iter);

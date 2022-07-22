@@ -64,6 +64,72 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
+pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type, comptime U: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isIterator(U));
+    comptime assert(F == fn (Iter.Item) U);
+
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = U.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        f: fn (Iter.Item) U,
+        curr: ?U,
+
+        pub fn new(iter: Iter, f: fn (Iter.Item) U) Self {
+            return .{ .iter = iter, .f = f, .curr = null };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.curr == null) {
+                self.curr = if (self.iter.next()) |item| self.f(item) else null;
+            }
+            while (self.curr) |_| : (self.curr = if (self.iter.next()) |item| self.f(item) else null) {
+                if (self.curr.?.next()) |curr| {
+                    return curr;
+                }
+            }
+            return null;
+        }
+    };
+}
+
+pub fn FlatMap(comptime Iter: type, comptime F: type, comptime U: type) type {
+    return MakeFlatMap(derive.Derive, Iter, F, U);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Self ==
+        FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)));
+    assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Item == *u32);
+}
+
+test "FlatMap" {
+    const I = SliceIter;
+    const R = range.RangeIter;
+    const Iter = FlatMap(I(u32), fn (*u32) R(u32), R(u32));
+    var arr = [_]u32{ 2, 3, 4 };
+    var iter = Iter.new(I(u32).new(arr[0..]), struct {
+        fn call(i: *const u32) R(u32) {
+            return range.range(@as(u32, 0), i.*, 1);
+        }
+    }.call);
+
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, 3), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
 pub fn Cmp(comptime Item: type) type {
     comptime assert(meta.isComparable(Item));
     return struct {
