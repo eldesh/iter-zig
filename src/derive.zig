@@ -15,6 +15,38 @@ const Order = std.math.Order;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveNth(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "nth")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn nth(self: Iter, n: usize) ?Iter.Item {
+                var it = self;
+                var i = @as(usize, 0);
+                while (i < n) : (i += 1) {
+                    _ = it.next();
+                }
+                return it.next();
+            }
+        };
+    }
+}
+
+test "derive nth" {
+    var arr = [_]u32{ 2, 3, 4 };
+    const Iter = MakeSliceIter(DeriveNth, u32);
+    comptime {
+        assert(isIterator(Iter));
+    }
+    try testing.expectEqual(@as(u32, 2), Iter.new(arr[0..]).nth(0).?.*);
+    try testing.expectEqual(@as(u32, 3), Iter.new(arr[0..]).nth(1).?.*);
+    try testing.expectEqual(@as(u32, 4), Iter.new(arr[0..]).nth(2).?.*);
+    try testing.expectEqual(@as(?*u32, null), Iter.new(arr[0..]).nth(3));
+    try testing.expectEqual(@as(?*u32, null), Iter.new(arr[0..]).nth(4));
+}
+
 fn DeriveFlatMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1464,6 +1496,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveNth(Iter);
         pub usingnamespace DeriveFlatMap(Iter);
         pub usingnamespace DeriveFlatten(Iter);
         pub usingnamespace DeriveCmp(Iter);
