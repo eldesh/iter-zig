@@ -306,13 +306,14 @@ pub fn isPartialOrd(comptime T: type) bool {
 }
 
 comptime {
+    assert(isPartialOrd(u32));
+    assert(isPartialOrd(*const u64));
     assert(isPartialOrd(i64));
     assert(isPartialOrd(*const i64));
     assert(!isPartialOrd(*[]const i64));
     assert(!isPartialOrd([8]u64));
     assert(isPartialOrd(f64));
     const C = struct {
-        val: u32,
         pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
             _ = x;
             _ = y;
@@ -322,7 +323,6 @@ comptime {
     assert(isPartialOrd(C));
     assert(isPartialOrd(*C));
     const D = struct {
-        val: u32,
         pub fn partial_cmp(x: @This(), y: @This()) ?std.math.Order {
             _ = x;
             _ = y;
@@ -338,8 +338,6 @@ pub const PartialOrd = struct {
         comptime assert(trait.isFloat(@TypeOf(x)));
         if (math.isNan(x) or math.isNan(y))
             return null;
-        if (math.isInf(x) or math.isInf(y))
-            return null;
         return std.math.order(x, y);
     }
 
@@ -350,6 +348,8 @@ pub const PartialOrd = struct {
         // primitive types
         if (comptime trait.isFloat(T))
             return partial_cmp_float(x, y);
+        if (comptime trait.isNumber(T))
+            return math.order(x, y);
 
         // pointer that points to
         if (comptime trait.isSingleItemPtr(T)) {
