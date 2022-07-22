@@ -130,6 +130,34 @@ test "FlatMap" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
+pub fn PartialCmp(comptime Item: type) type {
+    comptime assert(meta.isPartialOrd(Item));
+    return struct {
+        pub fn partial_cmp(iter: anytype, other: anytype) ?math.Order {
+            const Iter = @TypeOf(iter);
+            const Other = @TypeOf(other);
+            comptime assert(Iter.Item == Item);
+            comptime assert(Other.Item == Item);
+            var it = iter;
+            var ot = other;
+
+            while (it.next()) |lval| {
+                if (ot.next()) |rval| {
+                    if (meta.PartialOrd.partial_cmp(lval, rval)) |ord| {
+                        switch (ord) {
+                            .eq => continue,
+                            .lt, .gt => return ord,
+                        }
+                    } else return null;
+                } else {
+                    return .gt;
+                }
+            }
+            return if (ot.next()) |_| .lt else .eq;
+        }
+    };
+}
+
 pub fn Cmp(comptime Item: type) type {
     comptime assert(meta.isOrd(Item));
     return struct {

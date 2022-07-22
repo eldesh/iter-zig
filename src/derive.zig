@@ -10,8 +10,6 @@ const testing = std.testing;
 const assert = std.debug.assert;
 const debug = std.debug.print;
 
-const Order = std.math.Order;
-
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
@@ -84,6 +82,61 @@ test "derive flat_map" {
     try testing.expectEqual(@as(?u32, 2), flat_map.next());
     try testing.expectEqual(@as(?u32, 3), flat_map.next());
     try testing.expectEqual(@as(?u32, null), flat_map.next());
+}
+
+fn DerivePartialCmp(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "partial_cmp")) |_| {
+        return struct {};
+    } else if (meta.isPartialOrd(Iter.Item)) {
+        return struct {
+            pub fn partial_cmp(self: Iter, other: anytype) ?math.Order {
+                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(Iter.Item == @TypeOf(other).Item);
+                return iter.PartialCmp(Iter.Item).partial_cmp(self, other);
+            }
+        };
+    } else {
+        return struct {};
+    }
+}
+
+test "derive partial_cmp Int" {
+    const Iter = range.MakeRangeIter(DerivePartialCmp, f64);
+    const Order = math.Order;
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 2), 11, 2)));
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(f64, 2), 2, 2).partial_cmp(Iter.new(@as(f64, 2), 2, 2)));
+    try testing.expectEqual(@as(?Order, .lt), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 3), 11, 2)));
+    try testing.expectEqual(@as(?Order, .gt), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 2), 9, 2)));
+}
+
+test "derive partial_cmp Ptr" {
+    const Iter = MakeSliceIter(DerivePartialCmp, f32);
+    const Order = math.Order;
+    {
+        var arr1 = [_]f32{ 0.0, 1.1, 2.2, 3.3 };
+        var arr2 = [_]f32{ 0.0, 1.1, 2.2, 3.3 };
+        try testing.expectEqual(@as(?Order, .eq), Iter.new(arr1[0..]).partial_cmp(Iter.new(arr2[0..])));
+        try testing.expectEqual(@as(?Order, .eq), Iter.new(arr1[0..0]).partial_cmp(Iter.new(arr2[0..0])));
+        try testing.expectEqual(@as(?Order, .lt), Iter.new(arr1[0..2]).partial_cmp(Iter.new(arr2[0..3])));
+        try testing.expectEqual(@as(?Order, .gt), Iter.new(arr1[0..3]).partial_cmp(Iter.new(arr2[0..2])));
+    }
+    {
+        var arr1 = [_]f32{math.nan(f32)};
+        var arr2 = [_]f32{};
+        try testing.expectEqual(@as(?Order, .gt), Iter.new(arr1[0..]).partial_cmp(Iter.new(arr2[0..])));
+    }
+    {
+        var arr1 = [_]f32{math.nan(f32)};
+        var arr2 = [_]f32{math.nan(f32)};
+        try testing.expectEqual(@as(?Order, null), Iter.new(arr1[0..]).partial_cmp(Iter.new(arr2[0..])));
+    }
+    {
+        var arr1 = [_]f32{ 1.5, math.nan(f32) };
+        var arr2 = [_]f32{ 1.5, math.nan(f32) };
+        try testing.expectEqual(@as(?Order, null), Iter.new(arr1[0..]).partial_cmp(Iter.new(arr2[0..])));
+    }
 }
 
 fn DeriveCmp(comptime Iter: type) type {
@@ -471,7 +524,7 @@ fn DeriveMaxBy(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn max_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) Order) ?Iter.Item {
+            pub fn max_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = undefined;
                 if (it.next()) |val| {
@@ -499,7 +552,7 @@ test "derive max_by" {
 test "derive max_by empty" {
     const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
     const max_by = Iter.new(@as(u32, 0), 0, 1).max_by(struct {
-        fn call(x: *const u32, y: *const u32) Order {
+        fn call(x: *const u32, y: *const u32) math.Order {
             return math.order(x.*, y.*);
         }
     }.call);
@@ -576,7 +629,7 @@ fn DeriveMin(comptime Iter: type) type {
                     return null;
                 }
                 while (it.next()) |val| {
-                    if (meta.Ord.cmp(acc, val) == std.math.Order.gt) {
+                    if (meta.Ord.cmp(acc, val) == math.Order.gt) {
                         acc = val;
                     }
                 }
@@ -607,7 +660,7 @@ fn DeriveMinBy(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn min_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) Order) ?Iter.Item {
+            pub fn min_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = undefined;
                 if (it.next()) |val| {
@@ -635,7 +688,7 @@ test "derive min_by" {
 test "derive min_by empty" {
     const Iter = range.MakeRangeIter(DeriveMinBy, u32);
     const min_by = Iter.new(@as(u32, 0), 0, 1).min_by(struct {
-        fn call(x: *const u32, y: *const u32) Order {
+        fn call(x: *const u32, y: *const u32) math.Order {
             return math.order(x.*, y.*);
         }
     }.call);
@@ -1499,6 +1552,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveNth(Iter);
         pub usingnamespace DeriveFlatMap(Iter);
         pub usingnamespace DeriveFlatten(Iter);
+        pub usingnamespace DerivePartialCmp(Iter);
         pub usingnamespace DeriveCmp(Iter);
         pub usingnamespace DeriveLe(Iter);
         pub usingnamespace DeriveGe(Iter);

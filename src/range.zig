@@ -9,7 +9,7 @@ const assert = std.debug.assert;
 const testing = std.testing;
 
 pub fn MakeRangeIter(comptime F: fn (type) type, comptime T: type) type {
-    comptime assert(std.meta.trait.isIntegral(T));
+    comptime assert(std.meta.trait.isNumber(T));
 
     return struct {
         pub const Self: type = @This();
