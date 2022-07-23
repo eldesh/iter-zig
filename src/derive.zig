@@ -1065,6 +1065,55 @@ test "derive fold" {
     try testing.expectEqual(@as(u32, 15), sum);
 }
 
+fn DeriveTryFold(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "try_fold")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn try_fold(self: Iter, init: anytype, f: anytype) iter.codomain(@TypeOf(f)) {
+                comptime {
+                    const B = @TypeOf(init);
+                    const F = @TypeOf(f);
+                    const R = iter.codomain(F);
+                    assert(iter.is_binary_func_type(F));
+                    assert(std.meta.trait.is(.ErrorUnion)(R));
+                    assert(F == fn (B, Iter.Item) iter.err_type(R)!B);
+                }
+                var it = self;
+                var acc = init;
+                while (it.next()) |value| {
+                    acc = try f(acc, value);
+                }
+                return acc;
+            }
+        };
+    }
+}
+
+test "derive try_fold" {
+    {
+        var arr = [_]u32{ 1, 2, 3, 4, 5 };
+        const Iter = MakeSliceIter(DeriveTryFold, u32);
+        try testing.expectEqual(@as(error{Overflow}!u32, 15), Iter.new(arr[0..]).try_fold(@as(u32, 0), struct {
+            fn call(acc: u32, v: *u32) error{Overflow}!u32 {
+                return math.add(u32, acc, v.*);
+            }
+        }.call));
+    }
+    {
+        var arr = [_]u8{ 100, 150, 200 };
+        const Iter = MakeSliceIter(DeriveTryFold, u8);
+        const Result = error{Overflow}!u8;
+        try testing.expectEqual(@as(Result, error.Overflow), Iter.new(arr[0..]).try_fold(@as(u8, 0), struct {
+            fn call(acc: u8, v: *u8) Result {
+                return math.add(u8, acc, v.*);
+            }
+        }.call));
+    }
+}
+
 fn DeriveForeach(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1662,6 +1711,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveScan(Iter);
         pub usingnamespace DeriveStepBy(Iter);
         pub usingnamespace DeriveFold(Iter);
+        pub usingnamespace DeriveTryFold(Iter);
         pub usingnamespace DeriveForeach(Iter);
         pub usingnamespace DeriveTakeWhile(Iter);
         pub usingnamespace DeriveSkipWhile(Iter);
