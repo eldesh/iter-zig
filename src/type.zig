@@ -514,32 +514,35 @@ pub const Sumable = struct {
         return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
     }
 
-    pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
+    // summing up on primitive types or pointer types that points to primitive type
+    fn sum_prim(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        const Item = Iter.Item;
+        const is_ptr = comptime trait.isSingleItemPtr(Iter.Item);
+        const T = if (is_ptr) std.meta.Child(Iter.Item) else Iter.Item;
+        var acc: T = 0;
+        var it = iter;
+        while (it.next()) |val| {
+            acc += if (comptime is_ptr) val.* else val;
+        }
+        return acc;
+    }
+
+    pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Item = @TypeOf(iter).Item;
 
         comptime assert(isSumable(Item));
-        var it = iter;
-        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item)) {
-            var acc: Item = 0;
-            while (it.next()) |val| {
-                acc += val;
-            }
-            return acc;
-        } else if (comptime trait.isSingleItemPtr(Item)) {
+        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item))
+            return sum_prim(iter);
+
+        if (comptime trait.isSingleItemPtr(Item)) {
             const E = std.meta.Child(Item);
-            if (comptime trait.isNumber(E) or trait.is(.Vector)(E)) {
-                var acc: E = 0;
-                while (it.next()) |val| {
-                    acc += val.*;
-                }
-                return acc;
-            } else {
-                return E.sum(iter);
-            }
-        } else {
-            return Item.sum(iter);
+            return if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
+                sum_prim(iter)
+            else
+                E.sum(iter);
         }
+
+        return Item.sum(iter);
     }
 };
 
@@ -666,31 +669,34 @@ pub const Multiplyable = struct {
         return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
     }
 
-    pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
+    // product on primitive types or pointer types that points to primitive type
+    fn prod_prim(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        const Item = Iter.Item;
+        const is_ptr = comptime trait.isSingleItemPtr(Iter.Item);
+        const T = if (is_ptr) std.meta.Child(Iter.Item) else Iter.Item;
+        var acc: T = 1;
+        var it = iter;
+        while (it.next()) |val| {
+            acc *= if (comptime is_ptr) val.* else val;
+        }
+        return acc;
+    }
+
+    pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Item = @TypeOf(iter).Item;
 
         comptime assert(isMultiplyable(Item));
-        var it = iter;
-        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item)) {
-            var acc: Item = 1;
-            while (it.next()) |val| {
-                acc *= val;
-            }
-            return acc;
-        } else if (comptime trait.isSingleItemPtr(Item)) {
+        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item))
+            return prod_prim(iter);
+
+        if (comptime trait.isSingleItemPtr(Item)) {
             const E = std.meta.Child(Item);
-            if (comptime trait.isNumber(E) or trait.is(.Vector)(E)) {
-                var acc: E = 1;
-                while (it.next()) |val| {
-                    acc *= val.*;
-                }
-                return acc;
-            } else {
-                return E.product(iter);
-            }
-        } else {
-            return Item.product(iter);
+            return if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
+                prod_prim(iter)
+            else
+                E.product(iter);
         }
+
+        return Item.product(iter);
     }
 };
