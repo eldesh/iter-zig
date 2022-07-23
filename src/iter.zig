@@ -26,16 +26,16 @@ fn is_func_type(comptime F: type) bool {
     };
 }
 
-fn func_arity(comptime F: type) usize {
+pub fn func_arity(comptime F: type) usize {
     comptime assert(is_func_type(F));
     return @typeInfo(F).Fn.args.len;
 }
 
-fn is_unary_func_type(comptime F: type) bool {
+pub fn is_unary_func_type(comptime F: type) bool {
     return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 1;
 }
 
-fn is_binary_func_type(comptime F: type) bool {
+pub fn is_binary_func_type(comptime F: type) bool {
     return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 2;
 }
 
@@ -62,6 +62,24 @@ comptime {
     assert(codomain(fn (u32) u16) == u16);
     assertEqualTuple(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
     assert(codomain(fn (u32) []const u8) == []const u8);
+}
+
+/// Returns error type of the error union type `R`.
+pub fn err_type(comptime R: type) type {
+    comptime assert(trait.is(.ErrorUnion)(R));
+    return comptime @typeInfo(R).ErrorUnion.error_set;
+}
+
+/// Returns 'right' (not error) type of the error union type `R`.
+pub fn ok_type(comptime R: type) type {
+    comptime assert(trait.is(.ErrorUnion)(R));
+    return comptime @typeInfo(R).ErrorUnion.payload;
+}
+
+comptime {
+    const FooError = error{Foo};
+    assert(err_type(FooError!u32) == FooError);
+    assert(ok_type(FooError!u32) == u32);
 }
 
 pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: type) type {
