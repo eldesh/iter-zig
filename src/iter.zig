@@ -64,6 +64,60 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
+pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isIterator(Other));
+
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = tuple.Tuple2(Iter.Item, Other.Item);
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        other: Other,
+
+        pub fn new(iter: Iter, other: Other) Self {
+            return .{ .iter = iter, .other = other };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            while (self.iter.next()) |it| {
+                if (self.other.next()) |jt| {
+                    return tuple.tuple2(it, jt);
+                }
+                return null;
+            }
+            return null;
+        }
+    };
+}
+
+pub fn Zip(comptime Iter: type, comptime Other: type) type {
+    return MakeZip(derive.Derive, Iter, Other);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Zip(I(u32), I(u32)).Self == Zip(I(u32), I(u32)));
+    assert(Zip(I(u32), I(u32)).Item == tuple.Tuple2(*u32, *u32));
+}
+
+test "Zip" {
+    const str = []const u8;
+    const I = SliceIter;
+    const R = range.RangeIter;
+    const Iter = Zip(I(str), R(u32));
+    var arr = [_]str{ "foo", "bar", "buzz" };
+    var zip = Iter.new(I(str).new(arr[0..]), range.range(@as(u32, 2), 10, 1));
+
+    // specialized ctor to Iter.Item
+    const tup = tuple.Tuple2(*str, u32).new;
+    try testing.expectEqual(tup(&arr[0], 2), zip.next().?);
+    try testing.expectEqual(tup(&arr[1], 3), zip.next().?);
+    try testing.expectEqual(tup(&arr[2], 4), zip.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), zip.next());
+}
+
 pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type, comptime U: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.isIterator(U));

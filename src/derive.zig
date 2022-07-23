@@ -13,6 +13,56 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveZip(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "zip")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn zip(self: Iter, other: anytype) iter.Zip(Iter, @TypeOf(other)) {
+                return iter.Zip(Iter, @TypeOf(other)).new(self, other);
+            }
+        };
+    }
+}
+
+test "derive zip" {
+    const R = union(enum) {
+        Ok: u32,
+        Err: u32,
+    };
+    {
+        var arr1 = [_]u32{ 2, 3, 4 };
+        var arr2 = [_]R{ .{ .Ok = 5 }, .{ .Err = 4 }, .{ .Ok = 0 } };
+        const Iter = MakeSliceIter(DeriveZip, u32);
+        var zip = Iter.new(arr1[0..]).zip(to_iter.SliceIter(R).new(arr2[0..]));
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(zip)));
+        }
+        const t = tuple.Tuple2(*u32, *R).new;
+        try testing.expectEqual(t(&arr1[0], &arr2[0]), zip.next().?);
+        try testing.expectEqual(t(&arr1[1], &arr2[1]), zip.next().?);
+        try testing.expectEqual(t(&arr1[2], &arr2[2]), zip.next().?);
+        try testing.expectEqual(@as(?tuple.Tuple2(*u32, *R), null), zip.next());
+    }
+    {
+        var arr1 = [_]u32{ 2, 3, 4 };
+        const Iter = MakeSliceIter(DeriveZip, u32);
+        var zip = Iter.new(arr1[0..]).zip(range.range(@as(u64, 3), 10, 2));
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(zip)));
+        }
+        const t = tuple.Tuple2(*u32, u64).new;
+        try testing.expectEqual(t(&arr1[0], 3), zip.next().?);
+        try testing.expectEqual(t(&arr1[1], 5), zip.next().?);
+        try testing.expectEqual(t(&arr1[2], 7), zip.next().?);
+        try testing.expectEqual(@as(?tuple.Tuple2(*u32, u64), null), zip.next());
+    }
+}
+
 fn DeriveLast(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1629,6 +1679,7 @@ pub fn Derive(comptime Iter: type) type {
         pub usingnamespace DeriveFindMap(Iter);
         pub usingnamespace DeriveInspect(Iter);
         pub usingnamespace DeriveFuse(Iter);
+        pub usingnamespace DeriveZip(Iter);
     };
 }
 
