@@ -616,7 +616,7 @@ comptime {
             var acc = T{ .val = 0 };
             var it = iter;
             while (it.next()) |v| {
-                acc.val += v.val;
+                acc.val *= v.val;
             }
             return acc;
         }
@@ -629,7 +629,7 @@ comptime {
             var acc = U{ .val = 0 };
             var it = iter;
             while (it.next()) |v| {
-                acc.val += v;
+                acc.val *= v;
             }
             return acc;
         }
@@ -642,10 +642,10 @@ test "product" {
         const T = @This();
         val: u32,
         pub fn product(iter: anytype) T {
-            var acc: u32 = 0;
+            var acc: u32 = 1;
             var it = iter;
             while (it.next()) |v| {
-                acc += v.val;
+                acc *= v.val;
             }
             return T{ .val = acc };
         }
@@ -657,7 +657,7 @@ test "product" {
             return x.*;
         }
     }.call));
-    try testing.expectEqual(T{ .val = 10 }, product);
+    try testing.expectEqual(T{ .val = 24 }, product);
 }
 
 pub const Multiplyable = struct {

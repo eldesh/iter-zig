@@ -12,6 +12,8 @@ const assert = std.debug.assert;
 const assertEqualTuple = meta.assertEqualTuple;
 const debug = std.debug.print;
 
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const SliceIter = to_iter.SliceIter;
 const ArrayIter = to_iter.ArrayIter;
 const Tuple1 = tuple.Tuple1;
