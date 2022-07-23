@@ -386,9 +386,9 @@ pub fn Flatten(comptime Iter: type) type {
 
 comptime {
     const Range = range.RangeIter;
-    assert(Flatten(IterMap(Range(u32), fn (u32) Range(u32))).Self == Flatten(IterMap(Range(u32), fn (u32) Range(u32))));
-    assert(Flatten(IterMap(Range(u32), fn (u32) Range(u32))).Item == u32);
-    assert(meta.isIterator(Flatten(IterMap(Range(u32), fn (u32) Range(u32)))));
+    assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Self == Flatten(Map(Range(u32), fn (u32) Range(u32))));
+    assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Item == u32);
+    assert(meta.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
 }
 
 test "Flatten" {
@@ -398,8 +398,8 @@ test "Flatten" {
             return Range(u32).new(@as(u32, 0), x, 1);
         }
     };
-    const Iter = Flatten(IterMap(Range(u32), fn (u32) Range(u32)));
-    var iter = Iter.new(IterMap(Range(u32), fn (u32) Range(u32))
+    const Iter = Flatten(Map(Range(u32), fn (u32) Range(u32)));
+    var iter = Iter.new(Map(Range(u32), fn (u32) Range(u32))
         .new(Gen.call, Range(u32).new(@as(u32, 1), 4, 1)));
 
     // range(0, 1)
@@ -414,7 +414,7 @@ test "Flatten" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
-pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
+pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
 
     return struct {
@@ -439,17 +439,17 @@ pub fn MakeIterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: 
     };
 }
 
-pub fn IterMap(comptime Iter: type, comptime F: type) type {
-    return MakeIterMap(derive.Derive, Iter, F);
+pub fn Map(comptime Iter: type, comptime F: type) type {
+    return MakeMap(derive.Derive, Iter, F);
 }
 
 comptime {
-    assert(IterMap(SliceIter(u32), fn (*const u32) []u8).Self == IterMap(SliceIter(u32), fn (*const u32) []u8));
-    assert(IterMap(SliceIter(u32), fn (*const u32) []u8).Item == []u8);
-    assert(meta.isIterator(IterMap(SliceIter(u32), fn (*const u32) []u8)));
+    assert(Map(SliceIter(u32), fn (*const u32) []u8).Self == Map(SliceIter(u32), fn (*const u32) []u8));
+    assert(Map(SliceIter(u32), fn (*const u32) []u8).Item == []u8);
+    assert(meta.isIterator(Map(SliceIter(u32), fn (*const u32) []u8)));
 }
 
-test "IterMap" {
+test "Map" {
     const Square = struct {
         pub fn f(v: *const u32) u64 {
             return v.* * v.*;
@@ -457,7 +457,7 @@ test "IterMap" {
     };
     var arr = [_]u32{ 1, 2, 3 };
     var arr_iter = ArrayIter(u32, arr.len).new(&arr);
-    var iter = IterMap(ArrayIter(u32, arr.len), fn (*const u32) u64).new(Square.f, arr_iter);
+    var iter = Map(ArrayIter(u32, arr.len), fn (*const u32) u64).new(Square.f, arr_iter);
     try testing.expectEqual(@as(?u64, 1), iter.next());
     try testing.expectEqual(@as(?u64, 4), iter.next());
     try testing.expectEqual(@as(?u64, 9), iter.next());

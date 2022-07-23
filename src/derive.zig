@@ -1634,8 +1634,8 @@ fn DeriveMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn map(self: Iter, f: anytype) iter.IterMap(Iter, @TypeOf(f)) {
-                return iter.IterMap(Iter, @TypeOf(f)).new(f, self);
+            pub fn map(self: Iter, f: anytype) iter.Map(Iter, @TypeOf(f)) {
+                return iter.Map(Iter, @TypeOf(f)).new(f, self);
             }
         };
     }
@@ -1808,7 +1808,7 @@ test "derive" {
     const Iter = MakeSliceIter(Derive, u32);
     var mfm = Iter.new(arr[0..]).chain(Iter.new(arr2[0..]))
         .map(Triple.call_ref) // derive map for SliceIter
-        .filter(IsEven.call) // more derive filter for IterMap
+        .filter(IsEven.call) // more derive filter for Map
         .map(Triple.call) // more more derive map for IterFilter
         .filter_map(Less.call);
     comptime {
