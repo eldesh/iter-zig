@@ -1175,7 +1175,7 @@ test "Fuse" {
         pub const Item: type = u32;
         val: u32,
         div: u32,
-        fn next(self: *Self) ?Item {
+        pub fn next(self: *Self) ?Item {
             if (self.val <= self.div or self.val % self.div == 0) {
                 const val = self.val;
                 self.val += 1;
