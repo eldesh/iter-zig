@@ -13,6 +13,44 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveLast(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "last")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn last(self: Iter) ?Iter.Item {
+                var it = self;
+                var ls: ?Iter.Item = null;
+                while (it.next()) |val| {
+                    ls = val;
+                }
+                return ls;
+            }
+        };
+    }
+}
+
+test "derive last" {
+    {
+        var arr = [_]u32{ 2, 3, 4 };
+        const Iter = MakeSliceIter(DeriveLast, u32);
+        comptime {
+            assert(isIterator(Iter));
+        }
+        try testing.expectEqual(@as(u32, 4), Iter.new(arr[0..]).last().?.*);
+    }
+    {
+        var arr = [_]u32{};
+        const Iter = MakeSliceIter(DeriveLast, u32);
+        comptime {
+            assert(isIterator(Iter));
+        }
+        try testing.expectEqual(@as(?*u32, null), Iter.new(arr[0..]).last());
+    }
+}
+
 fn DeriveNth(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1550,6 +1588,7 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveNth(Iter);
+        pub usingnamespace DeriveLast(Iter);
         pub usingnamespace DeriveFlatMap(Iter);
         pub usingnamespace DeriveFlatten(Iter);
         pub usingnamespace DerivePartialCmp(Iter);
