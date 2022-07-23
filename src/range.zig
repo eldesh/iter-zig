@@ -43,6 +43,8 @@ pub fn RangeIter(comptime Item: type) type {
 comptime {
     assert(meta.isIterator(RangeIter(u32)));
     assert(meta.isIterator(RangeIter(i64)));
+    assert(meta.isCopyable(RangeIter(i64)));
+    assert(meta.isClonable(RangeIter(u64)));
 }
 
 pub fn range(start: anytype, upper: @TypeOf(start), step: ?@TypeOf(start)) RangeIter(@TypeOf(start)) {

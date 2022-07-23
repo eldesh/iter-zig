@@ -124,6 +124,8 @@ pub fn have_fun(comptime T: type, name: []const u8) ?type {
     };
 
     inline for (decls) |decl| {
+        if (!decl.is_pub)
+            continue;
         if (std.mem.eql(u8, decl.name, name)) {
             switch (decl.data) {
                 .Fn => |fndecl| return fndecl.fn_type,
@@ -157,7 +159,7 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
-fn isCopyableType(comptime T: type) bool {
+pub fn isCopyable(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
             return true;
@@ -166,26 +168,26 @@ fn isCopyableType(comptime T: type) bool {
         if (trait.isNumber(T))
             return true;
         if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
-            return isCopyableType(std.meta.Child(T));
+            return isCopyable(std.meta.Child(T));
         if (trait.is(.Fn)(T))
             return true;
         if (trait.is(.Enum)(T))
-            return isCopyableType(@typeInfo(T).Enum.tag_type);
+            return isCopyable(@typeInfo(T).Enum.tag_type);
         if (trait.is(.EnumLiteral)(T))
             return true;
         if (trait.is(.ErrorSet)(T))
             return true;
         if (trait.is(.ErrorUnion)(T))
-            return isCopyableType(@typeInfo(T).ErrorUnion.error_set) and isCopyableType(@typeInfo(T).ErrorUnion.payload);
+            return isCopyable(@typeInfo(T).ErrorUnion.error_set) and isCopyable(@typeInfo(T).ErrorUnion.payload);
         if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
             if (trait.is(.Union)(T)) {
                 if (@typeInfo(T).Union.tag_type) |tag| {
-                    if (!isCopyableType(tag))
+                    if (!isCopyable(tag))
                         return false;
                 }
             }
             inline for (std.meta.fields(T)) |field| {
-                if (!isCopyableType(field.field_type))
+                if (!isCopyable(field.field_type))
                     return false;
             }
             // all type of fields are copyable
@@ -196,25 +198,147 @@ fn isCopyableType(comptime T: type) bool {
 }
 
 comptime {
-    assert(isCopyableType(u32));
-    assert(isCopyableType(struct { val: u32 }));
-    assert(isCopyableType(f64));
-    assert(isCopyableType(?f64));
-    assert(isCopyableType(struct { val: f32 }));
-    assert(!isCopyableType([]const u8));
-    assert(!isCopyableType([*]f64));
-    assert(isCopyableType([5]u32));
+    assert(isCopyable(u32));
+    assert(isCopyable(struct { val: u32 }));
+    assert(isCopyable(f64));
+    assert(!isCopyable(*u64));
+    assert(isCopyable(?f64));
+    assert(isCopyable(struct { val: f32 }));
+    assert(!isCopyable([]const u8));
+    assert(!isCopyable([*]f64));
+    assert(isCopyable([5]u32));
     const U = union(enum) { Tag1, Tag2, Tag3 };
-    assert(isCopyableType(U));
-    assert(!isCopyableType(*U));
-    assert(!isCopyableType(*const U));
+    assert(isCopyable(U));
+    assert(!isCopyable(*U));
+    assert(!isCopyable(*const U));
     const OverflowError = error{Overflow};
-    assert(isCopyableType(@TypeOf(.Overflow))); // EnumLiteral
-    assert(isCopyableType(OverflowError)); // ErrorSet
-    assert(isCopyableType(OverflowError![2]U)); // ErrorUnion
-    assert(isCopyableType(?(error{Overflow}![2]U)));
-    assert(isCopyableType(struct { val: ?(error{Overflow}![2]U) }));
-    assert(!isCopyableType(struct { val: ?(error{Overflow}![2]*const U) }));
+    assert(isCopyable(@TypeOf(.Overflow))); // EnumLiteral
+    assert(isCopyable(OverflowError)); // ErrorSet
+    assert(isCopyable(OverflowError![2]U)); // ErrorUnion
+    assert(isCopyable(?(error{Overflow}![2]U)));
+    assert(isCopyable(struct { val: ?(error{Overflow}![2]U) }));
+    assert(!isCopyable(struct { val: ?(error{Overflow}![2]*const U) }));
+}
+
+fn isClonableType(comptime T: type) bool {
+    comptime {
+        if (isCopyable(T))
+            return true;
+
+        if (have_type(T, "Self")) |Self| {
+            if (have_type(T, "CloneError")) |CloneError| {
+                if (have_fun(T, "clone")) |clone_ty| {
+                    if (clone_ty == fn (Self) CloneError!Self)
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+pub fn isClonable(comptime T: type) bool {
+    comptime {
+        if (isClonableType(T))
+            return true;
+        if (trait.isSingleItemPtr(T) and isClonableType(std.meta.Child(T)))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(isClonable(u32));
+    assert(isClonable(f64));
+    assert(isClonable(*u32));
+    assert(isClonable([16]u32));
+    assert(!isClonable([]u32));
+    const T = struct {
+        pub const Self: type = @This();
+        pub const CloneError: type = error{CloneError};
+        x: u32,
+        pub fn clone(self: Self) CloneError!Self {
+            return .{ .x = self.x };
+        }
+    };
+    assert(isClonable(T));
+    assert(isClonable([2]T));
+    assert(!isClonable([]const T));
+    assert(isClonable(*T));
+    assert(!isClonable([*]const T));
+    assert(isClonable(struct { val: [2]T }));
+    assert(isClonable(*struct { val: [2]T }));
+}
+
+pub const Clonable = struct {
+    pub fn ResultType(comptime T: type) type {
+        comptime assert(isClonable(T));
+        const Out = if (trait.isSingleItemPtr(T)) std.meta.Child(T) else T;
+        const Err = have_type(T, "CloneError") orelse error{};
+        return Err!Out;
+    }
+
+    pub fn clone(value: anytype) ResultType(@TypeOf(value)) {
+        const T = @TypeOf(value);
+        comptime assert(isClonable(T));
+
+        if (comptime isCopyable(T))
+            return value;
+
+        if (comptime trait.isSingleItemPtr(T)) {
+            if (comptime isCopyable(std.meta.Child(T)))
+                return value.*;
+        }
+        return value.clone();
+    }
+};
+
+test "Clone" {
+    const clone = Clonable.clone;
+    try testing.expectEqual(@as(error{}!u32, 5), clone(@as(u32, 5)));
+    try testing.expectEqual(@as(error{}!comptime_int, 5), clone(5));
+    try testing.expectEqual(@as(error{}![3]u32, [_]u32{ 1, 2, 3 }), clone([_]u32{ 1, 2, 3 }));
+    const val: u64 = 42;
+    const ptr = &val;
+    try testing.expectEqual(@as(error{}!u64, ptr.*), clone(ptr));
+
+    var seq = range.range(@as(u32, 0), 5, 1);
+    // consume head of 3elems
+    try testing.expectEqual(@as(u32, 0), seq.next().?);
+    try testing.expectEqual(@as(u32, 1), seq.next().?);
+    try testing.expectEqual(@as(u32, 2), seq.next().?);
+    // branch from the sequence
+    var seq2 = Clonable.clone(seq) catch unreachable;
+    try testing.expectEqual(@as(u32, 3), seq2.next().?);
+    try testing.expectEqual(@as(u32, 4), seq2.next().?);
+    try testing.expectEqual(@as(?u32, null), seq2.next());
+    // resume seq
+    try testing.expectEqual(@as(u32, 3), seq.next().?);
+    try testing.expectEqual(@as(u32, 4), seq.next().?);
+    try testing.expectEqual(@as(?u32, null), seq.next());
+
+    const T = struct {
+        pub const Self: type = @This();
+        pub const CloneError: type = std.mem.Allocator.Error;
+        ss: []u8,
+        pub fn new(ss: []u8) Self {
+            return .{ .ss = ss };
+        }
+        pub fn clone(self: Self) CloneError!Self {
+            var ss = try testing.allocator.dupe(u8, self.ss);
+            return Self{ .ss = ss };
+        }
+        pub fn destroy(self: *Self) void {
+            testing.allocator.free(self.ss);
+            self.ss.len = 0;
+        }
+    };
+
+    var orig = T.new(try testing.allocator.dupe(u8, "foo"));
+    defer orig.destroy();
+    var new = clone(orig);
+    defer if (new) |*obj| obj.destroy() else |_| {};
+    try testing.expect(std.mem.eql(u8, orig.ss, (try new).ss));
 }
 
 fn isOrdType(comptime T: type) bool {
