@@ -157,6 +157,66 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
+fn isCopyableType(comptime T: type) bool {
+    comptime {
+        if (trait.is(.Void)(T))
+            return true;
+        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
+            return true;
+        if (trait.isNumber(T))
+            return true;
+        if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
+            return isCopyableType(std.meta.Child(T));
+        if (trait.is(.Fn)(T))
+            return true;
+        if (trait.is(.Enum)(T))
+            return isCopyableType(@typeInfo(T).Enum.tag_type);
+        if (trait.is(.EnumLiteral)(T))
+            return true;
+        if (trait.is(.ErrorSet)(T))
+            return true;
+        if (trait.is(.ErrorUnion)(T))
+            return isCopyableType(@typeInfo(T).ErrorUnion.error_set) and isCopyableType(@typeInfo(T).ErrorUnion.payload);
+        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
+            if (trait.is(.Union)(T)) {
+                if (@typeInfo(T).Union.tag_type) |tag| {
+                    if (!isCopyableType(tag))
+                        return false;
+                }
+            }
+            inline for (std.meta.fields(T)) |field| {
+                if (!isCopyableType(field.field_type))
+                    return false;
+            }
+            // all type of fields are copyable
+            return true;
+        }
+        return false;
+    }
+}
+
+comptime {
+    assert(isCopyableType(u32));
+    assert(isCopyableType(struct { val: u32 }));
+    assert(isCopyableType(f64));
+    assert(isCopyableType(?f64));
+    assert(isCopyableType(struct { val: f32 }));
+    assert(!isCopyableType([]const u8));
+    assert(!isCopyableType([*]f64));
+    assert(isCopyableType([5]u32));
+    const U = union(enum) { Tag1, Tag2, Tag3 };
+    assert(isCopyableType(U));
+    assert(!isCopyableType(*U));
+    assert(!isCopyableType(*const U));
+    const OverflowError = error{Overflow};
+    assert(isCopyableType(@TypeOf(.Overflow))); // EnumLiteral
+    assert(isCopyableType(OverflowError)); // ErrorSet
+    assert(isCopyableType(OverflowError![2]U)); // ErrorUnion
+    assert(isCopyableType(?(error{Overflow}![2]U)));
+    assert(isCopyableType(struct { val: ?(error{Overflow}![2]U) }));
+    assert(!isCopyableType(struct { val: ?(error{Overflow}![2]*const U) }));
+}
+
 fn isOrdType(comptime T: type) bool {
     comptime {
         // requires PartialOrd
