@@ -133,7 +133,6 @@ pub fn have_fun(comptime T: type, name: []const u8) ?type {
             }
         }
     }
-
     return null;
 }
 
@@ -159,6 +158,10 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
+/// traivially copyable
+///
+/// # Details
+/// Values of that types are able to be duplicated with just copying the binary sequence.
 pub fn isCopyable(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
@@ -251,6 +254,7 @@ comptime {
     assert(isClonable(u32));
     assert(isClonable(f64));
     assert(isClonable(*u32));
+    assert(isClonable(*const u32));
     assert(isClonable([16]u32));
     assert(!isClonable([]u32));
     const T = struct {
@@ -271,10 +275,12 @@ comptime {
 }
 
 pub const Clonable = struct {
+    pub const EmptyError = error{};
+
     pub fn ResultType(comptime T: type) type {
         comptime assert(isClonable(T));
         const Out = if (trait.isSingleItemPtr(T)) std.meta.Child(T) else T;
-        const Err = have_type(T, "CloneError") orelse error{};
+        const Err = have_type(Out, "CloneError") orelse EmptyError;
         return Err!Out;
     }
 
@@ -282,14 +288,19 @@ pub const Clonable = struct {
         const T = @TypeOf(value);
         comptime assert(isClonable(T));
 
+        if (comptime have_fun(T, "clone")) |_|
+            return value.clone();
         if (comptime isCopyable(T))
             return value;
 
         if (comptime trait.isSingleItemPtr(T)) {
+            const E = std.meta.Child(T);
+            if (comptime have_fun(E, "clone")) |_|
+                return value.clone();
             if (comptime isCopyable(std.meta.Child(T)))
                 return value.*;
         }
-        return value.clone();
+        unreachable;
     }
 };
 

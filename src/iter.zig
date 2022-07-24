@@ -84,6 +84,53 @@ comptime {
     assert(ok_type(FooError!u32) == u32);
 }
 
+pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isClonable(Iter.Item));
+
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = meta.Clonable.ResultType(Iter.Item);
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.iter.next()) |val| {
+                return meta.Clonable.clone(val);
+            }
+            return null;
+        }
+    };
+}
+
+pub fn Cloned(comptime Iter: type) type {
+    return MakeCloned(derive.Derive, Iter);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Cloned(I(u32)).Self == Cloned(I(u32)));
+    assert(Cloned(I(u32)).Item == meta.Clonable.ResultType(*u32));
+}
+
+test "Clone" {
+    const Slice = SliceIter;
+    const Iter = Cloned(Slice(u32));
+    var arr = [_]u32{ 0, 1, 2, 3 };
+    var cloned = Iter.new(Slice(u32).new(arr[0..]));
+
+    try testing.expectEqual(@as(Iter.Item, 0), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 1), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 2), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 3), cloned.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
+}
+
 pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.isIterator(Other));

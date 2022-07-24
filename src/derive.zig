@@ -13,6 +13,124 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveCloned(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "cloned")) |_| {
+        return struct {};
+    } else if (meta.isClonable(Iter.Item)) {
+        return struct {
+            pub fn cloned(self: Iter) iter.Cloned(Iter) {
+                return iter.Cloned(Iter).new(self);
+            }
+        };
+    } else {
+        return struct {};
+    }
+}
+
+comptime {
+    const Iter = MakeSliceIter(DeriveCloned, []const u8);
+    assert(isIterator(Iter));
+    // []const u8 is not Clonable,
+    assert(!meta.isClonable(Iter.Item));
+    // then the Iter.cloned() is not derived.
+    assert(meta.have_fun(Iter, "cloned") == null);
+}
+
+comptime {
+    const Iter = MakeSliceIter(DeriveCloned, u32);
+    assert(isIterator(Iter));
+    assert(meta.isClonable(Iter.Item));
+    assert(meta.have_type(Iter, "Self") == Iter);
+    // Strangely, for some reason, it's an error
+    // assert(meta.have_fun(Iter, "cloned") != null);
+    assert(!meta.isClonable(Iter));
+}
+
+test "derive cloned" {
+    {
+        var arr = [_]u32{ 2, 3, 4 };
+        const Iter = comptime MakeSliceIter(DeriveCloned, u32);
+        var cloned = Iter.new(arr[0..]).cloned();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cloned)));
+        }
+        try testing.expectEqual(@as(u32, 2), try cloned.next().?);
+        try testing.expectEqual(@as(u32, 3), try cloned.next().?);
+        try testing.expectEqual(@as(u32, 4), try cloned.next().?);
+        // zig test src/main.zig
+        // Code Generation [1628/1992] std.fmt.formatType... broken LLVM module found: Call parameter type does not match function signature!
+        //   %12 = alloca %"?type.Err!u32", align 4
+        //  %"?derive.error:47:38!u32"*  %22 = call fastcc i16 @std.testing.expectEqual.96(%std.builtin.StackTrace* %0, %"?derive.error:47:38!u32"* @352, %"?type.Err!u32"* %12), !dbg !4571
+        //
+        // This is a bug in the Zig compiler.thread 51428 panic:
+        // Unable to dump stack trace: debug info stripped
+        // Aborted
+        // try testing.expectEqual(@as(?(error{}!u32), null), cloned.next());
+        try testing.expectEqual(@as(?(meta.Clonable.EmptyError!u32), null), cloned.next());
+    }
+    {
+        const R = union(enum) {
+            Ok: u32,
+            Err: u32,
+        };
+        var arr = [_]R{ .{ .Ok = 5 }, .{ .Err = 4 }, .{ .Ok = 0 } };
+        const Iter = MakeSliceIter(DeriveCloned, R);
+        var cloned = Iter.new(arr[0..]).cloned();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cloned)));
+            assert(iter.err_type(meta.Clonable.ResultType(R)) == meta.Clonable.EmptyError);
+        }
+        try testing.expectEqual(R{ .Ok = 5 }, try cloned.next().?);
+        try testing.expectEqual(R{ .Err = 4 }, try cloned.next().?);
+        try testing.expectEqual(R{ .Ok = 0 }, try cloned.next().?);
+        try testing.expectEqual(@as(?meta.Clonable.EmptyError!R, null), cloned.next());
+    }
+    {
+        const Iter = range.MakeRangeIter(DeriveCloned, f64);
+        var cloned = Iter.new(@as(f64, 1.5), 12.0, 3.14).cloned();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cloned)));
+        }
+        const eps = 0.01;
+        try testing.expect(math.approxEqAbs(f64, 1.5, try cloned.next().?, eps));
+        try testing.expect(math.approxEqAbs(f64, 4.64, try cloned.next().?, eps));
+        try testing.expect(math.approxEqAbs(f64, 7.78, try cloned.next().?, eps));
+        try testing.expect(math.approxEqAbs(f64, 10.92, try cloned.next().?, eps));
+        try testing.expectEqual(@as(?meta.Clonable.EmptyError!f64, null), cloned.next());
+    }
+    {
+        const T = struct {
+            pub const Self: type = @This();
+            pub const CloneError: type = error{CloneError};
+            val: u32,
+            pub fn new(val: u32) Self {
+                return .{ .val = val };
+            }
+            pub fn clone(self: Self) CloneError!Self {
+                if (self.val == 10)
+                    return CloneError.CloneError;
+                return Self.new(self.val);
+            }
+        };
+        var arr = [_]T{ .{ .val = 9 }, .{ .val = 10 }, .{ .val = 11 } };
+        const Iter = MakeSliceIter(DeriveCloned, T);
+        var cloned = Iter.new(arr[0..]).cloned();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cloned)));
+        }
+        try testing.expectEqual(T{ .val = 9 }, try cloned.next().?);
+        try testing.expectEqual(@as(T.CloneError!T, T.CloneError.CloneError), cloned.next().?);
+        try testing.expectEqual(T{ .val = 11 }, try cloned.next().?);
+        try testing.expectEqual(@as(?T.CloneError!T, null), cloned.next());
+    }
+}
+
 fn DeriveZip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1736,6 +1854,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveCloned(Iter);
         pub usingnamespace DeriveNth(Iter);
         pub usingnamespace DeriveLast(Iter);
         pub usingnamespace DeriveFlatMap(Iter);
