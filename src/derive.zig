@@ -521,10 +521,10 @@ fn DeriveProduct(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "product")) |_| {
         return struct {};
-    } else if (meta.isMultiplyable(Iter.Item)) {
+    } else if (meta.isProduct(Iter.Item)) {
         return struct {
-            pub fn product(self: Iter) meta.Multiplyable.Output(Iter.Item) {
-                return iter.Product(Iter.Item).product(self);
+            pub fn product(self: Iter) meta.Product.Output(Iter.Item) {
+                return meta.Product.product(self);
             }
         };
     } else {
@@ -550,10 +550,10 @@ fn DeriveSum(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "sum")) |_| {
         return struct {};
-    } else if (meta.isSumable(Iter.Item)) {
+    } else if (meta.isSum(Iter.Item)) {
         return struct {
-            pub fn sum(self: Iter) meta.Sumable.Output(Iter.Item) {
-                return iter.Sum(Iter.Item).sum(self);
+            pub fn sum(self: Iter) meta.Sum.Output(Iter.Item) {
+                return meta.Sum.sum(self);
             }
         };
     } else {
@@ -577,9 +577,9 @@ test "derive sum ptr" {
     {
         const T = struct {
             val: u32,
-            pub fn sum(it: anytype) meta.Sumable.Output(@TypeOf(it).Item) {
+            pub fn sum(it: anytype) meta.Sum.Output(@TypeOf(it).Item) {
                 var jt = it;
-                var acc: @This() = .{ .val = 0 };
+                var acc: @This() = @This(){ .val = 0 };
                 while (jt.next()) |t| {
                     if (t.val % 2 == 0)
                         acc.val += t.val;

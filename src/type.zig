@@ -381,10 +381,9 @@ test "Clone" {
     try testing.expect(std.mem.eql(u8, orig.ss, (try new).ss));
 }
 
-fn isOrdType(comptime T: type) bool {
+fn implOrd(comptime T: type) bool {
     comptime {
-        // requires PartialOrd
-        if (!isPartialOrdType(T))
+        if (!implPartialOrd(T))
             return false;
         // primitive type
         if (trait.isIntegral(T))
@@ -404,13 +403,7 @@ fn isOrdType(comptime T: type) bool {
 // TODO: to be comparable optional
 pub fn isOrd(comptime T: type) bool {
     comptime {
-        // comparable type or ..
-        if (isOrdType(T))
-            return true;
-        // a pointer type that points to comparable type
-        if (trait.isSingleItemPtr(T) and isOrdType(std.meta.Child(T)))
-            return true;
-        return false;
+        return is_or_ptrto(implOrd)(T);
     }
 }
 
@@ -501,32 +494,22 @@ comptime {
     assert(Ord.on(*const u32)(pzero, pone) == .lt);
 }
 
-fn isPartialOrdType(comptime T: type) bool {
-    comptime {
-        // primitive type
-        if (trait.isNumber(T))
+fn implPartialOrd(comptime T: type) bool {
+    // primitive type
+    if (trait.isNumber(T))
+        return true;
+    if (trait.is(.Vector)(T))
+        return true;
+    // complex type impl 'partial_cmp' method
+    if (have_fun(T, "partial_cmp")) |ty| {
+        if (ty == fn (*const T, *const T) ?std.math.Order)
             return true;
-        if (trait.is(.Vector)(T) and trait.isNumber(std.meta.Child(T)))
-            return true;
-        // complex type impl 'partial_cmp' method
-        if (have_fun(T, "partial_cmp")) |ty| {
-            if (ty == fn (*const T, *const T) ?std.math.Order)
-                return true;
-        }
-        return false;
     }
+    return false;
 }
 
 pub fn isPartialOrd(comptime T: type) bool {
-    comptime {
-        // comparable type or ..
-        if (isPartialOrdType(T))
-            return true;
-        // a pointer type that points to comparable type
-        if (trait.isSingleItemPtr(T) and isPartialOrdType(std.meta.Child(T)))
-            return true;
-        return false;
-    }
+    comptime return is_or_ptrto(implPartialOrd)(T);
 }
 
 comptime {
@@ -578,7 +561,7 @@ pub const PartialOrd = struct {
         // pointer that points to
         if (comptime trait.isSingleItemPtr(T)) {
             const E = std.meta.Child(T);
-            comptime assert(isPartialOrdType(E));
+            comptime assert(implPartialOrd(E));
             // primitive types
             if (comptime trait.isFloat(E))
                 return partial_cmp_float(x.*, y.*);
@@ -615,7 +598,26 @@ comptime {
     assert(PartialOrd.on(*const f32)(px, &math.nan(f32)) == null);
 }
 
-pub fn isSumableType(comptime T: type) bool {
+test "PartialOrd" {
+    const five: u32 = 5;
+    const six: u32 = 6;
+    try testing.expectEqual(PartialOrd.partial_cmp(five, six), math.Order.lt);
+    try testing.expectEqual(PartialOrd.partial_cmp(&five, &six), math.Order.lt);
+    const C = struct {
+        x: u32,
+        fn new(x: u32) @This() {
+            return .{ .x = x };
+        }
+        fn partial_cmp(self: *const @This(), other: *const @This()) ?math.Order {
+            return std.math.order(self.x, other.x);
+        }
+    };
+    try testing.expectEqual(C.new(5).partial_cmp(&C.new(6)), math.Order.lt);
+    try testing.expectEqual(C.new(6).partial_cmp(&C.new(6)), math.Order.eq);
+    try testing.expectEqual(C.new(6).partial_cmp(&C.new(5)), math.Order.gt);
+}
+
+pub fn implSum(comptime T: type) bool {
     comptime {
         if (trait.isNumber(T) or trait.is(.Vector)(T))
             return true;
@@ -664,22 +666,16 @@ pub fn isSumableType(comptime T: type) bool {
     }
 }
 
-pub fn isSumable(comptime T: type) bool {
-    comptime {
-        if (isSumableType(T))
-            return true;
-        if (trait.isSingleItemPtr(T) and isSumableType(std.meta.Child(T)))
-            return true;
-        return false;
-    }
+pub fn isSum(comptime T: type) bool {
+    comptime return is_or_ptrto(implSum)(T);
 }
 
 comptime {
-    assert(isSumable(u32));
-    assert(isSumable(f64));
-    assert(!isSumable([]f64));
-    assert(!isSumable([*]const u8));
-    assert(!isSumable(SliceIter(u64)));
+    assert(isSum(u32));
+    assert(isSum(f64));
+    assert(!isSum([]f64));
+    assert(!isSum([*]const u8));
+    assert(!isSum(SliceIter(u64)));
     const T = struct {
         const T = @This();
         val: u32,
@@ -693,7 +689,7 @@ comptime {
             return acc;
         }
     };
-    assert(isSumable(T));
+    assert(isSum(T));
     const U = struct {
         const U = @This();
         val: u32,
@@ -706,10 +702,10 @@ comptime {
             return acc;
         }
     };
-    assert(!isSumable(U));
+    assert(!isSum(U));
 }
 
-test "sum" {
+test "Sum" {
     const T = struct {
         const T = @This();
         val: u32,
@@ -722,7 +718,7 @@ test "sum" {
             return T{ .val = acc };
         }
     };
-    comptime assert(isSumable(T));
+    comptime assert(implSum(T));
     var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
     const sum = T.sum(SliceIter(T).new(arr[0..]).map(struct {
         fn call(x: *const T) T {
@@ -732,45 +728,59 @@ test "sum" {
     try testing.expectEqual(T{ .val = 10 }, sum);
 }
 
-pub const Sumable = struct {
+pub const Sum = struct {
     pub fn Output(comptime T: type) type {
-        comptime assert(isSumable(T));
-        return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
+        comptime assert(isSum(T));
+        return deref_type(T);
     }
 
     // summing up on primitive types or pointer types that points to primitive type
     fn sum_prim(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        const is_ptr = comptime trait.isSingleItemPtr(Iter.Item);
-        const T = if (is_ptr) std.meta.Child(Iter.Item) else Iter.Item;
+        const T = deref_type(Iter.Item);
         var acc: T = 0;
         var it = iter;
         while (it.next()) |val| {
-            acc += if (comptime is_ptr) val.* else val;
+            acc += if (comptime trait.isSingleItemPtr(Iter.Item)) val.* else val;
         }
         return acc;
     }
 
-    pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
-        const Item = @TypeOf(iter).Item;
+    pub fn is_prim(comptime T: type) bool {
+        return trait.isNumber(T) or trait.is(.Vector)(T);
+    }
 
-        comptime assert(isSumable(Item));
-        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item))
+    /// Summation on an Iterator
+    pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Iter = @TypeOf(iter);
+        comptime assert(isIterator(Iter));
+        comptime assert(isSum(Iter.Item));
+
+        if (comptime is_or_ptrto(is_prim)(Iter.Item))
             return sum_prim(iter);
 
-        if (comptime trait.isSingleItemPtr(Item)) {
-            const E = std.meta.Child(Item);
-            return if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
-                sum_prim(iter)
-            else
-                E.sum(iter);
-        }
-
-        return Item.sum(iter);
+        return deref_type(Iter.Item).sum(iter);
     }
 };
 
-pub fn isMultiplyableType(comptime T: type) bool {
+comptime {
+    var arr1 = [_]u32{};
+    var arr2 = [_]i64{};
+    const I = SliceIter;
+    assert(@TypeOf(Sum.sum(I(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Sum.sum(I(i64).new(arr2[0..]))) == i64);
+}
+
+test "Sum" {
+    var arr = [_]u32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    const I = SliceIter(u32);
+    try testing.expectEqual(@as(u32, 0), Sum.sum(I.new(arr[0..0])));
+    try testing.expectEqual(@as(u32, 15), Sum.sum(I.new(arr[0..5])));
+    try testing.expectEqual(@as(u32, 36), Sum.sum(I.new(arr[0..8])));
+    try testing.expectEqual(@as(u32, 55), Sum.sum(I.new(arr[0..])));
+}
+
+pub fn implProduct(comptime T: type) bool {
     comptime {
         if (trait.isNumber(T) or trait.is(.Vector)(T))
             return true;
@@ -819,22 +829,16 @@ pub fn isMultiplyableType(comptime T: type) bool {
     }
 }
 
-pub fn isMultiplyable(comptime T: type) bool {
-    comptime {
-        if (isMultiplyableType(T))
-            return true;
-        if (trait.isSingleItemPtr(T) and isMultiplyableType(std.meta.Child(T)))
-            return true;
-        return false;
-    }
+pub fn isProduct(comptime T: type) bool {
+    comptime return is_or_ptrto(implProduct)(T);
 }
 
 comptime {
-    assert(isMultiplyable(u32));
-    assert(isMultiplyable(f64));
-    assert(!isMultiplyable([]f64));
-    assert(!isMultiplyable([*]const u8));
-    assert(!isMultiplyable(SliceIter(u64)));
+    assert(isProduct(u32));
+    assert(isProduct(f64));
+    assert(!isProduct([]f64));
+    assert(!isProduct([*]const u8));
+    assert(!isProduct(SliceIter(u64)));
     const T = struct {
         const T = @This();
         val: u32,
@@ -848,7 +852,7 @@ comptime {
             return acc;
         }
     };
-    assert(isMultiplyable(T));
+    assert(isProduct(T));
     const U = struct {
         const U = @This();
         val: u32,
@@ -861,7 +865,7 @@ comptime {
             return acc;
         }
     };
-    assert(!isMultiplyable(U));
+    assert(!isProduct(U));
 }
 
 test "product" {
@@ -877,7 +881,7 @@ test "product" {
             return T{ .val = acc };
         }
     };
-    comptime assert(isMultiplyable(T));
+    comptime assert(implProduct(T));
     var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
     const product = T.product(SliceIter(T).new(arr[0..]).map(struct {
         fn call(x: *const T) T {
@@ -887,40 +891,56 @@ test "product" {
     try testing.expectEqual(T{ .val = 24 }, product);
 }
 
-pub const Multiplyable = struct {
+pub const Product = struct {
     pub fn Output(comptime T: type) type {
-        comptime assert(isMultiplyable(T));
-        return if (trait.isSingleItemPtr(T)) remove_pointer(T) else T;
+        comptime assert(isProduct(T));
+        return deref_type(T);
     }
 
     // product on primitive types or pointer types that points to primitive type
     fn prod_prim(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        const is_ptr = comptime trait.isSingleItemPtr(Iter.Item);
-        const T = if (is_ptr) std.meta.Child(Iter.Item) else Iter.Item;
+        const T = deref_type(Iter.Item);
         var acc: T = 1;
         var it = iter;
         while (it.next()) |val| {
-            acc *= if (comptime is_ptr) val.* else val;
+            acc *= if (comptime trait.isSingleItemPtr(Iter.Item)) val.* else val;
         }
         return acc;
     }
 
-    pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
-        const Item = @TypeOf(iter).Item;
+    pub fn is_prim(comptime T: type) bool {
+        return trait.isNumber(T) or trait.is(.Vector)(T);
+    }
 
-        comptime assert(isMultiplyable(Item));
-        if (comptime trait.isNumber(Item) or trait.is(.Vector)(Item))
+    pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
+        const Iter = @TypeOf(iter);
+        comptime assert(isIterator(Iter));
+        comptime assert(isProduct(Iter.Item));
+
+        if (comptime is_or_ptrto(is_prim)(Iter.Item))
             return prod_prim(iter);
 
-        if (comptime trait.isSingleItemPtr(Item)) {
-            const E = std.meta.Child(Item);
-            return if (comptime trait.isNumber(E) or trait.is(.Vector)(E))
-                prod_prim(iter)
-            else
-                E.product(iter);
-        }
-
-        return Item.product(iter);
+        return deref_type(Iter.Item).product(iter);
     }
 };
+
+comptime {
+    var arr1 = [_]u32{};
+    var arr2 = [_]i64{};
+    const I = struct {
+        fn call(comptime T: type) type {
+            return SliceIter(T);
+        }
+    }.call;
+    assert(@TypeOf(Product.product(I(u32).new(arr1[0..]))) == u32);
+    assert(@TypeOf(Product.product(I(i64).new(arr2[0..]))) == i64);
+}
+
+test "Product" {
+    var arr = [_]u32{ 1, 1, 2, 3, 5, 8, 13, 21, 34 };
+    const I = SliceIter(u32);
+    try testing.expectEqual(@as(u32, 1), Product.product(I.new(arr[5..5])));
+    try testing.expectEqual(@as(u32, 6), Product.product(I.new(arr[0..4])));
+    try testing.expectEqual(@as(u32, 104), Product.product(I.new(arr[5..7])));
+}
