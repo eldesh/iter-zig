@@ -54,6 +54,37 @@ pub fn assertEqualTuple(comptime x: type, comptime y: type) void {
     comptime assert(equalTuple(x, y));
 }
 
+pub fn is_or_ptrto(comptime F: fn (type) bool) fn (type) bool {
+    comptime {
+        return struct {
+            fn pred(comptime U: type) bool {
+                if (F(U))
+                    return true;
+                return trait.isSingleItemPtr(U) and F(std.meta.Child(U));
+            }
+        }.pred;
+    }
+}
+
+comptime {
+    assert(is_or_ptrto(implClone)(u32));
+}
+
+pub fn deref_type(comptime T: type) type {
+    if (trait.isSingleItemPtr(T)) {
+        return std.meta.Child(T);
+    } else {
+        return T;
+    }
+}
+
+comptime {
+    assert(deref_type(u32) == u32);
+    assert(deref_type(*u32) == u32);
+    assert(deref_type(**u32) == *u32);
+    assert(deref_type([]u8) == []u8);
+}
+
 pub fn remove_pointer(comptime T: type) type {
     comptime assert(trait.isSingleItemPtr(T));
     return std.meta.Child(T);
@@ -158,11 +189,11 @@ comptime {
     assert(isIterator(SinglyLinkedListIter(u32)));
 }
 
-/// traivially copyable
+/// Checks that the type `T` is `traivially copyable`.
 ///
 /// # Details
 /// Values of that types are able to be duplicated with just copying the binary sequence.
-pub fn isCopyable(comptime T: type) bool {
+pub fn implCopy(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
             return true;
@@ -171,26 +202,26 @@ pub fn isCopyable(comptime T: type) bool {
         if (trait.isNumber(T))
             return true;
         if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
-            return isCopyable(std.meta.Child(T));
+            return implCopy(std.meta.Child(T));
         if (trait.is(.Fn)(T))
             return true;
         if (trait.is(.Enum)(T))
-            return isCopyable(@typeInfo(T).Enum.tag_type);
+            return implCopy(@typeInfo(T).Enum.tag_type);
         if (trait.is(.EnumLiteral)(T))
             return true;
         if (trait.is(.ErrorSet)(T))
             return true;
         if (trait.is(.ErrorUnion)(T))
-            return isCopyable(@typeInfo(T).ErrorUnion.error_set) and isCopyable(@typeInfo(T).ErrorUnion.payload);
+            return implCopy(@typeInfo(T).ErrorUnion.error_set) and implCopy(@typeInfo(T).ErrorUnion.payload);
         if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
             if (trait.is(.Union)(T)) {
                 if (@typeInfo(T).Union.tag_type) |tag| {
-                    if (!isCopyable(tag))
+                    if (!implCopy(tag))
                         return false;
                 }
             }
             inline for (std.meta.fields(T)) |field| {
-                if (!isCopyable(field.field_type))
+                if (!implCopy(field.field_type))
                     return false;
             }
             // all type of fields are copyable
@@ -201,31 +232,35 @@ pub fn isCopyable(comptime T: type) bool {
 }
 
 comptime {
-    assert(isCopyable(u32));
-    assert(isCopyable(struct { val: u32 }));
-    assert(isCopyable(f64));
-    assert(!isCopyable(*u64));
-    assert(isCopyable(?f64));
-    assert(isCopyable(struct { val: f32 }));
-    assert(!isCopyable([]const u8));
-    assert(!isCopyable([*]f64));
-    assert(isCopyable([5]u32));
+    assert(implCopy(u32));
+    assert(implCopy(struct { val: u32 }));
+    assert(implCopy(f64));
+    assert(!implCopy(*u64));
+    assert(implCopy(?f64));
+    assert(implCopy(struct { val: f32 }));
+    assert(!implCopy([]const u8));
+    assert(!implCopy([*]f64));
+    assert(implCopy([5]u32));
     const U = union(enum) { Tag1, Tag2, Tag3 };
-    assert(isCopyable(U));
-    assert(!isCopyable(*U));
-    assert(!isCopyable(*const U));
+    assert(implCopy(U));
+    assert(!implCopy(*U));
+    assert(!implCopy(*const U));
     const OverflowError = error{Overflow};
-    assert(isCopyable(@TypeOf(.Overflow))); // EnumLiteral
-    assert(isCopyable(OverflowError)); // ErrorSet
-    assert(isCopyable(OverflowError![2]U)); // ErrorUnion
-    assert(isCopyable(?(error{Overflow}![2]U)));
-    assert(isCopyable(struct { val: ?(error{Overflow}![2]U) }));
-    assert(!isCopyable(struct { val: ?(error{Overflow}![2]*const U) }));
+    assert(implCopy(@TypeOf(.Overflow))); // EnumLiteral
+    assert(implCopy(OverflowError)); // ErrorSet
+    assert(implCopy(OverflowError![2]U)); // ErrorUnion
+    assert(implCopy(?(error{Overflow}![2]U)));
+    assert(implCopy(struct { val: ?(error{Overflow}![2]U) }));
+    assert(!implCopy(struct { val: ?(error{Overflow}![2]*const U) }));
 }
 
-fn isClonableType(comptime T: type) bool {
+pub fn isCopyable(comptime T: type) bool {
+    comptime return is_or_ptrto(implCopy)(T);
+}
+
+fn implClone(comptime T: type) bool {
     comptime {
-        if (isCopyable(T))
+        if (implCopy(T))
             return true;
 
         if (have_type(T, "Self")) |Self| {
@@ -240,46 +275,40 @@ fn isClonableType(comptime T: type) bool {
     }
 }
 
-pub fn isClonable(comptime T: type) bool {
-    comptime {
-        if (isClonableType(T))
-            return true;
-        if (trait.isSingleItemPtr(T) and isClonableType(std.meta.Child(T)))
-            return true;
-        return false;
-    }
-}
-
 comptime {
-    assert(isClonable(u32));
-    assert(isClonable(f64));
-    assert(isClonable(*u32));
-    assert(isClonable(*const u32));
-    assert(isClonable([16]u32));
-    assert(!isClonable([]u32));
+    assert(implClone(u32));
+    assert(implClone(f64));
+    assert(!implClone(*u32));
+    assert(!implClone(*const u32));
+    assert(implClone([16]u32));
+    assert(!implClone([]u32));
     const T = struct {
         pub const Self: type = @This();
         pub const CloneError: type = error{CloneError};
         x: u32,
-        pub fn clone(self: Self) CloneError!Self {
+        pub fn clone(self: *const Self) CloneError!Self {
             return .{ .x = self.x };
         }
     };
-    assert(isClonable(T));
-    assert(isClonable([2]T));
-    assert(!isClonable([]const T));
-    assert(isClonable(*T));
-    assert(!isClonable([*]const T));
-    assert(isClonable(struct { val: [2]T }));
-    assert(isClonable(*struct { val: [2]T }));
+    assert(implClone(T));
+    assert(implClone([2]T));
+    assert(!implClone([]const T));
+    assert(!implClone(*T));
+    assert(!implClone([*]const T));
+    assert(implClone(struct { val: [2]T }));
+    assert(!implClone(*struct { val: [2]T }));
 }
 
-pub const Clonable = struct {
+pub fn isClonable(comptime T: type) bool {
+    comptime return is_or_ptrto(implClone)(T);
+}
+
+pub const Clone = struct {
     pub const EmptyError = error{};
 
     pub fn ResultType(comptime T: type) type {
         comptime assert(isClonable(T));
-        const Out = if (trait.isSingleItemPtr(T)) std.meta.Child(T) else T;
+        const Out = deref_type(T);
         const Err = have_type(Out, "CloneError") orelse EmptyError;
         return Err!Out;
     }
@@ -288,24 +317,24 @@ pub const Clonable = struct {
         const T = @TypeOf(value);
         comptime assert(isClonable(T));
 
-        if (comptime have_fun(T, "clone")) |_|
-            return value.clone();
-        if (comptime isCopyable(T))
+        if (comptime implClone(T)) {
+            if (comptime have_fun(T, "clone")) |_|
+                return value.clone();
+            comptime assert(implCopy(T));
             return value;
-
-        if (comptime trait.isSingleItemPtr(T)) {
+        } else {
+            comptime assert(trait.isSingleItemPtr(T));
             const E = std.meta.Child(T);
             if (comptime have_fun(E, "clone")) |_|
                 return value.clone();
-            if (comptime isCopyable(std.meta.Child(T)))
-                return value.*;
+            comptime assert(implCopy(E));
+            return value.*;
         }
-        unreachable;
     }
 };
 
 test "Clone" {
-    const clone = Clonable.clone;
+    const clone = Clone.clone;
     try testing.expectEqual(@as(error{}!u32, 5), clone(@as(u32, 5)));
     try testing.expectEqual(@as(error{}!comptime_int, 5), clone(5));
     try testing.expectEqual(@as(error{}![3]u32, [_]u32{ 1, 2, 3 }), clone([_]u32{ 1, 2, 3 }));
@@ -319,7 +348,7 @@ test "Clone" {
     try testing.expectEqual(@as(u32, 1), seq.next().?);
     try testing.expectEqual(@as(u32, 2), seq.next().?);
     // branch from the sequence
-    var seq2 = Clonable.clone(seq) catch unreachable;
+    var seq2 = Clone.clone(seq) catch unreachable;
     try testing.expectEqual(@as(u32, 3), seq2.next().?);
     try testing.expectEqual(@as(u32, 4), seq2.next().?);
     try testing.expectEqual(@as(?u32, null), seq2.next());

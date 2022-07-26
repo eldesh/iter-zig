@@ -69,7 +69,7 @@ test "derive cloned" {
         // Unable to dump stack trace: debug info stripped
         // Aborted
         // try testing.expectEqual(@as(?(error{}!u32), null), cloned.next());
-        try testing.expectEqual(@as(?(meta.Clonable.EmptyError!u32), null), cloned.next());
+        try testing.expectEqual(@as(?(meta.Clone.EmptyError!u32), null), cloned.next());
     }
     {
         const R = union(enum) {
@@ -82,26 +82,12 @@ test "derive cloned" {
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(cloned)));
-            assert(iter.err_type(meta.Clonable.ResultType(R)) == meta.Clonable.EmptyError);
+            assert(iter.err_type(meta.Clone.ResultType(R)) == meta.Clone.EmptyError);
         }
         try testing.expectEqual(R{ .Ok = 5 }, try cloned.next().?);
         try testing.expectEqual(R{ .Err = 4 }, try cloned.next().?);
         try testing.expectEqual(R{ .Ok = 0 }, try cloned.next().?);
-        try testing.expectEqual(@as(?meta.Clonable.EmptyError!R, null), cloned.next());
-    }
-    {
-        const Iter = range.MakeRangeIter(DeriveCloned, f64);
-        var cloned = Iter.new(@as(f64, 1.5), 12.0, 3.14).cloned();
-        comptime {
-            assert(isIterator(Iter));
-            assert(isIterator(@TypeOf(cloned)));
-        }
-        const eps = 0.01;
-        try testing.expect(math.approxEqAbs(f64, 1.5, try cloned.next().?, eps));
-        try testing.expect(math.approxEqAbs(f64, 4.64, try cloned.next().?, eps));
-        try testing.expect(math.approxEqAbs(f64, 7.78, try cloned.next().?, eps));
-        try testing.expect(math.approxEqAbs(f64, 10.92, try cloned.next().?, eps));
-        try testing.expectEqual(@as(?meta.Clonable.EmptyError!f64, null), cloned.next());
+        try testing.expectEqual(@as(?meta.Clone.EmptyError!R, null), cloned.next());
     }
     {
         const T = struct {

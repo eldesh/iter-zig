@@ -90,7 +90,7 @@ pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
 
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = meta.Clonable.ResultType(Iter.Item);
+        pub const Item: type = meta.Clone.ResultType(Iter.Item);
         pub usingnamespace D(@This());
 
         iter: Iter,
@@ -101,7 +101,7 @@ pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
 
         pub fn next(self: *Self) ?Item {
             if (self.iter.next()) |val| {
-                return meta.Clonable.clone(val);
+                return meta.Clone.clone(val);
             }
             return null;
         }
@@ -115,7 +115,7 @@ pub fn Cloned(comptime Iter: type) type {
 comptime {
     const I = SliceIter;
     assert(Cloned(I(u32)).Self == Cloned(I(u32)));
-    assert(Cloned(I(u32)).Item == meta.Clonable.ResultType(*u32));
+    assert(Cloned(I(u32)).Item == meta.Clone.ResultType(*u32));
 }
 
 test "Clone" {
