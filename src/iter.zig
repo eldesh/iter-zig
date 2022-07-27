@@ -95,7 +95,9 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
         peeked: ?Iter.Item,
 
         pub fn new(iter: Iter) Self {
-            return .{ .iter = iter, .peeked = null };
+            var it = iter;
+            const peeked = it.next();
+            return .{ .iter = it, .peeked = peeked };
         }
 
         pub fn peek(self: *Self) ?*const Item {
@@ -103,24 +105,24 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
         }
 
         pub fn peek_mut(self: *Self) ?*Item {
-            if (self.peeked) |*val| {
+            if (self.peeked) |*val|
                 return val;
-            } else {
-                self.peeked = self.iter.next();
-                if (self.peeked) |*val|
-                    return val;
-                return null;
+            return null;
+        }
+
+        pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
+            if (self.peek()) |peeked| {
+                // if and only if the func() returns true for the next value, it is consumed.
+                if (func(peeked))
+                    return self.next();
             }
+            return null;
         }
 
         pub fn next(self: *Self) ?Item {
-            if (self.peeked) |peeked| {
-                self.peeked = self.iter.next();
-                return peeked;
-            } else {
-                self.peeked = self.iter.next();
-                return self.peeked;
-            }
+            const peeked = self.peeked;
+            self.peeked = self.iter.next();
+            return peeked;
         }
     };
 }
@@ -166,6 +168,20 @@ test "Peekable" {
         try testing.expectEqual(@as(?u32, 5), peek.next());
         try testing.expectEqual(@as(?u32, 3), peek.next());
         try testing.expectEqual(@as(?u32, null), peek.next());
+    }
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6, 1));
+        try testing.expectEqual(@as(?u32, 0), peek.next_if(struct {
+            fn f(x: *const u32) bool {
+                return x.* == 0;
+            }
+        }.f));
+        try testing.expectEqual(@as(?u32, null), peek.next_if(struct {
+            fn f(x: *const u32) bool {
+                return x.* == 0;
+            }
+        }.f));
+        try testing.expectEqual(@as(?u32, 1), peek.next());
     }
 }
 
