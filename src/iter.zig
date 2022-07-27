@@ -148,6 +148,53 @@ test "Cycle" {
     }
 }
 
+pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isCopyable(Iter.Item));
+
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = meta.deref_type(Iter.Item);
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.iter.next()) |val| {
+                return if (comptime trait.isSingleItemPtr(Iter.Item)) val.* else val;
+            }
+            return null;
+        }
+    };
+}
+
+pub fn Copied(comptime Iter: type) type {
+    return MakeCopied(derive.Derive, Iter);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Copied(I(u32)).Self == Copied(I(u32)));
+    assert(Copied(I(u32)).Item == u32);
+}
+
+test "Copied" {
+    const Slice = SliceIter;
+    const Iter = Copied(Slice(u32));
+    var arr = [_]u32{ 0, 1, 2, 3 };
+    var cloned = Iter.new(Slice(u32).new(arr[0..]));
+
+    try testing.expectEqual(@as(?Iter.Item, 0), cloned.next());
+    try testing.expectEqual(@as(?Iter.Item, 1), cloned.next());
+    try testing.expectEqual(@as(?Iter.Item, 2), cloned.next());
+    try testing.expectEqual(@as(?Iter.Item, 3), cloned.next());
+    try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
+}
+
 pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.isClonable(Iter.Item));

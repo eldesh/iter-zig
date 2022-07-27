@@ -69,6 +69,61 @@ test "derive cycle" {
     }
 }
 
+fn DeriveCopied(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "copied")) |_| {
+        return struct {};
+    } else if (meta.isCopyable(Iter.Item)) {
+        return struct {
+            pub fn copied(self: Iter) iter.Copied(Iter) {
+                return iter.Copied(Iter).new(self);
+            }
+        };
+    } else {
+        return struct {};
+    }
+}
+
+comptime {
+    const Iter = MakeSliceIter(DeriveCopied, u32);
+    assert(isIterator(Iter));
+    assert(meta.isCopyable(Iter.Item));
+}
+
+test "derive copied" {
+    {
+        var arr = [_]u32{ 2, 3, 4 };
+        const Iter = MakeSliceIter(DeriveCopied, u32);
+        var copied = Iter.new(arr[0..]).copied();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(copied)));
+        }
+        try testing.expectEqual(@as(?u32, 2), copied.next());
+        try testing.expectEqual(@as(?u32, 3), copied.next());
+        try testing.expectEqual(@as(?u32, 4), copied.next());
+        try testing.expectEqual(@as(?u32, null), copied.next());
+    }
+    {
+        const R = union(enum) {
+            Ok: u32,
+            Err: u32,
+        };
+        var arr = [_]R{ .{ .Ok = 5 }, .{ .Err = 4 }, .{ .Ok = 0 } };
+        const Iter = MakeSliceIter(DeriveCopied, R);
+        var copied = Iter.new(arr[0..]).copied();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(copied)));
+        }
+        try testing.expectEqual(R{ .Ok = 5 }, copied.next().?);
+        try testing.expectEqual(R{ .Err = 4 }, copied.next().?);
+        try testing.expectEqual(R{ .Ok = 0 }, copied.next().?);
+        try testing.expectEqual(@as(?R, null), copied.next());
+    }
+}
+
 fn DeriveCloned(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1897,6 +1952,7 @@ test "derive filter_map" {
 pub fn Derive(comptime Iter: type) type {
     return struct {
         pub usingnamespace DeriveCycle(Iter);
+        pub usingnamespace DeriveCopied(Iter);
         pub usingnamespace DeriveCloned(Iter);
         pub usingnamespace DeriveNth(Iter);
         pub usingnamespace DeriveLast(Iter);
