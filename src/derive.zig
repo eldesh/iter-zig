@@ -13,6 +13,62 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DeriveCycle(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "cycle")) |_| {
+        return struct {};
+    } else if (meta.isClonable(Iter)) {
+        return struct {
+            pub fn cycle(self: Iter) iter.Cycle(Iter) {
+                return iter.Cycle(Iter).new(self);
+            }
+        };
+    } else {
+        return struct {};
+    }
+}
+
+comptime {
+    const Iter = range.MakeRangeIter(DeriveCycle, u32);
+    assert(isIterator(Iter));
+    assert(meta.isClonable(Iter));
+}
+
+comptime {
+    const Iter = to_iter.MakeSliceIter(DeriveCycle, u32);
+    assert(isIterator(Iter));
+    assert(!meta.isClonable(Iter));
+}
+
+test "derive cycle" {
+    const Iter = range.MakeRangeIter(DeriveCycle, u32);
+    {
+        var cycle = Iter.new(@as(u32, 1), 4, 1).cycle();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cycle)));
+        }
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+    }
+    {
+        var cycle = Iter.new(@as(u32, 1), 1, 1).cycle();
+        comptime {
+            assert(isIterator(Iter));
+            assert(isIterator(@TypeOf(cycle)));
+        }
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+    }
+}
+
 fn DeriveCloned(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1840,6 +1896,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DeriveCycle(Iter);
         pub usingnamespace DeriveCloned(Iter);
         pub usingnamespace DeriveNth(Iter);
         pub usingnamespace DeriveLast(Iter);

@@ -84,6 +84,70 @@ comptime {
     assert(ok_type(FooError!u32) == u32);
 }
 
+pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(meta.isClonable(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        orig: Iter,
+        iter: Iter,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .orig = iter, .iter = meta.Clone.clone(iter) catch unreachable };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            var fst_elem = false;
+            while (true) : (self.iter = meta.Clone.clone(self.orig) catch unreachable) {
+                if (self.iter.next()) |val| {
+                    return val;
+                }
+                if (fst_elem)
+                    return null;
+                fst_elem = true;
+            }
+            unreachable;
+        }
+    };
+}
+
+pub fn Cycle(comptime Iter: type) type {
+    return MakeCycle(derive.Derive, Iter);
+}
+
+comptime {
+    const Range = range.RangeIter;
+    assert(Cycle(Range(u32)).Self == Cycle(Range(u32)));
+    assert(Cycle(Range(u32)).Item == u32);
+}
+
+test "Cycle" {
+    const Range = range.RangeIter;
+    const Iter = Cycle(Range(u32));
+    {
+        var cycle = Iter.new(range.range(@as(u32, 1), 4, 1));
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+    }
+    {
+        var cycle = Iter.new(range.range(@as(u32, 1), 1, 1));
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+    }
+}
+
 pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.isClonable(Iter.Item));
