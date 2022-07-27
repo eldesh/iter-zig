@@ -13,6 +13,43 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DerivePeekable(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "peekable")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn peekable(self: Iter) iter.Peekable(Iter) {
+                return iter.Peekable(Iter).new(self);
+            }
+        };
+    }
+}
+
+comptime {
+    const Iter = range.MakeRangeIter(DerivePeekable, u32);
+    assert(isIterator(Iter));
+}
+
+test "derive peekable" {
+    {
+        var arr = [_]i32{ 1, 0, -1, 2 };
+        const Iter = MakeSliceIter(DerivePeekable, i32);
+        var peek = Iter.new(arr[0..]).peekable();
+
+        try comptime testing.expectEqual(?*const *i32, @TypeOf(peek.peek()));
+        try testing.expectEqual(@as(*i32, &arr[0]), peek.peek().?.*);
+        try testing.expectEqual(@as(*i32, &arr[0]), peek.peek().?.*);
+        try testing.expectEqual(@as(?*i32, &arr[0]), peek.next());
+        try testing.expectEqual(@as(?*i32, &arr[1]), peek.next());
+        try testing.expectEqual(@as(*i32, &arr[2]), peek.peek().?.*);
+        try testing.expectEqual(@as(?*i32, &arr[2]), peek.next());
+        try testing.expectEqual(@as(?*i32, &arr[3]), peek.next());
+        try testing.expectEqual(@as(?*i32, null), peek.next());
+    }
+}
+
 fn DerivePosition(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -37,7 +74,7 @@ comptime {
     assert(isIterator(Iter));
 }
 
-test "Position" {
+test "derive position" {
     {
         const Iter = MakeSliceIter(DerivePosition, i32);
         var arr = [_]i32{ 1, 0, -1, 2, 3, -2 };
@@ -1996,6 +2033,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DerivePeekable(Iter);
         pub usingnamespace DerivePosition(Iter);
         pub usingnamespace DeriveCycle(Iter);
         pub usingnamespace DeriveCopied(Iter);

@@ -84,6 +84,91 @@ comptime {
     assert(ok_type(FooError!u32) == u32);
 }
 
+pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = Iter.Item;
+        pub usingnamespace D(@This());
+
+        iter: Iter,
+        peeked: ?Iter.Item,
+
+        pub fn new(iter: Iter) Self {
+            return .{ .iter = iter, .peeked = null };
+        }
+
+        pub fn peek(self: *Self) ?*const Item {
+            return self.peek_mut();
+        }
+
+        pub fn peek_mut(self: *Self) ?*Item {
+            if (self.peeked) |*val| {
+                return val;
+            } else {
+                self.peeked = self.iter.next();
+                if (self.peeked) |*val|
+                    return val;
+                return null;
+            }
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.peeked) |peeked| {
+                self.peeked = self.iter.next();
+                return peeked;
+            } else {
+                self.peeked = self.iter.next();
+                return self.peeked;
+            }
+        }
+    };
+}
+
+pub fn Peekable(comptime Iter: type) type {
+    return MakePeekable(derive.Derive, Iter);
+}
+
+comptime {
+    const Range = range.RangeIter;
+    assert(Peekable(Range(u32)).Self == Peekable(Range(u32)));
+    assert(Peekable(Range(u32)).Item == u32);
+}
+
+test "Peekable" {
+    const Range = range.RangeIter;
+    const Iter = Peekable(Range(u32));
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4, 1));
+        try testing.expectEqual(@as(u32, 1), peek.peek().?.*);
+        try testing.expectEqual(@as(?u32, 1), peek.next());
+
+        try testing.expectEqual(@as(?u32, 2), peek.next());
+
+        try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
+        try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
+
+        try testing.expectEqual(@as(?u32, 3), peek.next());
+
+        try testing.expectEqual(@as(?*const u32, null), peek.peek());
+        try testing.expectEqual(@as(?u32, null), peek.next());
+    }
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4, 1));
+        try comptime testing.expectEqual(?*u32, @TypeOf(peek.peek_mut()));
+        try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
+        try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
+        try testing.expectEqual(@as(?u32, 1), peek.next());
+        if (peek.peek_mut()) |p| {
+            try testing.expectEqual(p.*, 2);
+            p.* = 5;
+        }
+        try testing.expectEqual(@as(?u32, 5), peek.next());
+        try testing.expectEqual(@as(?u32, 3), peek.next());
+        try testing.expectEqual(@as(?u32, null), peek.next());
+    }
+}
+
 pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.isClonable(Iter));
