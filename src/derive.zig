@@ -13,6 +13,51 @@ const debug = std.debug.print;
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
 
+fn DerivePosition(comptime Iter: type) type {
+    comptime assert(isIterator(Iter));
+
+    if (meta.have_fun(Iter, "position")) |_| {
+        return struct {};
+    } else {
+        return struct {
+            pub fn position(self: *Iter, predicate: fn (Iter.Item) bool) ?usize {
+                var idx: usize = 0;
+                while (self.next()) |val| : (idx += 1) {
+                    if (predicate(val))
+                        return idx;
+                }
+                return null;
+            }
+        };
+    }
+}
+
+comptime {
+    const Iter = range.MakeRangeIter(DerivePosition, u32);
+    assert(isIterator(Iter));
+}
+
+test "Position" {
+    {
+        const Iter = MakeSliceIter(DerivePosition, i32);
+        var arr = [_]i32{ 1, 0, -1, 2, 3, -2 };
+        try testing.expectEqual(@as(?usize, 2), Iter.new(arr[0..]).position(struct {
+            fn p(x: *const i32) bool {
+                return x.* < 0;
+            }
+        }.p));
+    }
+    {
+        const Iter = MakeSliceIter(DerivePosition, i32);
+        var arr = [_]i32{ 1, 0, -1, 2, 3, -2 };
+        try testing.expectEqual(@as(?usize, null), Iter.new(arr[0..]).position(struct {
+            fn p(x: *const i32) bool {
+                return x.* > 10;
+            }
+        }.p));
+    }
+}
+
 fn DeriveCycle(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
@@ -1951,6 +1996,7 @@ test "derive filter_map" {
 
 pub fn Derive(comptime Iter: type) type {
     return struct {
+        pub usingnamespace DerivePosition(Iter);
         pub usingnamespace DeriveCycle(Iter);
         pub usingnamespace DeriveCopied(Iter);
         pub usingnamespace DeriveCloned(Iter);
