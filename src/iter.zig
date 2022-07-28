@@ -9,7 +9,7 @@ const trait = std.meta.trait;
 const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
-const assertEqualTuple = meta.assertEqualTuple;
+const assertEqualTupleType = meta.assertEqualTupleType;
 const debug = std.debug.print;
 
 const Allocator = std.mem.Allocator;
@@ -60,9 +60,9 @@ pub fn codomain(comptime F: type) type {
 }
 
 comptime {
-    assertEqualTuple(domain(fn (u32) u16), Tuple1(u32).StdTuple);
+    assertEqualTupleType(domain(fn (u32) u16), Tuple1(u32).StdTuple);
     assert(codomain(fn (u32) u16) == u16);
-    assertEqualTuple(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
+    assertEqualTupleType(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
@@ -1130,7 +1130,7 @@ test "Inspect" {
 
 pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
     comptime assert(meta.isIterator(I));
-    comptime assertEqualTuple(Tuple1(I.Item).StdTuple, domain(P));
+    comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, domain(P));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(codomain(P));
@@ -1232,7 +1232,7 @@ test "StepBy" {
 
 pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.equalTuple(Tuple2(*St, Iter.Item).StdTuple, domain(F)));
+    comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, domain(F)));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(codomain(F));

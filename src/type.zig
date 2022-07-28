@@ -23,7 +23,7 @@ const debug = std.debug.print;
 /// ```
 /// std.meta.Tuple(&[_]type{u32}) == std.meta.Tuple(&[_]type{u32})
 /// ```
-pub fn equalTuple(comptime exp: type, comptime act: type) bool {
+pub fn eqTupleType(comptime exp: type, comptime act: type) bool {
     comptime {
         if (!std.meta.trait.isTuple(exp))
             return false;
@@ -44,14 +44,14 @@ pub fn equalTuple(comptime exp: type, comptime act: type) bool {
 }
 
 comptime {
-    assert(equalTuple(std.meta.Tuple(&[_]type{u32}), std.meta.Tuple(&[_]type{u32})));
-    assert(!equalTuple(std.meta.Tuple(&[_]type{ u32, u32 }), std.meta.Tuple(&[_]type{u32})));
-    assert(equalTuple(std.meta.Tuple(&[_]type{ u32, i64 }), std.meta.Tuple(&[_]type{ u32, i64 })));
-    assert(!equalTuple(std.meta.Tuple(&[_]type{}), std.meta.Tuple(&[_]type{ u32, i64 })));
+    assert(eqTupleType(std.meta.Tuple(&[_]type{u32}), std.meta.Tuple(&[_]type{u32})));
+    assert(!eqTupleType(std.meta.Tuple(&[_]type{ u32, u32 }), std.meta.Tuple(&[_]type{u32})));
+    assert(eqTupleType(std.meta.Tuple(&[_]type{ u32, i64 }), std.meta.Tuple(&[_]type{ u32, i64 })));
+    assert(!eqTupleType(std.meta.Tuple(&[_]type{}), std.meta.Tuple(&[_]type{ u32, i64 })));
 }
 
-pub fn assertEqualTuple(comptime x: type, comptime y: type) void {
-    comptime assert(equalTuple(x, y));
+pub fn assertEqualTupleType(comptime x: type, comptime y: type) void {
+    comptime assert(eqTupleType(x, y));
 }
 
 pub fn is_or_ptrto(comptime F: fn (type) bool) fn (type) bool {
