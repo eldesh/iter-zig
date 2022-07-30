@@ -944,3 +944,298 @@ test "Product" {
     try testing.expectEqual(@as(u32, 6), Product.product(I.new(arr[0..4])));
     try testing.expectEqual(@as(u32, 104), Product.product(I.new(arr[5..7])));
 }
+
+/// Trivially comparable with `==`.
+///
+/// # Details
+/// Checks that values of the type `T` is comparable with operator `==`.
+/// Except for pointer types.
+pub fn implTrivialEq(comptime T: type) bool {
+    comptime {
+        if (trait.isNumber(T))
+            return true;
+        if (trait.is(.Void)(T))
+            return true;
+        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
+            return true;
+        // Result of comparison should be @Vector(_, bool).
+        // if (trait.is(.Vector)(T))
+        //     return implTrivialEq(std.meta.Child(T));
+        if (trait.is(.Enum)(T))
+            return implTrivialEq(@typeInfo(T).Enum.tag_type);
+        if (trait.is(.EnumLiteral)(T))
+            return true;
+        if (trait.is(.ErrorSet)(T))
+            return true;
+        if (trait.is(.Fn)(T))
+            return true;
+        return false;
+    }
+}
+
+comptime {
+    assert(@as(u32, 1) == @as(u32, 1));
+    assert(null == null);
+    assert(true == true);
+    assert(true != false);
+    // assert(@Vector(2, u32){ 0, 0 } == @Vector(2, u32){ 0, 0 });
+    const E = enum { EA, EB, EC };
+    assert(E.EA == E.EA);
+    assert(.EB == .EB);
+    assert(.EB != .EC);
+    const Err = error{ ErrA, ErrB, ErrC };
+    assert(Err.ErrA == Err.ErrA);
+    assert(Err.ErrB != Err.ErrC);
+}
+
+pub fn implPartialEq(comptime T: type) bool {
+    comptime {
+        if (implTrivialEq(T))
+            return true;
+        if (trait.is(.Array)(T) or trait.is(.Optional)(T) or trait.is(.Vector)(T))
+            return implPartialEq(std.meta.Child(T));
+        if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
+            return true;
+        if (have_fun(T, "eq")) |ty|
+            return ty == fn (*const T, *const T) bool;
+        return false;
+    }
+}
+
+comptime {
+    assert(implPartialEq(bool));
+    assert(implPartialEq(void));
+    assert(implPartialEq(@TypeOf(null)));
+    assert(implPartialEq(std.meta.Vector(4, u32)));
+    assert(implPartialEq(u32));
+    assert(!implPartialEq(struct { val: f32 }));
+    assert(implPartialEq(struct {
+        val: u32,
+        pub usingnamespace DerivePartialEq(@This());
+    }));
+    assert(implPartialEq(f64));
+    assert(!implPartialEq(*u64));
+    assert(implPartialEq(?f64));
+    assert(!implPartialEq(?*f64));
+    assert(!implPartialEq([]const u8));
+    assert(!implPartialEq([*]f64));
+    assert(implPartialEq([5]u32));
+    assert(implPartialEq(enum { A, B, C }));
+    const U = union(enum) { Tag1, Tag2, Tag3 };
+    assert(!implPartialEq(U));
+    assert(!implPartialEq(*U));
+    assert(!implPartialEq(*const U));
+    const UEq = union(enum) {
+        Tag1,
+        Tag2,
+        Tag3,
+        pub usingnamespace DerivePartialEq(@This());
+    };
+    assert(implPartialEq(UEq));
+    assert(!implPartialEq(*UEq));
+    assert(!implPartialEq(*const UEq));
+    const OverflowError = error{Overflow};
+    assert(implPartialEq(@TypeOf(.Overflow))); // EnumLiteral
+    assert(implPartialEq(OverflowError)); // ErrorSet
+    assert(!implPartialEq(OverflowError![2]U)); // ErrorUnion
+    assert(!implPartialEq(?(error{Overflow}![2]U)));
+    assert(implPartialEq(?(error{Overflow}![2]UEq)));
+    assert(!implPartialEq(struct { val: ?(error{Overflow}![2]U) }));
+    assert(implPartialEq(struct {
+        val: ?(error{Overflow}![2]UEq),
+        pub usingnamespace DerivePartialEq(@This());
+    }));
+    assert(!implPartialEq(struct { val: ?(error{Overflow}![2]*const U) }));
+    assert(implPartialEq(struct {
+        val: u32,
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return self.val == other.val;
+        }
+    }));
+    assert(implPartialEq(struct {
+        val: *u32,
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return self.val == other.val;
+        }
+    }));
+}
+
+pub fn isPartialEq(comptime T: type) bool {
+    comptime return is_or_ptrto(implPartialEq)(T);
+}
+
+pub const PartialEq = struct {
+    fn eq_array(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.is(.Array)(T));
+        if (x.len != y.len)
+            return false;
+        for (x) |xv, i| {
+            if (!eq(xv, y[i]))
+                return false;
+        }
+        return true;
+    }
+
+    fn eq_optional(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.is(.Optional)(T));
+        if (x) |xv| {
+            return if (y) |yv| eq(xv, yv) else false;
+        } else {
+            return y == null;
+        }
+    }
+
+    fn eq_vector(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.is(.Vector)(T));
+        var i: usize = 0;
+        while (i < @typeInfo(T).Vector.len) : (i += 1) {
+            if (!eq(x[i], y[i]))
+                return false;
+        }
+        return true;
+    }
+
+    fn eq_error_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.is(.ErrorUnion)(T));
+        if (x) |xv| {
+            return if (y) |yv| eq(xv, yv) else |_| false;
+        } else |xv| {
+            return if (y) |_| false else |yv| xv == yv;
+        }
+    }
+
+    pub fn eq(x: anytype, y: @TypeOf(x)) bool {
+        const T = @TypeOf(x);
+        comptime assert(isPartialEq(T));
+
+        if (comptime implTrivialEq(T))
+            return x == y;
+
+        if (comptime trait.is(.Array)(T))
+            return eq_array(T, x, y);
+
+        if (comptime trait.is(.Optional)(T))
+            return eq_optional(T, x, y);
+
+        if (comptime trait.is(.Vector)(T))
+            return eq_vector(T, x, y);
+
+        if (comptime trait.is(.ErrorUnion)(T))
+            return eq_error_union(T, x, y);
+
+        if (comptime have_fun(T, "eq")) |_|
+            return x.eq(&y);
+
+        if (comptime trait.isSingleItemPtr(T))
+            return x.eq(&y);
+
+        unreachable;
+    }
+
+    pub fn ne(x: anytype, y: @TypeOf(x)) bool {
+        return !eq(x, y);
+    }
+};
+
+pub fn DerivePartialEq(comptime T: type) type {
+    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
+    return struct {
+        pub fn eq(self: *const T, other: *const T) bool {
+            if (comptime trait.is(.Struct)(T)) {
+                inline for (std.meta.fields(T)) |field| {
+                    if (!PartialEq.eq(@field(self, field.name), @field(other, field.name)))
+                        return false;
+                }
+                return true;
+            }
+            if (comptime trait.is(.Union)(T)) {
+                if (@typeInfo(T).Union.tag_type) |tag| {
+                    const self_tag = std.meta.activeTag(self.*);
+                    const other_tag = std.meta.activeTag(other.*);
+                    if (self_tag != other_tag) return false;
+
+                    inline for (std.meta.fields(T)) |field| {
+                        if (@field(tag, field.name) == self_tag)
+                            return PartialEq.eq(@field(self, field.name), @field(other, field.name));
+                    }
+                    return false;
+                } else {
+                    @compileError("Cannot Derive PartialEq for untagged union type " ++ @typeName(T));
+                }
+            }
+            @compileError("Cannot Derive PartialEq for type " ++ @typeName(T));
+        }
+    };
+}
+
+test "PartialEq" {
+    {
+        const arr1 = [_]u32{ 0, 1, 2 };
+        const arr2 = [_]u32{ 0, 1, 2 };
+        try testing.expect(PartialEq.eq(arr1, arr2));
+    }
+    {
+        const T = struct {
+            val: u32,
+            fn new(val: u32) @This() {
+                return .{ .val = val };
+            }
+            // impl `eq` manually
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val == other.val;
+            }
+        };
+        const x = T.new(5);
+        const y = T.new(5);
+        try testing.expect(PartialEq.eq(x, y));
+    }
+    {
+        const T = union(enum) {
+            val: u32,
+            // deriving `eq`
+            pub usingnamespace DerivePartialEq(@This());
+        };
+        const x: T = T{ .val = 5 };
+        const y: T = T{ .val = 5 };
+        try testing.expect(PartialEq.eq(x, y));
+    }
+    {
+        // contains pointer
+        const T = struct {
+            val: *u32,
+            fn new(val: *u32) @This() {
+                return .{ .val = val };
+            }
+            // impl `eq` manually.
+            // It is not allowed for deriving because pointer is included.
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val.* == other.val.*;
+            }
+        };
+        var v0 = @as(u32, 5);
+        var v1 = @as(u32, 5);
+        const x = T.new(&v0);
+        const y = T.new(&v1);
+        try testing.expect(PartialEq.eq(x, y));
+    }
+
+    {
+        // tagged union
+        const E = union(enum) {
+            A,
+            B,
+            C,
+            pub usingnamespace DerivePartialEq(@This());
+        };
+        // complex type
+        const T = struct {
+            val: ?(error{Err}![2]E),
+            pub usingnamespace DerivePartialEq(@This());
+        };
+        try testing.expect(PartialEq.eq(T{ .val = null }, T{ .val = null }));
+        try testing.expect(PartialEq.eq(T{ .val = error.Err }, T{ .val = error.Err }));
+        try testing.expect(PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
+        try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
+    }
+}

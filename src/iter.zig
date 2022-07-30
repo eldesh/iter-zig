@@ -119,6 +119,26 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
             return null;
         }
 
+        // derive `next_if_eq` inplace
+        pub usingnamespace if (meta.isPartialEq(*const Item))
+            struct {
+                pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
+                    if (self.peek()) |peeked| {
+                        // if and only if the `peeked` value is equals to `expected`, it is consumed.
+                        if (comptime trait.is(.Struct)(Item) or trait.is(.Union)(Item)) {
+                            if (meta.PartialEq.eq(peeked, expected))
+                                return self.next();
+                        } else {
+                            if (meta.PartialEq.eq(peeked.*, expected.*))
+                                return self.next();
+                        }
+                    }
+                    return null;
+                }
+            }
+        else
+            struct {};
+
         pub fn next(self: *Self) ?Item {
             const peeked = self.peeked;
             self.peeked = self.iter.next();
@@ -181,6 +201,13 @@ test "Peekable" {
                 return x.* == 0;
             }
         }.f));
+        try testing.expectEqual(@as(?u32, 1), peek.next());
+    }
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6, 1));
+        var zero: u32 = 0;
+        try testing.expectEqual(@as(?u32, 0), peek.next_if_eq(&zero));
+        try testing.expectEqual(@as(?u32, null), peek.next_if_eq(&zero));
         try testing.expectEqual(@as(?u32, 1), peek.next());
     }
 }
