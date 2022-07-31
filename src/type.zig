@@ -381,119 +381,6 @@ test "Clone" {
     try testing.expect(std.mem.eql(u8, orig.ss, (try new).ss));
 }
 
-fn implOrd(comptime T: type) bool {
-    comptime {
-        if (!implPartialOrd(T))
-            return false;
-        // primitive type
-        if (trait.isIntegral(T))
-            return true;
-        // complex type impl 'cmp' method
-        if (have_fun(T, "cmp")) |ty| {
-            if (ty == fn (*const T, *const T) std.math.Order)
-                return true;
-        }
-        return false;
-    }
-}
-
-// TODO: to be comparable tuple
-// TODO: to be comparable optional
-pub fn isOrd(comptime T: type) bool {
-    comptime {
-        return is_or_ptrto(implOrd)(T);
-    }
-}
-
-comptime {
-    assert(isOrd(u32));
-    assert(isOrd(*u32));
-    assert(!isOrd([]u32));
-    assert(!isOrd([*]u32));
-    assert(isOrd(i64));
-    assert(isOrd(*const i64));
-    assert(!isOrd(*[]const i64));
-    assert(!isOrd([8]u64));
-    assert(!isOrd(f64));
-    assert(!isOrd(f32));
-    assert(!isOrd(@Vector(4, u32)));
-    assert(!isOrd(@Vector(4, f64)));
-    const C = struct {
-        val: u32,
-        pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
-            _ = x;
-            _ = y;
-            return null;
-        }
-        pub fn cmp(x: *const @This(), y: *const @This()) std.math.Order {
-            _ = x;
-            _ = y;
-            return .lt;
-        }
-    };
-    assert(isOrd(C));
-    assert(isOrd(*C));
-    const D = struct {
-        val: u32,
-        pub fn cmp(x: @This(), y: @This()) std.math.Order {
-            _ = x;
-            _ = y;
-            return .lt;
-        }
-    };
-    assert(!isOrd(D)); // partial_cmp is not implemented
-    assert(!isOrd(*D));
-}
-
-pub const Ord = struct {
-    /// General comparing function
-    ///
-    /// # Details
-    /// Compares `Ord` values.
-    /// If the type of `x` is a primitive type, `cmp` would be used like `cmp(5, 6)`.
-    /// And for others, like `cmp(&x, &y)` where the typeof x is comparable.
-    pub fn cmp(x: anytype, y: @TypeOf(x)) std.math.Order {
-        const T = @TypeOf(x);
-        comptime assert(isOrd(T));
-
-        // primitive types
-        if (comptime trait.isIntegral(T) or trait.is(.Vector)(T))
-            return std.math.order(x, y);
-        // pointer that points to
-        if (comptime trait.isSingleItemPtr(T)) {
-            const E = std.meta.Child(T);
-            // primitive types
-            if (comptime trait.isIntegral(E) or trait.is(.Vector)(E))
-                return std.math.order(x.*, y.*);
-        }
-        // - composed type implements 'cmp' or
-        // - pointer that points to 'cmp'able type
-        return x.cmp(y);
-    }
-
-    /// Acquire the specilized 'cmp' function with 'T'.
-    ///
-    /// # Details
-    /// The type of 'cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
-    /// To using the function specialized to a type, pass the function like `set(T)`.
-    pub fn on(comptime T: type) fn (T, T) std.math.Order {
-        return struct {
-            fn call(x: T, y: T) std.math.Order {
-                return cmp(x, y);
-            }
-        }.call;
-    }
-};
-
-comptime {
-    const zero = @as(u32, 0);
-    var pzero = &zero;
-    const one = @as(u32, 1);
-    var pone = &one;
-    assert(Ord.on(u32)(0, 1) == .lt);
-    assert(Ord.on(*const u32)(pzero, pone) == .lt);
-}
-
 fn implPartialOrd(comptime T: type) bool {
     if (trait.is(.Bool)(T))
         return true;
@@ -616,6 +503,119 @@ test "PartialOrd" {
     try testing.expectEqual(C.new(5).partial_cmp(&C.new(6)), math.Order.lt);
     try testing.expectEqual(C.new(6).partial_cmp(&C.new(6)), math.Order.eq);
     try testing.expectEqual(C.new(6).partial_cmp(&C.new(5)), math.Order.gt);
+}
+
+fn implOrd(comptime T: type) bool {
+    comptime {
+        if (!implPartialOrd(T))
+            return false;
+        // primitive type
+        if (trait.isIntegral(T))
+            return true;
+        // complex type impl 'cmp' method
+        if (have_fun(T, "cmp")) |ty| {
+            if (ty == fn (*const T, *const T) std.math.Order)
+                return true;
+        }
+        return false;
+    }
+}
+
+// TODO: to be comparable tuple
+// TODO: to be comparable optional
+pub fn isOrd(comptime T: type) bool {
+    comptime {
+        return is_or_ptrto(implOrd)(T);
+    }
+}
+
+comptime {
+    assert(isOrd(u32));
+    assert(isOrd(*u32));
+    assert(!isOrd([]u32));
+    assert(!isOrd([*]u32));
+    assert(isOrd(i64));
+    assert(isOrd(*const i64));
+    assert(!isOrd(*[]const i64));
+    assert(!isOrd([8]u64));
+    assert(!isOrd(f64));
+    assert(!isOrd(f32));
+    assert(!isOrd(@Vector(4, u32)));
+    assert(!isOrd(@Vector(4, f64)));
+    const C = struct {
+        val: u32,
+        pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
+            _ = x;
+            _ = y;
+            return null;
+        }
+        pub fn cmp(x: *const @This(), y: *const @This()) std.math.Order {
+            _ = x;
+            _ = y;
+            return .lt;
+        }
+    };
+    assert(isOrd(C));
+    assert(isOrd(*C));
+    const D = struct {
+        val: u32,
+        pub fn cmp(x: @This(), y: @This()) std.math.Order {
+            _ = x;
+            _ = y;
+            return .lt;
+        }
+    };
+    assert(!isOrd(D)); // partial_cmp is not implemented
+    assert(!isOrd(*D));
+}
+
+pub const Ord = struct {
+    /// General comparing function
+    ///
+    /// # Details
+    /// Compares `Ord` values.
+    /// If the type of `x` is a primitive type, `cmp` would be used like `cmp(5, 6)`.
+    /// And for others, like `cmp(&x, &y)` where the typeof x is comparable.
+    pub fn cmp(x: anytype, y: @TypeOf(x)) std.math.Order {
+        const T = @TypeOf(x);
+        comptime assert(isOrd(T));
+
+        // primitive types
+        if (comptime trait.isIntegral(T) or trait.is(.Vector)(T))
+            return std.math.order(x, y);
+        // pointer that points to
+        if (comptime trait.isSingleItemPtr(T)) {
+            const E = std.meta.Child(T);
+            // primitive types
+            if (comptime trait.isIntegral(E) or trait.is(.Vector)(E))
+                return std.math.order(x.*, y.*);
+        }
+        // - composed type implements 'cmp' or
+        // - pointer that points to 'cmp'able type
+        return x.cmp(y);
+    }
+
+    /// Acquire the specilized 'cmp' function with 'T'.
+    ///
+    /// # Details
+    /// The type of 'cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
+    /// To using the function specialized to a type, pass the function like `set(T)`.
+    pub fn on(comptime T: type) fn (T, T) std.math.Order {
+        return struct {
+            fn call(x: T, y: T) std.math.Order {
+                return cmp(x, y);
+            }
+        }.call;
+    }
+};
+
+comptime {
+    const zero = @as(u32, 0);
+    var pzero = &zero;
+    const one = @as(u32, 1);
+    var pone = &one;
+    assert(Ord.on(u32)(0, 1) == .lt);
+    assert(Ord.on(*const u32)(pzero, pone) == .lt);
 }
 
 pub fn implSum(comptime T: type) bool {
@@ -1014,7 +1014,10 @@ comptime {
     assert(!implPartialEq(struct { val: f32 }));
     assert(implPartialEq(struct {
         val: u32,
-        pub usingnamespace DerivePartialEq(@This());
+
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return self.val == other.val;
+        }
     }));
     assert(implPartialEq(f64));
     assert(!implPartialEq(*u64));
@@ -1032,7 +1035,9 @@ comptime {
         Tag1,
         Tag2,
         Tag3,
-        pub usingnamespace DerivePartialEq(@This());
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return std.meta.activeTag(self.*) == std.meta.activeTag(other.*);
+        }
     };
     assert(implPartialEq(UEq));
     assert(!implPartialEq(*UEq));
@@ -1046,7 +1051,9 @@ comptime {
     assert(!implPartialEq(struct { val: ?(error{Overflow}![2]U) }));
     assert(implPartialEq(struct {
         val: ?(error{Overflow}![2]UEq),
-        pub usingnamespace DerivePartialEq(@This());
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return PartialEq.eq(self, other);
+        }
     }));
     assert(!implPartialEq(struct { val: ?(error{Overflow}![2]*const U) }));
     assert(implPartialEq(struct {
@@ -1208,126 +1215,5 @@ test "PartialEq" {
         // const arr1p = [_]*const T{&x};
         // const arr2p = [_]*const T{&y};
         // try testing.expect(PartialEq.eq(&arr1p, &arr2p));
-    }
-}
-
-/// Derive `eq` of `PartialEq` for the type `T`
-///
-/// # Details
-/// For type `T` which is struct or tagged union type, derive `eq` method.
-/// The signature of that method should be `fn (self: *const T, other: *const T) bool`.
-///
-/// This function should be used like below:
-/// ```zig
-/// struct {
-///   val1: type1, // must not be pointer type
-///   val2: type2, // must not be pointer type
-///   pub usingnamespace DerivePartialEq(@This());
-/// }
-/// ```
-///
-/// This definition declares the type have `eq` method same as below declaration:
-/// ```zig
-/// struct {
-///   val1: type1,
-///   val2: type2,
-///   pub fn eq(self: *const @This(), other: *const @This()) bool {
-///     if (!PartialEq.eq(&self.val1, &other.val1))
-///       return false;
-///     if (!PartialEq.eq(&self.val2, &other.val2))
-///       return false;
-///     return true;
-///   }
-/// }
-/// ```
-///
-pub fn DerivePartialEq(comptime T: type) type {
-    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
-    return struct {
-        pub fn eq(self: *const T, other: *const T) bool {
-            if (comptime trait.is(.Struct)(T)) {
-                inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
-                    if (!PartialEq.eq(&@field(self, field.name), &@field(other, field.name)))
-                        return false;
-                }
-                return true;
-            }
-            if (comptime trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type == null)
-                    @compileError("Cannot Derive PartialEq for untagged union type " ++ @typeName(T));
-
-                const tag = @typeInfo(T).Union.tag_type.?;
-                const self_tag = std.meta.activeTag(self.*);
-                const other_tag = std.meta.activeTag(other.*);
-                if (self_tag != other_tag) return false;
-
-                inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
-                    if (@field(tag, field.name) == self_tag)
-                        return PartialEq.eq(&@field(self, field.name), &@field(other, field.name));
-                }
-                return false;
-            }
-            @compileError("Cannot Derive PartialEq for type " ++ @typeName(T));
-        }
-
-        pub fn ne(self: *const T, other: *const T) bool {
-            return !eq(self, other);
-        }
-    };
-}
-
-test "DerivePartialEq" {
-    {
-        const T = union(enum) {
-            val: u32,
-            // deriving `eq`
-            pub usingnamespace DerivePartialEq(@This());
-        };
-        const x: T = T{ .val = 5 };
-        const y: T = T{ .val = 5 };
-        try testing.expect(PartialEq.eq(x, y));
-    }
-    {
-        // contains pointer
-        const T = struct {
-            val: *u32,
-            fn new(val: *u32) @This() {
-                return .{ .val = val };
-            }
-            // pub usingnamespace DerivePartialEq(@This());
-            // impl `eq` manually.
-            // It is not allowed for deriving because pointer is included.
-            pub fn eq(self: *const @This(), other: *const @This()) bool {
-                return self.val.* == other.val.*;
-            }
-        };
-        var v0 = @as(u32, 5);
-        var v1 = @as(u32, 5);
-        const x = T.new(&v0);
-        const y = T.new(&v1);
-        try testing.expect(PartialEq.eq(x, y));
-    }
-    {
-        // tagged union
-        const E = union(enum) {
-            A,
-            B,
-            C,
-            pub usingnamespace DerivePartialEq(@This());
-        };
-        // complex type
-        const T = struct {
-            val: ?(error{Err}![2]E),
-            pub usingnamespace DerivePartialEq(@This());
-        };
-        try testing.expect(PartialEq.eq(T{ .val = null }, T{ .val = null }));
-        try testing.expect(PartialEq.eq(T{ .val = error.Err }, T{ .val = error.Err }));
-        try testing.expect(PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
-        try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
-        try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
     }
 }
