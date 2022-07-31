@@ -993,7 +993,9 @@ pub fn implPartialEq(comptime T: type) bool {
     comptime {
         if (implTrivialEq(T))
             return true;
-        if (trait.is(.Array)(T) or trait.is(.Optional)(T) or trait.is(.Vector)(T))
+        if (trait.is(.Array)(T) or trait.is(.Optional)(T))
+            return implPartialEq(std.meta.Child(T));
+        if (trait.is(.Vector)(T) and implTrivialEq(std.meta.Child(T)))
             return implPartialEq(std.meta.Child(T));
         if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
             return true;
@@ -1067,70 +1069,83 @@ pub fn isPartialEq(comptime T: type) bool {
 
 pub const PartialEq = struct {
     fn eq_array(comptime T: type, x: T, y: T) bool {
-        comptime assert(trait.is(.Array)(T));
+        comptime assert(trait.isPtrTo(.Array)(T));
         if (x.len != y.len)
             return false;
         for (x) |xv, i| {
-            if (!eq(xv, y[i]))
+            if (!eq_impl(&xv, &y[i]))
                 return false;
         }
         return true;
     }
 
     fn eq_optional(comptime T: type, x: T, y: T) bool {
-        comptime assert(trait.is(.Optional)(T));
-        if (x) |xv| {
-            return if (y) |yv| eq(xv, yv) else false;
+        comptime assert(trait.isPtrTo(.Optional)(T));
+        if (x.*) |xv| {
+            return if (y.*) |yv| eq_impl(&xv, &yv) else false;
         } else {
-            return y == null;
+            return y.* == null;
         }
     }
 
     fn eq_vector(comptime T: type, x: T, y: T) bool {
-        comptime assert(trait.is(.Vector)(T));
+        comptime assert(trait.isPtrTo(.Vector)(T));
         var i: usize = 0;
-        while (i < @typeInfo(T).Vector.len) : (i += 1) {
-            if (!eq(x[i], y[i]))
+        while (i < @typeInfo(std.meta.Child(T)).Vector.len) : (i += 1) {
+            if (x.*[i] != y.*[i])
                 return false;
         }
         return true;
     }
 
     fn eq_error_union(comptime T: type, x: T, y: T) bool {
-        comptime assert(trait.is(.ErrorUnion)(T));
-        if (x) |xv| {
-            return if (y) |yv| eq(xv, yv) else |_| false;
+        comptime assert(trait.isPtrTo(.ErrorUnion)(T));
+        if (x.*) |xv| {
+            return if (y.*) |yv| eq_impl(&xv, &yv) else |_| false;
         } else |xv| {
-            return if (y) |_| false else |yv| xv == yv;
+            return if (y.*) |_| false else |yv| xv == yv;
         }
     }
 
+    fn eq_impl(x: anytype, y: @TypeOf(x)) bool {
+        const T = @TypeOf(x);
+        comptime assert(trait.isSingleItemPtr(T));
+        const E = std.meta.Child(T);
+        comptime assert(implPartialEq(E));
+
+        if (comptime implTrivialEq(E))
+            return x.* == y.*;
+
+        if (comptime trait.is(.Array)(E))
+            return eq_array(T, x, y);
+
+        if (comptime trait.is(.Optional)(E))
+            return eq_optional(T, x, y);
+
+        if (comptime trait.is(.Vector)(E))
+            return eq_vector(T, x, y);
+
+        if (comptime trait.is(.ErrorUnion)(E))
+            return eq_error_union(T, x, y);
+
+        if (comptime have_fun(E, "eq")) |_|
+            return x.eq(y);
+
+        unreachable;
+    }
+
+    /// Compare the values
+    ///
+    /// # Details
+    /// The type of values are required to satisfy `isPartialEq`.
+    ///
     pub fn eq(x: anytype, y: @TypeOf(x)) bool {
         const T = @TypeOf(x);
         comptime assert(isPartialEq(T));
 
-        if (comptime implTrivialEq(T))
-            return x == y;
-
-        if (comptime trait.is(.Array)(T))
-            return eq_array(T, x, y);
-
-        if (comptime trait.is(.Optional)(T))
-            return eq_optional(T, x, y);
-
-        if (comptime trait.is(.Vector)(T))
-            return eq_vector(T, x, y);
-
-        if (comptime trait.is(.ErrorUnion)(T))
-            return eq_error_union(T, x, y);
-
-        if (comptime have_fun(T, "eq")) |_|
-            return x.eq(&y);
-
-        if (comptime trait.isSingleItemPtr(T))
-            return x.eq(&y);
-
-        unreachable;
+        if (comptime !trait.isSingleItemPtr(T))
+            return eq_impl(&x, &y);
+        return eq_impl(x, y);
     }
 
     pub fn ne(x: anytype, y: @TypeOf(x)) bool {
@@ -1138,43 +1153,38 @@ pub const PartialEq = struct {
     }
 };
 
-pub fn DerivePartialEq(comptime T: type) type {
-    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
-    return struct {
-        pub fn eq(self: *const T, other: *const T) bool {
-            if (comptime trait.is(.Struct)(T)) {
-                inline for (std.meta.fields(T)) |field| {
-                    if (!PartialEq.eq(@field(self, field.name), @field(other, field.name)))
-                        return false;
-                }
-                return true;
-            }
-            if (comptime trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type) |tag| {
-                    const self_tag = std.meta.activeTag(self.*);
-                    const other_tag = std.meta.activeTag(other.*);
-                    if (self_tag != other_tag) return false;
-
-                    inline for (std.meta.fields(T)) |field| {
-                        if (@field(tag, field.name) == self_tag)
-                            return PartialEq.eq(@field(self, field.name), @field(other, field.name));
-                    }
-                    return false;
-                } else {
-                    @compileError("Cannot Derive PartialEq for untagged union type " ++ @typeName(T));
-                }
-            }
-            @compileError("Cannot Derive PartialEq for type " ++ @typeName(T));
-        }
-    };
-}
-
 test "PartialEq" {
+    {
+        const x: u32 = 5;
+        const y: u32 = 42;
+        try testing.expect(!PartialEq.eq(x, y));
+        try testing.expect(!PartialEq.eq(&x, &y));
+    }
+    {
+        const x: u32 = 5;
+        const y: u32 = 42;
+        const xp: *const u32 = &x;
+        const yp: *const u32 = &y;
+        try testing.expect(!PartialEq.eq(xp, yp));
+    }
     {
         const arr1 = [_]u32{ 0, 1, 2 };
         const arr2 = [_]u32{ 0, 1, 2 };
         try testing.expect(PartialEq.eq(arr1, arr2));
     }
+    {
+        const vec1 = std.meta.Vector(4, u32){ 0, 1, 2, 3 };
+        const vec2 = std.meta.Vector(4, u32){ 0, 1, 2, 4 };
+        try testing.expect(PartialEq.eq(&vec1, &vec1));
+        try testing.expect(!PartialEq.eq(&vec1, &vec2));
+    }
+    // {
+    //     const x: u32 = 5;
+    //     const y: u32 = 42;
+    //     const arr1 = [_]*const u32{&x};
+    //     const arr2 = [_]*const u32{&y};
+    //     try testing.expect(!PartialEq.eq(&arr1, &arr2));
+    // }
     {
         const T = struct {
             val: u32,
@@ -1189,7 +1199,88 @@ test "PartialEq" {
         const x = T.new(5);
         const y = T.new(5);
         try testing.expect(PartialEq.eq(x, y));
+        const arr1 = [_]T{x};
+        const arr2 = [_]T{y};
+        try testing.expect(PartialEq.eq(&arr1, &arr2));
+        const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
+        const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
+        try testing.expect(PartialEq.eq(&arr11, &arr22));
+        // const arr1p = [_]*const T{&x};
+        // const arr2p = [_]*const T{&y};
+        // try testing.expect(PartialEq.eq(&arr1p, &arr2p));
     }
+}
+
+/// Derive `eq` of `PartialEq` for the type `T`
+///
+/// # Details
+/// For type `T` which is struct or tagged union type, derive `eq` method.
+/// The signature of that method should be `fn (self: *const T, other: *const T) bool`.
+///
+/// This function should be used like below:
+/// ```zig
+/// struct {
+///   val1: type1, // must not be pointer type
+///   val2: type2, // must not be pointer type
+///   pub usingnamespace DerivePartialEq(@This());
+/// }
+/// ```
+///
+/// This definition declares the type have `eq` method same as below declaration:
+/// ```zig
+/// struct {
+///   val1: type1,
+///   val2: type2,
+///   pub fn eq(self: *const @This(), other: *const @This()) bool {
+///     if (!PartialEq.eq(&self.val1, &other.val1))
+///       return false;
+///     if (!PartialEq.eq(&self.val2, &other.val2))
+///       return false;
+///     return true;
+///   }
+/// }
+/// ```
+///
+pub fn DerivePartialEq(comptime T: type) type {
+    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
+    return struct {
+        pub fn eq(self: *const T, other: *const T) bool {
+            if (comptime trait.is(.Struct)(T)) {
+                inline for (std.meta.fields(T)) |field| {
+                    if (comptime trait.isSingleItemPtr(field.field_type))
+                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+                    if (!PartialEq.eq(&@field(self, field.name), &@field(other, field.name)))
+                        return false;
+                }
+                return true;
+            }
+            if (comptime trait.is(.Union)(T)) {
+                if (@typeInfo(T).Union.tag_type == null)
+                    @compileError("Cannot Derive PartialEq for untagged union type " ++ @typeName(T));
+
+                const tag = @typeInfo(T).Union.tag_type.?;
+                const self_tag = std.meta.activeTag(self.*);
+                const other_tag = std.meta.activeTag(other.*);
+                if (self_tag != other_tag) return false;
+
+                inline for (std.meta.fields(T)) |field| {
+                    if (comptime trait.isSingleItemPtr(field.field_type))
+                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+                    if (@field(tag, field.name) == self_tag)
+                        return PartialEq.eq(&@field(self, field.name), &@field(other, field.name));
+                }
+                return false;
+            }
+            @compileError("Cannot Derive PartialEq for type " ++ @typeName(T));
+        }
+
+        pub fn ne(self: *const T, other: *const T) bool {
+            return !eq(self, other);
+        }
+    };
+}
+
+test "DerivePartialEq" {
     {
         const T = union(enum) {
             val: u32,
@@ -1207,6 +1298,7 @@ test "PartialEq" {
             fn new(val: *u32) @This() {
                 return .{ .val = val };
             }
+            // pub usingnamespace DerivePartialEq(@This());
             // impl `eq` manually.
             // It is not allowed for deriving because pointer is included.
             pub fn eq(self: *const @This(), other: *const @This()) bool {
@@ -1219,7 +1311,6 @@ test "PartialEq" {
         const y = T.new(&v1);
         try testing.expect(PartialEq.eq(x, y));
     }
-
     {
         // tagged union
         const E = union(enum) {

@@ -125,13 +125,8 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
                 pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
                     if (self.peek()) |peeked| {
                         // if and only if the `peeked` value is equals to `expected`, it is consumed.
-                        if (comptime trait.is(.Struct)(Item) or trait.is(.Union)(Item)) {
-                            if (meta.PartialEq.eq(peeked, expected))
-                                return self.next();
-                        } else {
-                            if (meta.PartialEq.eq(peeked.*, expected.*))
-                                return self.next();
-                        }
+                        if (meta.PartialEq.eq(peeked, expected))
+                            return self.next();
                     }
                     return null;
                 }
