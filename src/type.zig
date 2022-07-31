@@ -388,8 +388,6 @@ fn implOrd(comptime T: type) bool {
         // primitive type
         if (trait.isIntegral(T))
             return true;
-        if (trait.is(.Vector)(T) and trait.isIntegral(std.meta.Child(T)))
-            return true;
         // complex type impl 'cmp' method
         if (have_fun(T, "cmp")) |ty| {
             if (ty == fn (*const T, *const T) std.math.Order)
@@ -418,6 +416,8 @@ comptime {
     assert(!isOrd([8]u64));
     assert(!isOrd(f64));
     assert(!isOrd(f32));
+    assert(!isOrd(@Vector(4, u32)));
+    assert(!isOrd(@Vector(4, f64)));
     const C = struct {
         val: u32,
         pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
@@ -495,10 +495,10 @@ comptime {
 }
 
 fn implPartialOrd(comptime T: type) bool {
+    if (trait.is(.Bool)(T))
+        return true;
     // primitive type
     if (trait.isNumber(T))
-        return true;
-    if (trait.is(.Vector)(T))
         return true;
     // complex type impl 'partial_cmp' method
     if (have_fun(T, "partial_cmp")) |ty| {
@@ -520,6 +520,7 @@ comptime {
     assert(!isPartialOrd(*[]const i64));
     assert(!isPartialOrd([8]u64));
     assert(isPartialOrd(f64));
+    assert(!isPartialOrd(@Vector(4, u32)));
     const C = struct {
         pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
             _ = x;
