@@ -258,13 +258,15 @@ pub fn isCopyable(comptime T: type) bool {
     comptime return is_or_ptrto(implCopy)(T);
 }
 
-fn implClone(comptime T: type) bool {
+pub fn implClone(comptime T: type) bool {
     comptime {
         if (implCopy(T))
             return true;
 
         if (have_type(T, "Self")) |Self| {
             if (have_type(T, "CloneError")) |CloneError| {
+                if (!trait.is(.ErrorSet)(CloneError))
+                    return false;
                 if (have_fun(T, "clone")) |clone_ty| {
                     if (clone_ty == fn (Self) CloneError!Self)
                         return true;
@@ -313,23 +315,22 @@ pub const Clone = struct {
         return Err!Out;
     }
 
+    fn clone_impl(value: anytype) ResultType(@TypeOf(value)) {
+        const T = @TypeOf(value);
+        const E = std.meta.Child(T);
+        if (comptime have_fun(E, "clone")) |_|
+            return value.clone();
+        comptime assert(implCopy(E));
+        return value.*;
+    }
+
     pub fn clone(value: anytype) ResultType(@TypeOf(value)) {
         const T = @TypeOf(value);
         comptime assert(isClonable(T));
 
-        if (comptime implClone(T)) {
-            if (comptime have_fun(T, "clone")) |_|
-                return value.clone();
-            comptime assert(implCopy(T));
-            return value;
-        } else {
-            comptime assert(trait.isSingleItemPtr(T));
-            const E = std.meta.Child(T);
-            if (comptime have_fun(E, "clone")) |_|
-                return value.clone();
-            comptime assert(implCopy(E));
-            return value.*;
-        }
+        if (comptime !trait.isSingleItemPtr(T))
+            return clone_impl(&value);
+        return clone_impl(value);
     }
 };
 
