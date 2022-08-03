@@ -1,6 +1,6 @@
 id: 5k6avsli6pzg17x93lok2ia9rx28wh4surefz2s0e7d0zv8q
 name: iter-zig
-main: src/main.zig
+main: src/lib.zig
 license: BSD-2-Clause
 description: A basic iterator library
 dependencies:
