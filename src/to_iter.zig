@@ -11,7 +11,7 @@ const SinglyLinkedList = std.SinglyLinkedList;
 const testing = std.testing;
 const assert = std.debug.assert;
 
-const Derive = derive.Derive;
+const DeriveIterator = derive.DeriveIterator;
 
 pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
     return struct {
@@ -39,7 +39,7 @@ pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: u
 }
 
 pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
-    return MakeArrayIter(Derive, Item, N);
+    return MakeArrayIter(DeriveIterator, Item, N);
 }
 
 comptime {
@@ -84,7 +84,7 @@ pub fn MakeArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime
 }
 
 pub fn ArrayConstIter(comptime Item: type, comptime N: usize) type {
-    return MakeArrayConstIter(Derive, Item, N);
+    return MakeArrayConstIter(DeriveIterator, Item, N);
 }
 
 comptime {
@@ -129,7 +129,7 @@ pub fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn SliceIter(comptime Item: type) type {
-    return MakeSliceIter(Derive, Item);
+    return MakeSliceIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -180,7 +180,7 @@ pub fn MakeSliceConstIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn SliceConstIter(comptime Item: type) type {
-    return MakeSliceConstIter(Derive, Item);
+    return MakeSliceConstIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -228,7 +228,7 @@ pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn ArrayListIter(comptime Item: type) type {
-    return MakeArrayListIter(Derive, Item);
+    return MakeArrayListIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -277,7 +277,7 @@ pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type
 }
 
 pub fn ArrayListConstIter(comptime Item: type) type {
-    return MakeArrayListConstIter(Derive, Item);
+    return MakeArrayListConstIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -328,7 +328,7 @@ pub fn MakeSinglyLinkedListIter(comptime F: fn (type) type, comptime T: type) ty
 }
 
 pub fn SinglyLinkedListIter(comptime Item: type) type {
-    return MakeSinglyLinkedListIter(Derive, Item);
+    return MakeSinglyLinkedListIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -390,7 +390,7 @@ pub fn MakeSinglyLinkedListConstIter(comptime F: fn (type) type, comptime T: typ
 }
 
 pub fn SinglyLinkedListConstIter(comptime Item: type) type {
-    return MakeSinglyLinkedListConstIter(Derive, Item);
+    return MakeSinglyLinkedListConstIter(DeriveIterator, Item);
 }
 
 comptime {

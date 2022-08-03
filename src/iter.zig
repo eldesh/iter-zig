@@ -143,7 +143,7 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Peekable(comptime Iter: type) type {
-    return MakePeekable(derive.Derive, Iter);
+    return MakePeekable(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -238,7 +238,7 @@ pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Cycle(comptime Iter: type) type {
-    return MakeCycle(derive.Derive, Iter);
+    return MakeCycle(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -296,7 +296,7 @@ pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Copied(comptime Iter: type) type {
-    return MakeCopied(derive.Derive, Iter);
+    return MakeCopied(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -343,7 +343,7 @@ pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Cloned(comptime Iter: type) type {
-    return MakeCloned(derive.Derive, Iter);
+    return MakeCloned(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -394,7 +394,7 @@ pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: 
 }
 
 pub fn Zip(comptime Iter: type, comptime Other: type) type {
-    return MakeZip(derive.Derive, Iter, Other);
+    return MakeZip(derive.DeriveIterator, Iter, Other);
 }
 
 comptime {
@@ -452,7 +452,7 @@ pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: 
 }
 
 pub fn FlatMap(comptime Iter: type, comptime F: type, comptime U: type) type {
-    return MakeFlatMap(derive.Derive, Iter, F, U);
+    return MakeFlatMap(derive.DeriveIterator, Iter, F, U);
 }
 
 comptime {
@@ -570,7 +570,7 @@ pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Flatten(comptime Iter: type) type {
-    return MakeFlatten(derive.Derive, Iter);
+    return MakeFlatten(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -629,7 +629,7 @@ pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type
 }
 
 pub fn Map(comptime Iter: type, comptime F: type) type {
-    return MakeMap(derive.Derive, Iter, F);
+    return MakeMap(derive.DeriveIterator, Iter, F);
 }
 
 comptime {
@@ -678,7 +678,7 @@ pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime 
 }
 
 pub fn IterFilter(comptime Iter: type, comptime Pred: type) type {
-    return MakeIterFilter(derive.Derive, Iter, Pred);
+    return MakeIterFilter(derive.DeriveIterator, Iter, Pred);
 }
 
 comptime {
@@ -731,7 +731,7 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
 }
 
 pub fn FilterMap(comptime Iter: type, comptime F: type) type {
-    return MakeFilterMap(derive.Derive, Iter, F);
+    return MakeFilterMap(derive.DeriveIterator, Iter, F);
 }
 
 comptime {
@@ -790,7 +790,7 @@ pub fn MakeChain(comptime D: fn (type) type, comptime Iter1: type, comptime Iter
 }
 
 pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
-    return MakeChain(derive.Derive, Iter1, Iter2);
+    return MakeChain(derive.DeriveIterator, Iter1, Iter2);
 }
 
 comptime {
@@ -841,7 +841,7 @@ pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Enumerate(comptime Iter: type) type {
-    return MakeEnumerate(derive.Derive, Iter);
+    return MakeEnumerate(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -887,7 +887,7 @@ pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Take(comptime Iter: type) type {
-    return MakeTake(derive.Derive, Iter);
+    return MakeTake(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -952,7 +952,7 @@ pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P
 }
 
 pub fn TakeWhile(comptime Iter: type, comptime P: type) type {
-    return MakeTakeWhile(derive.Derive, Iter, P);
+    return MakeTakeWhile(derive.DeriveIterator, Iter, P);
 }
 
 comptime {
@@ -1003,7 +1003,7 @@ pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Skip(comptime Iter: type) type {
-    return MakeSkip(derive.Derive, Iter);
+    return MakeSkip(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1057,7 +1057,7 @@ pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P
 }
 
 pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
-    return MakeSkipWhile(derive.Derive, Iter, P);
+    return MakeSkipWhile(derive.DeriveIterator, Iter, P);
 }
 
 comptime {
@@ -1107,7 +1107,7 @@ pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Inspect(comptime Iter: type) type {
-    return MakeInspect(derive.Derive, Iter);
+    return MakeInspect(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1179,7 +1179,7 @@ pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: ty
 }
 
 pub fn MapWhile(comptime I: type, comptime P: type) type {
-    return MakeMapWhile(derive.Derive, I, P);
+    return MakeMapWhile(derive.DeriveIterator, I, P);
 }
 
 comptime {
@@ -1231,7 +1231,7 @@ pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn StepBy(comptime Iter: type) type {
-    return MakeStepBy(derive.Derive, Iter);
+    return MakeStepBy(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1279,7 +1279,7 @@ pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: ty
 }
 
 pub fn Scan(comptime Iter: type, comptime St: type, comptime F: type) type {
-    return MakeScan(derive.Derive, Iter, St, F);
+    return MakeScan(derive.DeriveIterator, Iter, St, F);
 }
 
 comptime {
@@ -1347,7 +1347,7 @@ pub fn MakeFuse(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn Fuse(comptime Iter: type) type {
-    return MakeFuse(derive.Derive, Iter);
+    return MakeFuse(derive.DeriveIterator, Iter);
 }
 
 comptime {

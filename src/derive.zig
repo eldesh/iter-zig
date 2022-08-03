@@ -1869,7 +1869,7 @@ test "derive enumerate" {
 test "derive enumerate map" {
     const Tuple2 = tuple.Tuple2;
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
-    var eiter = MakeSliceIter(Derive, u32).new(arr[0..]).enumerate().map(struct {
+    var eiter = MakeSliceIter(DeriveIterator, u32).new(arr[0..]).enumerate().map(struct {
         fn proj(item: Tuple2(*u32, usize)) *u32 {
             return item.get(0);
         }
@@ -2033,7 +2033,15 @@ test "derive filter_map" {
     try testing.expectEqual(@as(?u32, null), filter_map.next());
 }
 
-pub fn Derive(comptime Iter: type) type {
+/// Derives default implementations of iterator functions
+///
+/// # Details
+/// DeriveIterator takes a type `Iter` which must be an Iterator, derives default implementations of iterator functions.
+/// The generated functions only depends on the `next` method of the `Iter` type.
+/// If the type have any iterator functions itself yet, generating same name functions would be supressed.
+///
+pub fn DeriveIterator(comptime Iter: type) type {
+    comptime assert(meta.isIterator(Iter));
     return struct {
         pub usingnamespace DerivePeekable(Iter);
         pub usingnamespace DerivePosition(Iter);
@@ -2088,7 +2096,7 @@ pub fn Derive(comptime Iter: type) type {
     };
 }
 
-test "derive" {
+test "derive iterator" {
     var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     var arr2 = [_]u32{ 30, 10, 20 };
     const Triple = struct {
@@ -2109,7 +2117,7 @@ test "derive" {
             return if (x < 100) x else null;
         }
     };
-    const Iter = MakeSliceIter(Derive, u32);
+    const Iter = MakeSliceIter(DeriveIterator, u32);
     var mfm = Iter.new(arr[0..]).chain(Iter.new(arr2[0..]))
         .map(Triple.call_ref) // derive map for SliceIter
         .filter(IsEven.call) // more derive filter for Map

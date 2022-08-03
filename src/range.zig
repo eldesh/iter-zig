@@ -37,7 +37,7 @@ pub fn MakeRangeIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn RangeIter(comptime Item: type) type {
-    return MakeRangeIter(derive.Derive, Item);
+    return MakeRangeIter(derive.DeriveIterator, Item);
 }
 
 comptime {
