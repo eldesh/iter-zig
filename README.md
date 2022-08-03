@@ -36,7 +36,7 @@ When you implement a new type to be an iterator, it must ensure that `type.isIte
 
 ### Container Iterators
 
-**iter-zig** provides some basic iterators wrapped into standard containers and their operations.
+**iter-zig** provides several basic iterators that wraps standard containers.
 
 - to_iter.ArrayIter
 - to_iter.SliceIter
@@ -54,7 +54,7 @@ try expectEqual(@as(u32, 3), iter.next().?.*);
 try expectEqual(@as(?*u32, null), iter.next());
 ```
 
-Further, `Const` variations are defined for each iterators.
+Further, `Const` variations are defined for each containers.
 These iterators behaves as same to non-const variations except for returns const pointers.
 
 - to_iter.ArrayConstIter
@@ -68,8 +68,8 @@ var iter = SliceConstIter(u32).new(arr[0..]);
 iter.next().?.* += 1; // error: cannot assign to constant
 ```
 
-Note that, these iterators not owned container values into it.
-Then the memory area should be `released` hold the container if needed.
+Note that, these iterators not own container values into it.
+The user must release the memory holding the container if necessary.
 
 
 ### Range Iterator
@@ -144,10 +144,10 @@ All iterators defined in this library provide iterator functions below.
 
 These functions are almost same to [functions on Iterator trait of Rust](https://doc.rust-lang.org/std/iter/trait.Iterator.html) except for experimental api.
 
-#### Lazy style iterator
+#### Adaptor style iterator
 
 Some functions above return an iterator from the iterator itself.
-For that case, the functions are implemented in lazy style.
+For that case, the functions are implemented in adaptor style.
 For example, the `map` function returns a new iterator object `Map` rather than apply a function to each elements from the iterator.
 
 ```zig
@@ -167,7 +167,7 @@ try expectEqual(@as(?*u32, null), map.next());
 ### Implementing Iterator
 
 **iter-zig** allows library users to implement a new iterator type by their self.
-Further, it is easy to implement all functions showed in [Iterator Operators](#Iterator Operators) to your new iterator type using `Derive`.
+Further, it is easy to implement all functions showed in [Iterator Operators](#Iterator Operators) to your new iterator type using `DeriveIterator`.
 
 For example, let's make an iterator `Counter` which counts from `1` to `5`.
 
@@ -176,8 +176,8 @@ const Counter = struct {
   pub const Self = @This();
   pub const Item = u32;
   count: u32,
-  pub new() Self { return .{ .count = 0 }; }
-  pub next(self: *Self) ?Item {
+  pub fn new() Self { return .{ .count = 0 }; }
+  pub fn next(self: *Self) ?Item {
     self.count += 1;
     if (self.count < 6)
       return self.count;
@@ -200,17 +200,17 @@ try expectEqual(@as(?u32, null), counter.next());
 ```
 
 However, `Counter` not implement utility functions like `map` or `count` etc ...
-To implement these functions, use `Derive` meta function like below.
+To implement these functions, use `DeriveIterator` meta function like below.
 
 ```zig
 const CounterExt = struct {
   pub const Self = @This();
   pub const Item = u32;
-  pub usingnamespace Derive(@This()); // Add
+  pub usingnamespace DeriveIterator(@This()); // Add
 
   count: u32,
-  pub new() Self { return .{ .count = 0 }; }
-  pub next(self: *Self) ?Item {
+  pub fn new() Self { return .{ .count = 0 }; }
+  pub fn next(self: *Self) ?Item {
     self.count += 1;
     if (self.count < 6)
       return self.count;
@@ -219,7 +219,7 @@ const CounterExt = struct {
 };
 ```
 
-In above code, `CounterExt` difference from `Counter` is only the `Derive(@This())` line.
+In above code, `CounterExt` difference from `Counter` is only the `DeriveIterator(@This())` line.
 Now, you can use all functions showed in [Iterator Operators](#Iterator Operators).
 
 ```zig
@@ -241,7 +241,38 @@ try expectEqual(@as(?u32, null), iter.next());
 ```
 
 If you can implement some method efficiently rather than using `next` method, just implement that method (in `CounterExt` in the above).
-`Derive` suppresses the generation of that function.
+`DeriveIterator` suppresses the generation of that function.
 
 
+#### Convention
+
+**iter-zig** adopts naming conventions for implementing iterators.
+First, when defining a new iterator type, the type constructor must be named `MakeT` where type `T` is a name of the type.
+And the constructor should take a `Derive` function like below.
+
+```zig
+pub fn MakeCounter(comptime Derive: fn (type) type) type {
+  return struct {
+    pub const Self = @This();
+    pub const Item = u32;
+    pub usingnamespace Derive(@This());
+    count: u32,
+    pub fn next(self: *Self) ?Item {
+      ...
+    }
+  };
+}
+```
+
+This allows users to switch the function used for deriving.
+
+
+Second, a type constructor should be named `T`.
+And the constructor should forward `DeriveIterator` to `MakeT`.
+
+```zig
+pub fn Counter() type {
+  return MakeCounter(DeriveIterator);
+}
+```
 
