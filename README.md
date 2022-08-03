@@ -167,7 +167,7 @@ try expectEqual(@as(?*u32, null), map.next());
 ### Implementing Iterator
 
 **iter-zig** allows library users to implement a new iterator type by their self.
-Further, it is easy to implement all functions showed in [Iterator Operators](#Iterator Operators) to your new iterator type using `derive.Derive`.
+Further, it is easy to implement all functions showed in [Iterator Operators](#Iterator Operators) to your new iterator type using `Derive`.
 
 For example, let's make an iterator `Counter` which counts from `1` to `5`.
 

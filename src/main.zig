@@ -1,4 +1,4 @@
-///! Iterator library.
+///! A basic Iterator library.
 ///!
 ///! 'Iterator' is a generic name for iterating a set of values.
 ///! In this library, 'Iterator' is a vlaue of a kind of types satisfies some constraints.
