@@ -1,5 +1,5 @@
 const std = @import("std");
-const meta = @import("./type.zig");
+const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 const to_iter = @import("./to_iter.zig");
 const tuple = @import("./tuple.zig");

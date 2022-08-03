@@ -1,7 +1,7 @@
 const std = @import("std");
 const to_iter = @import("./to_iter.zig");
 const derive = @import("./derive.zig");
-const meta = @import("./type.zig");
+const meta = @import("./meta.zig");
 const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
 

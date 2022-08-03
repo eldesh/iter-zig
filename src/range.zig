@@ -2,7 +2,7 @@
 ///! 
 const std = @import("std");
 
-const meta = @import("./type.zig");
+const meta = @import("./meta.zig");
 const derive = @import("./derive.zig");
 
 const assert = std.debug.assert;

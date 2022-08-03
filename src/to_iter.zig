@@ -2,7 +2,7 @@
 ///! 
 const std = @import("std");
 const derive = @import("./derive.zig");
-const meta = @import("./type.zig");
+const meta = @import("./meta.zig");
 const iterty = @import("./iter.zig");
 
 const Allocator = std.mem.Allocator;

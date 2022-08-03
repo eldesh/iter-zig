@@ -1,7 +1,7 @@
 ///! Iterator to Container converters.
 ///! 
 const std = @import("std");
-const meta = @import("./type.zig");
+const meta = @import("./meta.zig");
 const range = @import("./range.zig");
 
 const testing = std.testing;
@@ -10,18 +10,22 @@ const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-pub fn slice_from_iter_with_allocator(alloc: Allocator, iter: anytype) Allocator.Error![]@TypeOf(iter).Item {
-    return (try array_list_from_iter_with_allocator(alloc, iter)).items;
+/// Create a slice consisting of the elements enumrated from `iter`.
+pub fn slice_from_iter(alloc: Allocator, iter: anytype) Allocator.Error![]@TypeOf(iter).Item {
+    const Iter = @TypeOf(iter);
+    comptime assert(meta.isIterator(Iter));
+    return (try array_list_from_iter(alloc, iter)).items;
 }
 
 test "slice_from_iter" {
     var rng = range.range(@as(u32, 0), 10, 1);
-    const slice = try slice_from_iter_with_allocator(testing.allocator, rng);
+    const slice = try slice_from_iter(testing.allocator, rng);
     defer testing.allocator.free(slice);
     try testing.expectEqual(@as(usize, 10), slice.len);
 }
 
-pub fn array_list_from_iter_with_allocator(alloc: Allocator, iter: anytype) Allocator.Error!ArrayList(@TypeOf(iter).Item) {
+/// Create an ArrayList consisting of the elements enumrated from `iter`.
+pub fn array_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!ArrayList(@TypeOf(iter).Item) {
     const Iter = @TypeOf(iter);
     comptime assert(meta.isIterator(Iter));
 
@@ -35,7 +39,7 @@ pub fn array_list_from_iter_with_allocator(alloc: Allocator, iter: anytype) Allo
 
 test "array_list_from_iter" {
     var rng = range.range(@as(u32, 0), 10, 1);
-    const arr = try array_list_from_iter_with_allocator(testing.allocator, rng);
+    const arr = try array_list_from_iter(testing.allocator, rng);
     defer arr.deinit();
 
     try testing.expectEqual(@as(usize, 10), arr.items.len);
