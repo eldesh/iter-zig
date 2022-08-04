@@ -226,14 +226,14 @@ Now, you can use all functions showed in [Iterator Operators](#Iterator Operator
 fn incr(x:u32) u32 { return x+1; }
 fn even(x:u32) bool { return x % 2 == 0; }
 fn sum(st:*u32, v:u32) ?u32 {
-  st.* = v;
-  return v;
+  st.* += v;
+  return st.*;
 }
 var counter = CounterExt.new();
 var iter = counter
              .map(incr)     // 2,3,4,5,6
              .filter(even)  // 2,4,6
-             .scan(0, sum); // 2,6,12
+             .scan(@as(u32, 0), sum); // 2,6,12
 try expectEqual(@as(u32, 2), iter.next().?);
 try expectEqual(@as(u32, 6), iter.next().?);
 try expectEqual(@as(u32, 12), iter.next().?);
