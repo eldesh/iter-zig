@@ -4,6 +4,44 @@
 Where the *iterator* means that the types enumrating all element of a set of values.
 
 
+## Support
+
+This library is developped with:
+
+- Debian (x86_64) 10.4
+- Zig 0.9.1
+- Zigmod r79
+
+
+## Build
+
+```sh
+zig build
+```
+
+
+## Unit Test
+
+To performs unit tests of iter-zig:
+
+
+```sh
+zig build test
+```
+
+
+## Example
+
+An example program using iter-zig is provided.
+The program can be performed with:
+
+```sh
+zig build example
+```
+
+Source code of this program is `src/main.zig`.
+
+
 ## Iterator Concept
 
 **Iterator** is a generic concept that objects that enumrating a set of values.
