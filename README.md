@@ -62,24 +62,24 @@ However, all values must occur exactly once before 'null' is returned.
 
 ### Meta function
 
-[The type constraints required as an Iterator](#IteratorConcept) is able to be checked by `type.isIterator` function statically.
+[The type constraints required as an Iterator](#IteratorConcept) is able to be checked by `isIterator` function statically.
 
 ```zig
-comptime assert(isIterator(to_iter.SliceIter(u32)));
+comptime assert(isIterator(SliceIter(u32)));
 comptime assert(!isIterator(u32));
 ```
 
-When you implement a new type to be an iterator, it must ensure that `type.isIterator` returns `true`.
+When you implement a new type to be an iterator, it must ensure that `isIterator` returns `true`.
 
 
 ### Container Iterators
 
 **iter-zig** provides several basic iterators that wraps standard containers.
 
-- to_iter.ArrayIter
-- to_iter.SliceIter
-- to_iter.ArrayListIter
-- to_iter.SinglyLinkedListIter
+- ArrayIter
+- SliceIter
+- ArrayListIter
+- SinglyLinkedListIter
 
 For example, an iterator on a slice is able to be used as follows:
 
@@ -95,10 +95,10 @@ try expectEqual(@as(?*u32, null), iter.next());
 Further, `Const` variations are defined for each containers.
 These iterators behaves as same to non-const variations except for returns const pointers.
 
-- to_iter.ArrayConstIter
-- to_iter.SliceConstIter
-- to_iter.ArrayListConstIter
-- to_iter.SinglyLinkedListConstIter
+- ArrayConstIter
+- SliceConstIter
+- ArrayListConstIter
+- SinglyLinkedListConstIter
 
 ```zig
 var arr = [_]u32{ 1, 2, 3 };
@@ -112,8 +112,9 @@ The user must release the memory holding the container if necessary.
 
 ### Range Iterator
 
-`range.range` makes a Range iterator such that it represents a range of numbers.
+`range` makes a Range iterator such that it represents a range of numbers.
 For example, `range(0, 10, 1)` means that the numbers from `0` to `10` step by `1`, which is mathematics is denoted as `[0,10)`.
+
 
 ```zig
 var rng = range(@as(u32,0), 3, 1);
