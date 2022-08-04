@@ -309,13 +309,13 @@ test "Copied" {
     const Slice = SliceIter;
     const Iter = Copied(Slice(u32));
     var arr = [_]u32{ 0, 1, 2, 3 };
-    var cloned = Iter.new(Slice(u32).new(arr[0..]));
+    var copied = Iter.new(Slice(u32).new(arr[0..]));
 
-    try testing.expectEqual(@as(?Iter.Item, 0), cloned.next());
-    try testing.expectEqual(@as(?Iter.Item, 1), cloned.next());
-    try testing.expectEqual(@as(?Iter.Item, 2), cloned.next());
-    try testing.expectEqual(@as(?Iter.Item, 3), cloned.next());
-    try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
+    try testing.expectEqual(@as(?Iter.Item, 0), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 1), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 2), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 3), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, null), copied.next());
 }
 
 pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
