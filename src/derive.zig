@@ -1755,12 +1755,8 @@ test "derive take" {
     try testing.expectEqual(@as(i32, -3), take.next().?.*);
     try testing.expectEqual(@as(i32, -2), take.next().?.*);
     try testing.expectEqual(@as(i32, -1), take.next().?.*);
-    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
-    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
-    // 6th (the last of 'take(6)') element
     try testing.expectEqual(@as(i32, -2), take.next().?.*);
-    // After this, no more non-null values will be returned.
-    try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
+    try testing.expectEqual(@as(i32, -3), take.next().?.*);
     try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
     try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
 }
@@ -1920,7 +1916,6 @@ test "derive chain" {
     try testing.expectEqual(@as(u32, 2), chain.next().?.*);
     try testing.expectEqual(@as(u32, 3), chain.next().?.*);
     try testing.expectEqual(@as(u32, 4), chain.next().?.*);
-    try testing.expectEqual(@as(?*u32, null), chain.next());
     try testing.expectEqual(@as(u32, 6), chain.next().?.*);
     try testing.expectEqual(@as(?*u32, null), chain.next());
     try testing.expectEqual(@as(?*u32, null), chain.next());
@@ -1967,8 +1962,8 @@ fn DeriveFilter(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn filter(self: Iter, p: fn (Iter.Item) bool) iter.IterFilter(Iter, fn (Iter.Item) bool) {
-                return iter.IterFilter(Iter, fn (Iter.Item) bool).new(p, self);
+            pub fn filter(self: Iter, p: fn (Iter.Item) bool) iter.Filter(Iter, fn (Iter.Item) bool) {
+                return iter.Filter(Iter, fn (Iter.Item) bool).new(p, self);
             }
         };
     }
@@ -1987,12 +1982,10 @@ test "derive filter" {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(filter)));
     }
-    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 2), filter.next().?.*);
-    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 4), filter.next().?.*);
-    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(u32, 6), filter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(?*u32, null), filter.next());
     try testing.expectEqual(@as(?*u32, null), filter.next());
 }
@@ -2026,7 +2019,6 @@ test "derive filter_map" {
     }
     try testing.expectEqual(@as(?u32, 1), filter_map.next());
     try testing.expectEqual(@as(?u32, 2), filter_map.next());
-    try testing.expectEqual(@as(?u32, null), filter_map.next());
     try testing.expectEqual(@as(?u32, 3), filter_map.next());
     try testing.expectEqual(@as(?u32, null), filter_map.next());
     try testing.expectEqual(@as(?u32, null), filter_map.next());
@@ -2121,19 +2113,15 @@ test "derive iterator" {
     var mfm = Iter.new(arr[0..]).chain(Iter.new(arr2[0..]))
         .map(Triple.call_ref) // derive map for SliceIter
         .filter(IsEven.call) // more derive filter for Map
-        .map(Triple.call) // more more derive map for IterFilter
+        .map(Triple.call) // more more derive map for Filter
         .filter_map(Less.call);
     comptime {
         assert(meta.isIterator(Iter));
         assert(meta.isIterator(@TypeOf(mfm)));
     }
-    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 6 * 3), mfm.next());
-    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 12 * 3), mfm.next());
-    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 18 * 3), mfm.next());
-    try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, 30 * 3), mfm.next());
     try testing.expectEqual(@as(?u32, null), mfm.next());
     try testing.expectEqual(@as(?u32, null), mfm.next());

@@ -653,7 +653,7 @@ test "Map" {
     try testing.expectEqual(@as(?u64, null), iter.next());
 }
 
-pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
+pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -667,7 +667,7 @@ pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime 
         }
 
         pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |item| {
+            while (self.iter.next()) |item| {
                 if (self.pred(item)) {
                     return item;
                 }
@@ -677,29 +677,28 @@ pub fn MakeIterFilter(comptime D: fn (type) type, comptime Iter: type, comptime 
     };
 }
 
-pub fn IterFilter(comptime Iter: type, comptime Pred: type) type {
-    return MakeIterFilter(derive.DeriveIterator, Iter, Pred);
+pub fn Filter(comptime Iter: type, comptime Pred: type) type {
+    return MakeFilter(derive.DeriveIterator, Iter, Pred);
 }
 
 comptime {
-    assert(IterFilter(SliceIter(u32), fn (*u32) bool).Self == IterFilter(SliceIter(u32), fn (*u32) bool));
-    assert(IterFilter(SliceIter(u32), fn (*u32) bool).Item == *u32);
-    assert(meta.isIterator(IterFilter(SliceIter(u32), fn (*u32) bool)));
+    assert(Filter(SliceIter(u32), fn (*u32) bool).Self == Filter(SliceIter(u32), fn (*u32) bool));
+    assert(Filter(SliceIter(u32), fn (*u32) bool).Item == *u32);
+    assert(meta.isIterator(Filter(SliceIter(u32), fn (*u32) bool)));
 }
 
-test "IterFilter" {
+test "Filter" {
     const IsEven = struct {
         pub fn call(value: *const u32) bool {
             return value.* % 2 == 0;
         }
     };
-    var arr = [_]u32{ 1, 2, 3, 4, 5 };
+    var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
     var arr_iter = ArrayIter(u32, arr.len).new(&arr);
-    var iter = IterFilter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.call, arr_iter);
-    try testing.expectEqual(@as(?*u32, null), iter.next());
+    var iter = Filter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.call, arr_iter);
     try testing.expectEqual(@as(u32, 2), iter.next().?.*);
-    try testing.expectEqual(@as(?*u32, null), iter.next());
     try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 6), iter.next().?.*);
     try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
@@ -720,7 +719,7 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
         }
 
         pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |item| {
+            while (self.iter.next()) |item| {
                 if (self.f(item)) |v| {
                     return v;
                 }
@@ -749,7 +748,6 @@ test "FilterMap" {
     var arr = [_][]const u8{ "abc", "123", "345", "-123.", "1abc" };
     var arr_iter = ArrayIter([]const u8, arr.len).new(&arr);
     var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.call, arr_iter);
-    try testing.expectEqual(@as(?u32, null), iter.next());
     try testing.expectEqual(@as(u32, 123), iter.next().?);
     try testing.expectEqual(@as(u32, 345), iter.next().?);
     try testing.expectEqual(@as(?u32, null), iter.next());
