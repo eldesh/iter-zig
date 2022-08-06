@@ -206,7 +206,7 @@ try expectEqual(@as(?*u32, null), map.next());
 ### Implementing Iterator
 
 **iter-zig** allows library users to implement a new iterator type by their self.
-Further, it is easy to implement all functions showed in [Iterator Operators](#Iterator Operators) to your new iterator type using `DeriveIterator`.
+Further, it is easy to implement all functions showed in [Iterator Operators](#iterator-operators) to your new iterator type using `DeriveIterator`.
 
 For example, let's make an iterator `Counter` which counts from `1` to `5`.
 
@@ -259,7 +259,7 @@ const CounterExt = struct {
 ```
 
 In above code, `CounterExt` difference from `Counter` is only the `DeriveIterator(@This())` line.
-Now, you can use all functions showed in [Iterator Operators](#Iterator Operators).
+Now, you can use all functions showed in [Iterator Operators](#iterator-operators).
 
 ```zig
 fn incr(x:u32) u32 { return x+1; }
