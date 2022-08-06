@@ -1,10 +1,8 @@
 const std = @import("std");
 
-const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 
-const assert = std.debug.assert;
 const testing = std.testing;
 
 /// An iterator that yields nothing
