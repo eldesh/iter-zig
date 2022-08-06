@@ -1436,3 +1436,64 @@ test "Empty" {
     try testing.expectEqual(@as(?void, null), Empty(void).new().next());
     try testing.expectEqual(@as(?unit, null), Empty(unit).new().next());
 }
+
+/// An iterator that yields an element exactly once.
+pub fn MakeOnce(comptime D: fn (type) type, comptime T: type) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = T;
+        pub usingnamespace D(@This());
+
+        value: ?T,
+        pub fn new(value: T) Self {
+            return .{ .value = value };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            if (self.value) |value| {
+                self.value = null;
+                return value;
+            }
+            return null;
+        }
+    };
+}
+
+/// An iterator that yields an element exactly once.
+/// This iterator is constructed from `ops.once`.
+pub fn Once(comptime T: type) type {
+    return MakeOnce(derive.DeriveIterator, T);
+}
+
+comptime {
+    assert(meta.isIterator(Once(void)));
+    assert(Once(void).Self == Once(void));
+    assert(Once(void).Item == void);
+    assert(meta.isIterator(Once(u32)));
+    assert(Once(u32).Self == Once(u32));
+    assert(Once(u32).Item == u32);
+}
+
+test "Once" {
+    const unit = struct {};
+    {
+        var it = Once(u32).new(42);
+        try testing.expectEqual(@as(?u32, 42), it.next());
+        try testing.expectEqual(@as(?u32, null), it.next());
+    }
+    {
+        var it = Once([]const u8).new("foo");
+        try testing.expectEqualStrings("foo", it.next().?);
+        try testing.expectEqual(@as(?[]const u8, null), it.next());
+    }
+    {
+        var it = Once(void).new(void{});
+        try testing.expectEqual(@as(?void, void{}), it.next());
+        try testing.expectEqual(@as(?void, null), it.next());
+    }
+    {
+        var it = Once(unit).new(unit{});
+        try testing.expectEqual(@as(?unit, unit{}), it.next());
+        try testing.expectEqual(@as(?unit, null), it.next());
+    }
+}
