@@ -1396,3 +1396,43 @@ test "Fuse" {
         try testing.expectEqual(@as(?Iter.Item, null), iter.next());
     }
 }
+
+/// An iterator that yields nothing
+pub fn MakeEmpty(comptime D: fn (type) type, comptime T: type) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = T;
+        pub usingnamespace D(@This());
+
+        pub fn new() Self {
+            return .{};
+        }
+
+        pub fn next(self: *Self) ?Item {
+            _ = self;
+            return null;
+        }
+    };
+}
+
+/// An iterator that yields nothing with derived functions by `derive.DeriveIterator`.
+pub fn Empty(comptime T: type) type {
+    return MakeEmpty(derive.DeriveIterator, T);
+}
+
+comptime {
+    assert(meta.isIterator(Empty(void)));
+    assert(Empty(void).Self == Empty(void));
+    assert(Empty(void).Item == void);
+    assert(meta.isIterator(Empty(u32)));
+    assert(Empty(u32).Self == Empty(u32));
+    assert(Empty(u32).Item == u32);
+}
+
+test "Empty" {
+    const unit = struct {};
+    try testing.expectEqual(@as(?u32, null), Empty(u32).new().next());
+    try testing.expectEqual(@as(?f64, null), Empty(f64).new().next());
+    try testing.expectEqual(@as(?void, null), Empty(void).new().next());
+    try testing.expectEqual(@as(?unit, null), Empty(unit).new().next());
+}
