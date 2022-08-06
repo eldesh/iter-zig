@@ -490,12 +490,12 @@ fn DerivePartialCmp(comptime Iter: type) type {
 }
 
 test "derive partial_cmp Int" {
-    const Iter = range.MakeRangeIter(DerivePartialCmp, f64);
+    const Iter = range.MakeRangeIter(DerivePartialCmp, u64);
     const Order = math.Order;
-    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 2), 11, 2)));
-    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(f64, 2), 2, 2).partial_cmp(Iter.new(@as(f64, 2), 2, 2)));
-    try testing.expectEqual(@as(?Order, .lt), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 3), 11, 2)));
-    try testing.expectEqual(@as(?Order, .gt), Iter.new(@as(f64, 2), 11, 2).partial_cmp(Iter.new(@as(f64, 2), 9, 2)));
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 2), 11, 2)));
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 2, 2).partial_cmp(Iter.new(@as(u64, 2), 2, 2)));
+    try testing.expectEqual(@as(?Order, .lt), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 3), 11, 2)));
+    try testing.expectEqual(@as(?Order, .gt), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 2), 9, 2)));
 }
 
 test "derive partial_cmp Ptr" {
