@@ -1497,3 +1497,62 @@ test "Once" {
         try testing.expectEqual(@as(?unit, null), it.next());
     }
 }
+
+/// An iterator that repeatedly yields a certain element indefinitely.
+pub fn MakeRepeat(comptime D: fn (type) type, comptime T: type) type {
+    comptime assert(meta.isClonable(T));
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = meta.Clone.ResultType(T);
+        pub usingnamespace D(@This());
+
+        value: T,
+        pub fn new(value: T) Self {
+            return .{ .value = value };
+        }
+
+        pub fn next(self: *Self) ?Item {
+            return meta.Clone.clone(self.value);
+        }
+    };
+}
+
+/// An iterator that repeatedly yields a certain element indefinitely.
+/// This iterator is constructed from `ops.repeat`.
+pub fn Repeat(comptime T: type) type {
+    return MakeRepeat(derive.DeriveIterator, T);
+}
+
+comptime {
+    assert(meta.isIterator(Repeat(u32)));
+    assert(Repeat(u32).Self == Repeat(u32));
+    assert(Repeat(u32).Item == meta.Clone.EmptyError!u32);
+    assert(meta.isIterator(Repeat(*const u32)));
+    assert(Repeat(*const u32).Self == Repeat(*const u32));
+    assert(Repeat(*const u32).Item == meta.Clone.EmptyError!u32);
+}
+
+test "Repeat" {
+    {
+        var it = Repeat(u32).new(42);
+        try testing.expectEqual(@as(u32, 42), try it.next().?);
+        try testing.expectEqual(@as(u32, 42), try it.next().?);
+        try testing.expectEqual(@as(u32, 42), try it.next().?);
+        // repeat() never returns null
+        // try testing.expectEqual(@as(?u32, null), it.next());
+    }
+    {
+        var it = Repeat([3]u32).new([3]u32{ 1, 2, 3 });
+        try testing.expectEqual([3]u32{ 1, 2, 3 }, try it.next().?);
+        try testing.expectEqual([3]u32{ 1, 2, 3 }, try it.next().?);
+        try testing.expectEqual([3]u32{ 1, 2, 3 }, try it.next().?);
+    }
+    {
+        // chops infinite sequence
+        var it = Repeat(void).new(void{}).take(3);
+        try testing.expectEqual(void{}, try it.next().?);
+        try testing.expectEqual(void{}, try it.next().?);
+        try testing.expectEqual(void{}, try it.next().?);
+        try testing.expectEqual(@as(?meta.Clone.EmptyError!void, null), it.next());
+    }
+}

@@ -83,6 +83,9 @@ comptime {
     assert(deref_type(*u32) == u32);
     assert(deref_type(**u32) == *u32);
     assert(deref_type([]u8) == []u8);
+    const U = union(enum) { Tag1, Tag2 };
+    assert(deref_type(U) == U);
+    assert(deref_type(*U) == U);
 }
 
 pub fn remove_pointer(comptime T: type) type {

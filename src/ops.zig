@@ -109,3 +109,47 @@ test "zip" {
         try testing.expectEqual(@as(?Tup2(Tup2(u32, u32), u32), null), it.next());
     }
 }
+
+/// Make an iterator yields given value repeatedly
+pub fn repeat(value: anytype) iter.Repeat(@TypeOf(value)) {
+    return iter.Repeat(@TypeOf(value)).new(value);
+}
+
+test "repeat" {
+    {
+        var it = repeat(@as(u32, 314));
+        try testing.expectEqual(@as(u32, 314), try it.next().?);
+        try testing.expectEqual(@as(u32, 314), try it.next().?);
+        try testing.expectEqual(@as(u32, 314), try it.next().?);
+        // repeat() never returns null
+        // try testing.expectEqual(@as(?u32, null), it.next());
+    }
+    {
+        const U = union(enum) { Tag1, Tag2 };
+        var it = repeat(U{ .Tag1 = .{} }).map(struct {
+            fn f(x: meta.Clone.ResultType(U)) U {
+                if (x) |_| {} else |_| {}
+                return U{ .Tag2 = .{} };
+            }
+        }.f);
+        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
+        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
+        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
+        // repeat() never returns null
+        // try testing.expectEqual(@as(?U, null), it.next());
+    }
+    {
+        var xs = [_]u32{ 4, 5, 6 };
+
+        var it = repeat(xs).take(3);
+
+        try testing.expectEqual(xs, try it.next().?);
+        try testing.expectEqual(xs, try it.next().?);
+        try testing.expectEqual(xs, try it.next().?);
+        try testing.expect(struct {
+            fn is_null(x: anytype) bool {
+                return x == null;
+            }
+        }.is_null(it.next()));
+    }
+}
