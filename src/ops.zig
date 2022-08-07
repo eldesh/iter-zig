@@ -3,6 +3,7 @@ const std = @import("std");
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 
+const assert = std.debug.assert;
 const testing = std.testing;
 
 /// An iterator that yields nothing
@@ -61,5 +62,50 @@ test "once" {
         try testing.expectEqual(@as(?unit, unit{}), it.next());
         try testing.expectEqual(@as(?unit, unit{}), it.next());
         try testing.expectEqual(@as(?unit, null), it.next());
+    }
+}
+
+/// Takes iterators and zips them
+pub fn zip(aiter: anytype, biter: anytype) iter.Zip(@TypeOf(aiter), @TypeOf(biter)) {
+    comptime assert(meta.isIterator(@TypeOf(aiter)));
+    comptime assert(meta.isIterator(@TypeOf(biter)));
+    return iter.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
+}
+
+test "zip" {
+    const to_iter = @import("./to_iter.zig");
+    const tuple = @import("./tuple.zig");
+    const Tup2 = tuple.Tuple2;
+    const tup2 = tuple.tuple2;
+    const from_slice = struct {
+        fn call(xs: []u32) iter.Copied(to_iter.SliceIter(u32)) {
+            return to_iter.SliceIter(u32).new(xs).copied();
+        }
+    }.call;
+
+    {
+        var xs = [_]u32{ 1, 2, 3 };
+        var ys = [_]u32{ 4, 5, 6 };
+
+        var it = zip(from_slice(xs[0..]), from_slice(ys[0..]));
+
+        try testing.expectEqual(tup2(@as(u32, 1), @as(u32, 4)), it.next().?);
+        try testing.expectEqual(tup2(@as(u32, 2), @as(u32, 5)), it.next().?);
+        try testing.expectEqual(tup2(@as(u32, 3), @as(u32, 6)), it.next().?);
+        try testing.expectEqual(@as(?Tup2(u32, u32), null), it.next());
+    }
+
+    {
+        var xs = [_]u32{ 1, 2, 3 };
+        var ys = [_]u32{ 4, 5, 6 };
+        // Nested zips are also possible:
+        var zs = [_]u32{ 7, 8, 9 };
+
+        var it = zip(zip(from_slice(xs[0..]), from_slice(ys[0..])), from_slice(zs[0..]));
+
+        try testing.expectEqual(tup2(tup2(@as(u32, 1), @as(u32, 4)), @as(u32, 7)), it.next().?);
+        try testing.expectEqual(tup2(tup2(@as(u32, 2), @as(u32, 5)), @as(u32, 8)), it.next().?);
+        try testing.expectEqual(tup2(tup2(@as(u32, 3), @as(u32, 6)), @as(u32, 9)), it.next().?);
+        try testing.expectEqual(@as(?Tup2(Tup2(u32, u32), u32), null), it.next());
     }
 }
