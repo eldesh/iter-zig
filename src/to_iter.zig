@@ -8,6 +8,8 @@ const iterty = @import("./iter.zig");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const SinglyLinkedList = std.SinglyLinkedList;
+const BoundedArray = std.BoundedArray;
+
 const testing = std.testing;
 const assert = std.debug.assert;
 
@@ -418,4 +420,96 @@ test "SinglyLinkedListConstIter" {
     try testing.expectEqual(@as(u32, 2), iter.next().?.*);
     try testing.expectEqual(@as(u32, 3), iter.next().?.*);
     try testing.expectEqual(@as(?*const u32, null), iter.next());
+}
+
+pub fn MakeBoundedArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = *T;
+        pub usingnamespace F(@This());
+
+        array: *BoundedArray(T, N),
+        index: usize,
+
+        pub fn new(array: *BoundedArray(T, N)) Self {
+            return .{ .array = array, .index = 0 };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            if (self.index < self.array.slice().len) {
+                const i = self.index;
+                self.index += 1;
+                return &self.array.slice()[i];
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn BoundedArrayIter(comptime T: type, comptime N: usize) type {
+    return MakeBoundedArrayIter(DeriveIterator, T, N);
+}
+
+comptime {
+    const arr = [3]u32{ 1, 2, 3 };
+    assert(BoundedArrayIter(u32, arr.len).Self == BoundedArrayIter(u32, arr.len));
+    assert(BoundedArrayIter(u32, arr.len).Item == *u32);
+    assert(meta.isIterator(BoundedArrayIter(u32, arr.len)));
+}
+
+test "BoundedArrayIter" {
+    var arr = BoundedArray(u32, 5).init(0) catch unreachable;
+    try arr.appendSlice(&[_]u32{ 1, 2, 3 });
+    var iter = BoundedArrayIter(u32, 5).new(&arr);
+    try testing.expectEqual(&arr.constSlice()[0], iter.next().?);
+    try testing.expectEqual(&arr.constSlice()[1], iter.next().?);
+    try testing.expectEqual(&arr.constSlice()[2], iter.next().?);
+    try testing.expectEqual(@as(?BoundedArrayIter(u32, 5).Item, null), iter.next());
+}
+
+pub fn MakeBoundedArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = *const T;
+        pub usingnamespace F(@This());
+
+        array: *BoundedArray(T, N),
+        index: usize,
+
+        pub fn new(array: *BoundedArray(T, N)) Self {
+            return .{ .array = array, .index = 0 };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            if (self.index < self.array.slice().len) {
+                const i = self.index;
+                self.index += 1;
+                return &self.array.slice()[i];
+            } else {
+                return null;
+            }
+        }
+    };
+}
+
+pub fn BoundedArrayConstIter(comptime T: type, comptime N: usize) type {
+    return MakeBoundedArrayConstIter(DeriveIterator, T, N);
+}
+
+comptime {
+    var arr = BoundedArray(u32, 5).init(3) catch unreachable;
+    assert(BoundedArrayConstIter(u32, arr.capacity()).Self == BoundedArrayConstIter(u32, arr.capacity()));
+    assert(BoundedArrayConstIter(u32, arr.capacity()).Item == *const u32);
+    assert(meta.isIterator(BoundedArrayConstIter(u32, arr.len)));
+}
+
+test "BoundedArrayConstIter" {
+    var arr = BoundedArray(u32, 5).init(0) catch unreachable;
+    try arr.appendSlice(&[_]u32{ 1, 2, 3 });
+    var iter = BoundedArrayConstIter(u32, 5).new(&arr);
+    try testing.expectEqual(&arr.constSlice()[0], iter.next().?);
+    try testing.expectEqual(&arr.constSlice()[1], iter.next().?);
+    try testing.expectEqual(&arr.constSlice()[2], iter.next().?);
+    try testing.expectEqual(@as(?BoundedArrayConstIter(u32, 5).Item, null), iter.next());
 }

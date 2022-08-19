@@ -80,6 +80,7 @@ When you implement a new type to be an iterator, it must ensure that `isIterator
 - SliceIter
 - ArrayListIter
 - SinglyLinkedListIter
+- BoundedArrayIter
 
 For example, an iterator on a slice is able to be used as follows:
 
@@ -99,6 +100,7 @@ These iterators behaves as same to non-const variations except for returns const
 - SliceConstIter
 - ArrayListConstIter
 - SinglyLinkedListConstIter
+- BoundedArrayConstIter
 
 ```zig
 var arr = [_]u32{ 1, 2, 3 };
