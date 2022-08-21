@@ -147,16 +147,16 @@ pub fn Peekable(comptime Iter: type) type {
 }
 
 comptime {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     assert(Peekable(Range(u32)).Self == Peekable(Range(u32)));
     assert(Peekable(Range(u32)).Item == u32);
 }
 
 test "Peekable" {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     const Iter = Peekable(Range(u32));
     {
-        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4, 1));
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
         try testing.expectEqual(@as(u32, 1), peek.peek().?.*);
         try testing.expectEqual(@as(?u32, 1), peek.next());
 
@@ -171,7 +171,7 @@ test "Peekable" {
         try testing.expectEqual(@as(?u32, null), peek.next());
     }
     {
-        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4, 1));
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
         try comptime testing.expectEqual(?*u32, @TypeOf(peek.peek_mut()));
         try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
         try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
@@ -185,7 +185,7 @@ test "Peekable" {
         try testing.expectEqual(@as(?u32, null), peek.next());
     }
     {
-        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6, 1));
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
         try testing.expectEqual(@as(?u32, 0), peek.next_if(struct {
             fn f(x: *const u32) bool {
                 return x.* == 0;
@@ -199,7 +199,7 @@ test "Peekable" {
         try testing.expectEqual(@as(?u32, 1), peek.next());
     }
     {
-        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6, 1));
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
         var zero: u32 = 0;
         try testing.expectEqual(@as(?u32, 0), peek.next_if_eq(&zero));
         try testing.expectEqual(@as(?u32, null), peek.next_if_eq(&zero));
@@ -242,16 +242,16 @@ pub fn Cycle(comptime Iter: type) type {
 }
 
 comptime {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     assert(Cycle(Range(u32)).Self == Cycle(Range(u32)));
     assert(Cycle(Range(u32)).Item == u32);
 }
 
 test "Cycle" {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     const Iter = Cycle(Range(u32));
     {
-        var cycle = Iter.new(range.range(@as(u32, 1), 4, 1));
+        var cycle = Iter.new(range.range(@as(u32, 1), 4));
         try testing.expectEqual(@as(?u32, 1), cycle.next());
         try testing.expectEqual(@as(?u32, 2), cycle.next());
         try testing.expectEqual(@as(?u32, 3), cycle.next());
@@ -263,7 +263,7 @@ test "Cycle" {
         try testing.expectEqual(@as(?u32, 3), cycle.next());
     }
     {
-        var cycle = Iter.new(range.range(@as(u32, 1), 1, 1));
+        var cycle = Iter.new(range.range(@as(u32, 1), 1));
         try testing.expectEqual(@as(?u32, null), cycle.next());
         try testing.expectEqual(@as(?u32, null), cycle.next());
         try testing.expectEqual(@as(?u32, null), cycle.next());
@@ -406,10 +406,10 @@ comptime {
 test "Zip" {
     const str = []const u8;
     const I = SliceIter;
-    const R = range.RangeIter;
+    const R = range.Range;
     const Iter = Zip(I(str), R(u32));
     var arr = [_]str{ "foo", "bar", "buzz" };
-    var zip = Iter.new(I(str).new(arr[0..]), range.range(@as(u32, 2), 10, 1));
+    var zip = Iter.new(I(str).new(arr[0..]), range.range(@as(u32, 2), 10));
 
     // specialized ctor to Iter.Item
     const tup = tuple.Tuple2(*str, u32).new;
@@ -464,12 +464,12 @@ comptime {
 
 test "FlatMap" {
     const I = SliceIter;
-    const R = range.RangeIter;
+    const R = range.Range;
     const Iter = FlatMap(I(u32), fn (*u32) R(u32), R(u32));
     var arr = [_]u32{ 2, 3, 4 };
     var iter = Iter.new(I(u32).new(arr[0..]), struct {
         fn call(i: *const u32) R(u32) {
-            return range.range(@as(u32, 0), i.*, 1);
+            return range.range(@as(u32, 0), i.*);
         }
     }.call);
 
@@ -574,22 +574,22 @@ pub fn Flatten(comptime Iter: type) type {
 }
 
 comptime {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Self == Flatten(Map(Range(u32), fn (u32) Range(u32))));
     assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Item == u32);
     assert(meta.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
 }
 
 test "Flatten" {
-    const Range = range.RangeIter;
+    const Range = range.Range;
     const Gen = struct {
         fn call(x: u32) Range(u32) {
-            return Range(u32).new(@as(u32, 0), x, 1);
+            return Range(u32).new(@as(u32, 0), x);
         }
     };
     const Iter = Flatten(Map(Range(u32), fn (u32) Range(u32)));
     var iter = Iter.new(Map(Range(u32), fn (u32) Range(u32))
-        .new(Gen.call, Range(u32).new(@as(u32, 1), 4, 1)));
+        .new(Gen.call, Range(u32).new(@as(u32, 1), 4)));
 
     // range(0, 1)
     try testing.expectEqual(@as(?u32, 0), iter.next());

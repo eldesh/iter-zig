@@ -6,7 +6,7 @@ const SliceIter = @import("./to_iter.zig").SliceIter;
 const ArrayIter = @import("./to_iter.zig").ArrayIter;
 const ArrayListIter = @import("./to_iter.zig").ArrayListIter;
 const SinglyLinkedListIter = @import("./to_iter.zig").SinglyLinkedListIter;
-const Range = range.RangeIter;
+const Range = range.Range;
 
 const math = std.math;
 const trait = std.meta.trait;
@@ -346,7 +346,7 @@ test "Clone" {
     const ptr = &val;
     try testing.expectEqual(@as(error{}!u64, ptr.*), clone(ptr));
 
-    var seq = range.range(@as(u32, 0), 5, 1);
+    var seq = range.range(@as(u32, 0), 5);
     // consume head of 3elems
     try testing.expectEqual(@as(u32, 0), seq.next().?);
     try testing.expectEqual(@as(u32, 1), seq.next().?);

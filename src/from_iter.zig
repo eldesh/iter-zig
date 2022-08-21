@@ -19,7 +19,7 @@ pub fn slice_from_iter(alloc: Allocator, iter: anytype) Allocator.Error![]@TypeO
 }
 
 test "slice_from_iter" {
-    var rng = range.range(@as(u32, 0), 10, 1);
+    var rng = range.range(@as(u32, 0), 10);
     const slice = try slice_from_iter(testing.allocator, rng);
     defer testing.allocator.free(slice);
     try testing.expectEqual(@as(usize, 10), slice.len);
@@ -39,7 +39,7 @@ pub fn array_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!Arr
 }
 
 test "array_list_from_iter" {
-    var rng = range.range(@as(u32, 0), 10, 1);
+    var rng = range.range(@as(u32, 0), 10);
     const arr = try array_list_from_iter(testing.allocator, rng);
     defer arr.deinit();
 
@@ -65,7 +65,7 @@ pub fn bounded_array_from_iter(comptime N: usize, iter: anytype) BoundedArrayErr
 }
 
 test "bounded_array_from_iter" {
-    var rng = range.range(@as(u32, 0), 10, 1);
+    var rng = range.range(@as(u32, 0), 10);
     const arr = try bounded_array_from_iter(10, rng);
 
     try testing.expectEqual(@as(usize, 10), arr.constSlice().len);

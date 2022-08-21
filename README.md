@@ -114,12 +114,14 @@ The user must release the memory holding the container if necessary.
 
 ### Range Iterator
 
-`range` makes a Range iterator such that it represents a range of numbers.
-For example, `range(0, 10, 1)` means that the numbers from `0` to `10` step by `1`, which is mathematics is denoted as `[0,10)`.
+`range` creates a Range value such that it represents a range of numbers.
+For example, `range(0, 10)` means that the numbers from `0` to `10`, which is mathematics is denoted as `[0,10)`.
+
+In particular, Range instantiated with integral type to be iterator.
 
 
 ```zig
-var rng = range(@as(u32,0), 3, 1);
+var rng = range(@as(u32,0), 3);
 try expectEqual(@as(u32, 1), rng.next().?);
 try expectEqual(@as(u32, 2), rng.next().?);
 try expectEqual(@as(u32, 3), rng.next().?);

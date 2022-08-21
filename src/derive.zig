@@ -30,7 +30,7 @@ fn DerivePeekable(comptime Iter: type) type {
 }
 
 comptime {
-    const Iter = range.MakeRangeIter(DerivePeekable, u32);
+    const Iter = range.MakeRange(DerivePeekable, u32);
     assert(isIterator(Iter));
 }
 
@@ -72,7 +72,7 @@ fn DerivePosition(comptime Iter: type) type {
 }
 
 comptime {
-    const Iter = range.MakeRangeIter(DerivePosition, u32);
+    const Iter = range.MakeRange(DerivePosition, u32);
     assert(isIterator(Iter));
 }
 
@@ -114,7 +114,7 @@ fn DeriveCycle(comptime Iter: type) type {
 }
 
 comptime {
-    const Iter = range.MakeRangeIter(DeriveCycle, u32);
+    const Iter = range.MakeRange(DeriveCycle, u32);
     assert(isIterator(Iter));
     assert(meta.isClonable(Iter));
 }
@@ -126,9 +126,9 @@ comptime {
 }
 
 test "derive cycle" {
-    const Iter = range.MakeRangeIter(DeriveCycle, u32);
+    const Iter = range.MakeRange(DeriveCycle, u32);
     {
-        var cycle = Iter.new(@as(u32, 1), 4, 1).cycle();
+        var cycle = Iter.new(@as(u32, 1), 4).cycle();
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(cycle)));
@@ -144,7 +144,7 @@ test "derive cycle" {
         try testing.expectEqual(@as(?u32, 3), cycle.next());
     }
     {
-        var cycle = Iter.new(@as(u32, 1), 1, 1).cycle();
+        var cycle = Iter.new(@as(u32, 1), 1).cycle();
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(cycle)));
@@ -348,8 +348,16 @@ test "derive zip" {
     }
     {
         var arr1 = [_]u32{ 2, 3, 4 };
-        const Iter = MakeSliceIter(DeriveZip, u32);
-        var zip = Iter.new(arr1[0..]).zip(range.range(@as(u64, 3), 10, 2));
+        const Iter = MakeSliceIter(struct {
+            fn derive(comptime T: type) type {
+                return struct {
+                    pub usingnamespace DeriveZip(T);
+                    pub usingnamespace DeriveStepBy(T);
+                };
+            }
+        }.derive, u32);
+
+        var zip = Iter.new(arr1[0..]).zip(range.range(@as(u64, 3), 10).step_by(2));
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(zip)));
@@ -451,8 +459,8 @@ test "derive flat_map" {
     var arr = [_]u32{ 2, 3, 4 };
     const Iter = MakeSliceIter(DeriveFlatMap, u32);
     var flat_map = Iter.new(arr[0..]).flat_map(struct {
-        fn call(i: *u32) range.RangeIter(u32) {
-            return range.range(@as(u32, 0), i.*, 1);
+        fn call(i: *u32) range.Range(u32) {
+            return range.range(@as(u32, 0), i.*);
         }
     }.call);
     comptime {
@@ -490,12 +498,12 @@ fn DerivePartialCmp(comptime Iter: type) type {
 }
 
 test "derive partial_cmp Int" {
-    const Iter = range.MakeRangeIter(DerivePartialCmp, u64);
+    const Iter = range.MakeRange(DerivePartialCmp, u64);
     const Order = math.Order;
-    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 2), 11, 2)));
-    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 2, 2).partial_cmp(Iter.new(@as(u64, 2), 2, 2)));
-    try testing.expectEqual(@as(?Order, .lt), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 3), 11, 2)));
-    try testing.expectEqual(@as(?Order, .gt), Iter.new(@as(u64, 2), 11, 2).partial_cmp(Iter.new(@as(u64, 2), 9, 2)));
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 11).partial_cmp(Iter.new(@as(u64, 2), 11)));
+    try testing.expectEqual(@as(?Order, .eq), Iter.new(@as(u64, 2), 2).partial_cmp(Iter.new(@as(u64, 2), 2)));
+    try testing.expectEqual(@as(?Order, .lt), Iter.new(@as(u64, 2), 11).partial_cmp(Iter.new(@as(u64, 3), 11)));
+    try testing.expectEqual(@as(?Order, .gt), Iter.new(@as(u64, 2), 11).partial_cmp(Iter.new(@as(u64, 2), 9)));
 }
 
 test "derive partial_cmp Ptr" {
@@ -545,11 +553,11 @@ fn DeriveCmp(comptime Iter: type) type {
 }
 
 test "derive cmp Int" {
-    const Iter = range.MakeRangeIter(DeriveCmp, u32);
-    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 2), 11, 2)));
-    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 2, 2).cmp(Iter.new(@as(u32, 2), 2, 2)));
-    try testing.expectEqual(math.Order.lt, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 3), 11, 2)));
-    try testing.expectEqual(math.Order.gt, Iter.new(@as(u32, 2), 11, 2).cmp(Iter.new(@as(u32, 2), 9, 2)));
+    const Iter = range.MakeRange(DeriveCmp, u32);
+    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 11).cmp(Iter.new(@as(u32, 2), 11)));
+    try testing.expectEqual(math.Order.eq, Iter.new(@as(u32, 2), 2).cmp(Iter.new(@as(u32, 2), 2)));
+    try testing.expectEqual(math.Order.lt, Iter.new(@as(u32, 2), 11).cmp(Iter.new(@as(u32, 3), 11)));
+    try testing.expectEqual(math.Order.gt, Iter.new(@as(u32, 2), 11).cmp(Iter.new(@as(u32, 2), 9)));
 }
 
 test "derive cmp Ptr" {
@@ -582,11 +590,11 @@ fn DeriveLe(comptime Iter: type) type {
 }
 
 test "derive le Int" {
-    const Iter = range.MakeRangeIter(DeriveLe, u32);
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).le(Iter.new(@as(u32, 2), 11, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 2, 2).le(Iter.new(@as(u32, 2), 2, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).le(Iter.new(@as(u32, 3), 11, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).le(Iter.new(@as(u32, 2), 9, 2)));
+    const Iter = range.MakeRange(DeriveLe, u32);
+    try testing.expect(Iter.new(@as(u32, 2), 11).le(Iter.new(@as(u32, 2), 11)));
+    try testing.expect(Iter.new(@as(u32, 2), 2).le(Iter.new(@as(u32, 2), 2)));
+    try testing.expect(Iter.new(@as(u32, 2), 11).le(Iter.new(@as(u32, 3), 11)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11).le(Iter.new(@as(u32, 2), 9)));
 }
 
 test "derive le Ptr" {
@@ -619,11 +627,11 @@ fn DeriveGe(comptime Iter: type) type {
 }
 
 test "derive ge Int" {
-    const Iter = range.MakeRangeIter(DeriveGe, u32);
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).ge(Iter.new(@as(u32, 2), 11, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 2, 2).ge(Iter.new(@as(u32, 2), 2, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).ge(Iter.new(@as(u32, 3), 11, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).ge(Iter.new(@as(u32, 2), 9, 2)));
+    const Iter = range.MakeRange(DeriveGe, u32);
+    try testing.expect(Iter.new(@as(u32, 2), 11).ge(Iter.new(@as(u32, 2), 11)));
+    try testing.expect(Iter.new(@as(u32, 2), 2).ge(Iter.new(@as(u32, 2), 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11).ge(Iter.new(@as(u32, 3), 11)));
+    try testing.expect(Iter.new(@as(u32, 2), 11).ge(Iter.new(@as(u32, 2), 9)));
 }
 
 test "derive ge Ptr" {
@@ -656,11 +664,11 @@ fn DeriveLt(comptime Iter: type) type {
 }
 
 test "derive lt Int" {
-    const Iter = range.MakeRangeIter(DeriveLt, u32);
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 2), 11, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 2, 2).lt(Iter.new(@as(u32, 2), 2, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 3), 11, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).lt(Iter.new(@as(u32, 2), 9, 2)));
+    const Iter = range.MakeRange(DeriveLt, u32);
+    try testing.expect(!Iter.new(@as(u32, 2), 11).lt(Iter.new(@as(u32, 2), 11)));
+    try testing.expect(!Iter.new(@as(u32, 2), 2).lt(Iter.new(@as(u32, 2), 2)));
+    try testing.expect(Iter.new(@as(u32, 2), 11).lt(Iter.new(@as(u32, 3), 11)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11).lt(Iter.new(@as(u32, 2), 9)));
 }
 
 test "derive lt Ptr" {
@@ -693,11 +701,11 @@ fn DeriveGt(comptime Iter: type) type {
 }
 
 test "derive gt Int" {
-    const Iter = range.MakeRangeIter(DeriveGt, u32);
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 2), 11, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 2, 2).gt(Iter.new(@as(u32, 2), 2, 2)));
-    try testing.expect(!Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 3), 11, 2)));
-    try testing.expect(Iter.new(@as(u32, 2), 11, 2).gt(Iter.new(@as(u32, 2), 9, 2)));
+    const Iter = range.MakeRange(DeriveGt, u32);
+    try testing.expect(!Iter.new(@as(u32, 2), 11).gt(Iter.new(@as(u32, 2), 11)));
+    try testing.expect(!Iter.new(@as(u32, 2), 2).gt(Iter.new(@as(u32, 2), 2)));
+    try testing.expect(!Iter.new(@as(u32, 2), 11).gt(Iter.new(@as(u32, 3), 11)));
+    try testing.expect(Iter.new(@as(u32, 2), 11).gt(Iter.new(@as(u32, 2), 9)));
 }
 
 test "derive gt Ptr" {
@@ -728,9 +736,9 @@ fn DeriveProduct(comptime Iter: type) type {
 }
 
 test "derive product int" {
-    const Iter = range.MakeRangeIter(DeriveProduct, u32);
-    try testing.expectEqual(@as(u32, 3840), Iter.new(@as(u32, 2), 11, 2).product());
-    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10, 1).product());
+    const Iter = range.MakeRange(DeriveProduct, u32);
+    try testing.expectEqual(@as(u32, 1814400), Iter.new(@as(u32, 3), 11).product());
+    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10).product());
 }
 
 test "derive product ptr" {
@@ -757,9 +765,9 @@ fn DeriveSum(comptime Iter: type) type {
 }
 
 test "derive sum int" {
-    const Iter = range.MakeRangeIter(DeriveSum, u32);
-    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 0, 1).sum());
-    try testing.expectEqual(@as(u32, 55), Iter.new(@as(u32, 0), 11, 1).sum());
+    const Iter = range.MakeRange(DeriveSum, u32);
+    try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 0).sum());
+    try testing.expectEqual(@as(u32, 55), Iter.new(@as(u32, 0), 11).sum());
 }
 
 test "derive sum ptr" {
@@ -814,12 +822,7 @@ fn DeriveEq(comptime Iter: type) type {
 }
 
 test "derive eq" {
-    const Iter = range.MakeRangeIter(DeriveEq, u32);
-    const Range = struct {
-        pub fn new(start: u32, end: u32) Iter {
-            return Iter.new(start, end, 1);
-        }
-    };
+    const Range = range.MakeRange(DeriveEq, u32);
     try testing.expect(Range.new(0, 0).eq(Range.new(0, 0)));
     try testing.expect(Range.new(1, 6).eq(Range.new(1, 6)));
     try testing.expect(!Range.new(1, 6).eq(Range.new(1, 7)));
@@ -852,12 +855,7 @@ fn DeriveNe(comptime Iter: type) type {
 }
 
 test "derive ne" {
-    const Iter = range.MakeRangeIter(DeriveNe, u32);
-    const Range = struct {
-        pub fn new(start: u32, end: u32) Iter {
-            return Iter.new(start, end, 1);
-        }
-    };
+    const Range = range.MakeRange(DeriveNe, u32);
     try testing.expect(!Range.new(0, 0).ne(Range.new(0, 0)));
     try testing.expect(!Range.new(1, 6).ne(Range.new(1, 6)));
     try testing.expect(Range.new(1, 6).ne(Range.new(1, 7)));
@@ -893,14 +891,14 @@ fn DeriveMax(comptime Iter: type) type {
 }
 
 test "derive max" {
-    const Iter = range.MakeRangeIter(DeriveMax, u32);
-    const max = Iter.new(@as(u32, 0), 10, 1).max();
+    const Iter = range.MakeRange(DeriveMax, u32);
+    const max = Iter.new(@as(u32, 0), 10).max();
     try testing.expectEqual(@as(?u32, 9), max);
 }
 
 test "derive max empty" {
-    const Iter = range.MakeRangeIter(DeriveMax, u32);
-    const max = Iter.new(@as(u32, 0), 0, 1).max();
+    const Iter = range.MakeRange(DeriveMax, u32);
+    const max = Iter.new(@as(u32, 0), 0).max();
     try testing.expectEqual(@as(?u32, null), max);
 }
 
@@ -931,14 +929,14 @@ fn DeriveMaxBy(comptime Iter: type) type {
 }
 
 test "derive max_by" {
-    const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
-    const max_by = Iter.new(@as(u32, 0), 10, 1).max_by(meta.Ord.on(*const u32));
+    const Iter = range.MakeRange(DeriveMaxBy, u32);
+    const max_by = Iter.new(@as(u32, 0), 10).max_by(meta.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 9), max_by);
 }
 
 test "derive max_by empty" {
-    const Iter = range.MakeRangeIter(DeriveMaxBy, u32);
-    const max_by = Iter.new(@as(u32, 0), 0, 1).max_by(struct {
+    const Iter = range.MakeRange(DeriveMaxBy, u32);
+    const max_by = Iter.new(@as(u32, 0), 0).max_by(struct {
         fn call(x: *const u32, y: *const u32) math.Order {
             return math.order(x.*, y.*);
         }
@@ -1029,14 +1027,14 @@ fn DeriveMin(comptime Iter: type) type {
 }
 
 test "derive min" {
-    const Iter = range.MakeRangeIter(DeriveMin, u32);
-    const min = Iter.new(@as(u32, 0), 10, 1).min();
+    const Iter = range.MakeRange(DeriveMin, u32);
+    const min = Iter.new(@as(u32, 0), 10).min();
     try testing.expectEqual(@as(?u32, 0), min);
 }
 
 test "derive min empty" {
-    const Iter = range.MakeRangeIter(DeriveMin, u32);
-    const min = Iter.new(@as(u32, 0), 0, 1).min();
+    const Iter = range.MakeRange(DeriveMin, u32);
+    const min = Iter.new(@as(u32, 0), 0).min();
     try testing.expectEqual(@as(?u32, null), min);
 }
 
@@ -1067,14 +1065,14 @@ fn DeriveMinBy(comptime Iter: type) type {
 }
 
 test "derive min_by" {
-    const Iter = range.MakeRangeIter(DeriveMinBy, u32);
-    const min_by = Iter.new(@as(u32, 0), 10, 1).min_by(meta.Ord.on(*const u32));
+    const Iter = range.MakeRange(DeriveMinBy, u32);
+    const min_by = Iter.new(@as(u32, 0), 10).min_by(meta.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 0), min_by);
 }
 
 test "derive min_by empty" {
-    const Iter = range.MakeRangeIter(DeriveMinBy, u32);
-    const min_by = Iter.new(@as(u32, 0), 0, 1).min_by(struct {
+    const Iter = range.MakeRange(DeriveMinBy, u32);
+    const min_by = Iter.new(@as(u32, 0), 0).min_by(struct {
         fn call(x: *const u32, y: *const u32) math.Order {
             return math.order(x.*, y.*);
         }
@@ -1283,11 +1281,11 @@ fn DeriveFlatten(comptime Iter: type) type {
 
 test "derive flatten" {
     const Gen = struct {
-        fn call(x: u32) range.RangeIter(u32) {
-            return range.range(@as(u32, 0), x, 1);
+        fn call(x: u32) range.Range(u32) {
+            return range.range(@as(u32, 0), x);
         }
     };
-    var it = range.range(@as(u32, 1), 4, 1).map(Gen.call).flatten();
+    var it = range.range(@as(u32, 1), 4).map(Gen.call).flatten();
 
     // range(0, 1)
     try testing.expectEqual(@as(?u32, 0), it.next());
@@ -1325,8 +1323,8 @@ fn DeriveReduce(comptime Iter: type) type {
 }
 
 test "derive reduce" {
-    const Iter = range.MakeRangeIter(DeriveReduce, u32);
-    const sum = Iter.new(@as(u32, 0), 10, 1).reduce(struct {
+    const Iter = range.MakeRange(DeriveReduce, u32);
+    const sum = Iter.new(@as(u32, 0), 10).reduce(struct {
         fn call(acc: u32, val: u32) u32 {
             return acc + val;
         }
@@ -1649,8 +1647,10 @@ fn DeriveCount(comptime Iter: type) type {
 test "derive count" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = MakeSliceIter(DeriveCount, u32);
-    try testing.expectEqual(Iter.new(arr[0..0]).count(), 0);
-    try testing.expectEqual(Iter.new(arr[0..]).count(), arr[0..].len);
+    try testing.expectEqual(@as(usize, 0), Iter.new(arr[0..0]).count());
+    try testing.expectEqual(arr[0..].len, Iter.new(arr[0..]).count());
+
+    try testing.expectEqual(@as(usize, 1000000000), range.range(@as(u32, 0), 1000000000).count());
 }
 
 fn DeriveAll(comptime Iter: type) type {
