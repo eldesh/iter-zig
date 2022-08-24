@@ -150,24 +150,13 @@ pub fn have_field(comptime T: type, name: []const u8) ?type {
 }
 
 pub fn have_fun(comptime T: type, name: []const u8) ?type {
-    const decls = switch (@typeInfo(T)) {
-        .Struct => |s| s.decls,
-        .Union => |u| u.decls,
-        .Enum => |e| e.decls,
-        else => return null,
-    };
-
-    inline for (decls) |decl| {
-        if (!decl.is_pub)
-            continue;
-        if (std.mem.eql(u8, decl.name, name)) {
-            switch (decl.data) {
-                .Fn => |fndecl| return fndecl.fn_type,
-                else => break,
-            }
-        }
+    comptime {
+        if (!std.meta.trait.isContainer(T))
+            return null;
+        if (!@hasDecl(T, name))
+            return null;
+        return @TypeOf(@field(T, name));
     }
-    return null;
 }
 
 /// Check that the type `T` is an Iterator
@@ -338,13 +327,13 @@ pub const Clone = struct {
 };
 
 test "Clone" {
-    const clone = Clone.clone;
-    try testing.expectEqual(@as(error{}!u32, 5), clone(@as(u32, 5)));
-    try testing.expectEqual(@as(error{}!comptime_int, 5), clone(5));
-    try testing.expectEqual(@as(error{}![3]u32, [_]u32{ 1, 2, 3 }), clone([_]u32{ 1, 2, 3 }));
+    const doclone = Clone.clone;
+    try testing.expectEqual(@as(error{}!u32, 5), doclone(@as(u32, 5)));
+    try testing.expectEqual(@as(error{}!comptime_int, 5), doclone(5));
+    try testing.expectEqual(@as(error{}![3]u32, [_]u32{ 1, 2, 3 }), doclone([_]u32{ 1, 2, 3 }));
     const val: u64 = 42;
     const ptr = &val;
-    try testing.expectEqual(@as(error{}!u64, ptr.*), clone(ptr));
+    try testing.expectEqual(@as(error{}!u64, ptr.*), doclone(ptr));
 
     var seq = range.range(@as(u32, 0), 5);
     // consume head of 3elems
@@ -352,7 +341,7 @@ test "Clone" {
     try testing.expectEqual(@as(u32, 1), seq.next().?);
     try testing.expectEqual(@as(u32, 2), seq.next().?);
     // branch from the sequence
-    var seq2 = Clone.clone(seq) catch unreachable;
+    var seq2 = doclone(seq) catch unreachable;
     try testing.expectEqual(@as(u32, 3), seq2.next().?);
     try testing.expectEqual(@as(u32, 4), seq2.next().?);
     try testing.expectEqual(@as(?u32, null), seq2.next());
@@ -380,7 +369,7 @@ test "Clone" {
 
     var orig = T.new(try testing.allocator.dupe(u8, "foo"));
     defer orig.destroy();
-    var new = clone(orig);
+    var new = doclone(orig);
     defer if (new) |*obj| obj.destroy() else |_| {};
     try testing.expect(std.mem.eql(u8, orig.ss, (try new).ss));
 }
