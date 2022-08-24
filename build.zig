@@ -34,6 +34,13 @@ pub fn build(b: *std.build.Builder) void {
     const main_tests = b.addTest("src/lib.zig");
     main_tests.setBuildMode(mode);
 
+    const docs = b.addTest("src/lib.zig");
+    docs.setBuildMode(mode);
+    docs.emit_docs = .emit;
+
+    const docs_step = b.step("docs", "Generate library docs");
+    docs_step.dependOn(&docs.step);
+
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&main_tests.step);
 }
