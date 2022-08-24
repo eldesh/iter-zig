@@ -133,10 +133,10 @@ In particular, Range instantiated with integral type to be iterator.
 
 
 ```zig
-var rng = range(@as(u32,0), 3);
+var rng = range(@as(u32, 0), 3);
+try expectEqual(@as(u32, 0), rng.next().?);
 try expectEqual(@as(u32, 1), rng.next().?);
 try expectEqual(@as(u32, 2), rng.next().?);
-try expectEqual(@as(u32, 3), rng.next().?);
 try expectEqual(@as(?u32, null), rng.next());
 ```
 
