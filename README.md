@@ -42,6 +42,18 @@ zig build example
 Source code of this program is `src/main.zig`.
 
 
+## Generate docs
+
+To generate documentations:
+
+
+```sh
+zig build docs
+```
+
+A html documents would be generated under the `./docs` directory.
+
+
 ## Iterator Concept
 
 **Iterator** is a generic concept that objects that enumrating a set of values.
