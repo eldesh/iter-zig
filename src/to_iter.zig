@@ -15,15 +15,28 @@ const assert = std.debug.assert;
 
 const DeriveIterator = derive.DeriveIterator;
 
+/// Iterator wraps an array (typed to '[N]T').
+///
+/// # Arguments
+/// - `F` - This function takes a minimum implementation of an iterator on an array as `@This()` and derives a type that provides several methods that depend on that minimum implementation.
+/// - `T` - type of elements of an array
+/// - `N` - length of an array
+///
+/// # Details
+/// Creates an iterator type enumerates references pointing to elements of an array (`[N]T`).
+/// Each items is a pointer to an item of an array.
+///
 pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
     return struct {
         pub const Self: type = @This();
+        /// Const pointer points to items of an array.
         pub const Item: type = *T;
         pub usingnamespace F(@This());
 
         array: *[N]T,
         index: usize,
 
+        /// Creates an iterator wraps the `array`.
         pub fn new(array: *[N]T) Self {
             return .{ .array = array, .index = 0 };
         }
@@ -40,6 +53,7 @@ pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: u
     };
 }
 
+/// Create an array iterator with passing DeriveIterator to MakeArrayIter.
 pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
     return MakeArrayIter(DeriveIterator, Item, N);
 }
@@ -63,6 +77,7 @@ test "ArrayIter" {
 pub fn MakeArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
     return struct {
         pub const Self: type = @This();
+        /// Const pointer points to items of an array.
         pub const Item: type = *const T;
         pub usingnamespace F(@This());
 
