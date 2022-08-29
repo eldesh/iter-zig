@@ -3,4 +3,8 @@ name: iter-zig
 main: src/lib.zig
 license: BSD-2-Clause
 description: A basic iterator library
+root_dependencies:
+  - src: git git@github.com:eldesh/basis_concept-zig
 dependencies:
+  - src: git git@github.com:eldesh/basis_concept-zig
+

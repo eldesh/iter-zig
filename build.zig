@@ -13,7 +13,9 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const lib = b.addStaticLibrary("iter-zig", "src/lib.zig");
+    lib.setTarget(target);
     lib.setBuildMode(mode);
+    deps.addAllTo(lib);
     lib.install();
 
     const exe = b.addExecutable("iter-zig-example", "src/main.zig");
@@ -33,10 +35,15 @@ pub fn build(b: *std.build.Builder) void {
 
     const main_tests = b.addTest("src/lib.zig");
     main_tests.setBuildMode(mode);
+    deps.addAllTo(main_tests);
 
     const docs = b.addTest("src/lib.zig");
     docs.setBuildMode(mode);
+    deps.addAllTo(docs);
     docs.emit_docs = .emit;
+
+    const lib_step = b.step("lib", "Build static library");
+    lib_step.dependOn(&lib.step);
 
     const docs_step = b.step("docs", "Generate library docs");
     docs_step.dependOn(&docs.step);
