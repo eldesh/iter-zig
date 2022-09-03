@@ -74,7 +74,7 @@ However, all values must occur exactly once before 'null' is returned.
 
 ### Meta function
 
-[The type constraints required as an Iterator](#IteratorConcept) is able to be checked by `isIterator` function statically.
+[The type constraints required as an Iterator](#iterator-concept) is able to be checked by `isIterator` function statically.
 
 ```zig
 comptime assert(isIterator(SliceIter(u32)));
