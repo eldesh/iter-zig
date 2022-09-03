@@ -5,13 +5,14 @@ const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const iterty = @import("./iter.zig");
 
+const testing = std.testing;
+const assert = std.debug.assert;
+
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const SinglyLinkedList = std.SinglyLinkedList;
 const BoundedArray = std.BoundedArray;
-
-const testing = std.testing;
-const assert = std.debug.assert;
+const TailQueue = std.TailQueue;
 
 const DeriveIterator = derive.DeriveIterator;
 
@@ -527,4 +528,113 @@ test "BoundedArrayConstIter" {
     try testing.expectEqual(&arr.constSlice()[1], iter.next().?);
     try testing.expectEqual(&arr.constSlice()[2], iter.next().?);
     try testing.expectEqual(@as(?BoundedArrayConstIter(u32, 5).Item, null), iter.next());
+}
+
+pub fn MakeTailQueueIter(comptime F: fn (type) type, comptime T: type) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = *T;
+        pub usingnamespace F(@This());
+
+        queue: *TailQueue(T),
+
+        pub fn new(queue: *TailQueue(T)) Self {
+            return .{ .queue = queue };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            return if (self.queue.popFirst()) |node| &node.data else null;
+        }
+    };
+}
+
+pub fn TailQueueIter(comptime T: type) type {
+    return MakeTailQueueIter(DeriveIterator, T);
+}
+
+comptime {
+    assert(TailQueueIter(u32).Self == TailQueueIter(u32));
+    assert(TailQueueIter(u32).Item == *u32);
+    assert(meta.isIterator(TailQueueIter(u32)));
+}
+
+test "TailQueueIter" {
+    const Q = TailQueue(u32);
+    const node = struct {
+        fn node(x: u32) Q.Node {
+            return Q.Node{ .data = x };
+        }
+    }.node;
+    var que = Q{};
+    var nodes = [_]Q.Node{ node(1), node(2), node(3) };
+    {
+        for (nodes) |*n|
+            que.append(n);
+
+        var item: ?TailQueueIter(u32).Item = null;
+        var iter = TailQueueIter(u32).new(&que);
+        // update values of nodes via iter
+        item = iter.next();
+        item.?.* = item.?.* + 1;
+        item = iter.next();
+        item.?.* = item.?.* + 2;
+        item = iter.next();
+        item.?.* = item.?.* + 3;
+    }
+    {
+        for (nodes) |*n|
+            que.append(n);
+        var iter = TailQueueIter(u32).new(&que);
+        try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+        try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+        try testing.expectEqual(@as(u32, 6), iter.next().?.*);
+        try testing.expectEqual(@as(?TailQueueIter(u32).Item, null), iter.next());
+    }
+}
+
+pub fn MakeTailQueueConstIter(comptime F: fn (type) type, comptime T: type) type {
+    return struct {
+        pub const Self: type = @This();
+        pub const Item: type = *const T;
+        pub usingnamespace F(@This());
+
+        queue: *TailQueue(T),
+
+        pub fn new(queue: *TailQueue(T)) Self {
+            return .{ .queue = queue };
+        }
+
+        pub fn next(self: *Self) ?Self.Item {
+            return if (self.queue.popFirst()) |node| &node.data else null;
+        }
+    };
+}
+
+pub fn TailQueueConstIter(comptime T: type) type {
+    return MakeTailQueueConstIter(DeriveIterator, T);
+}
+
+comptime {
+    assert(TailQueueConstIter(u32).Self == TailQueueConstIter(u32));
+    assert(TailQueueConstIter(u32).Item == *const u32);
+    assert(meta.isIterator(TailQueueConstIter(u32)));
+}
+
+test "TailQueueConstIter" {
+    const Q = TailQueue(u32);
+    const node = struct {
+        fn node(x: u32) Q.Node {
+            return Q.Node{ .data = x };
+        }
+    }.node;
+    var que = Q{};
+    var nodes = [_]Q.Node{ node(1), node(2), node(3) };
+    for (nodes) |*n|
+        que.append(n);
+
+    var iter = TailQueueConstIter(u32).new(&que);
+    try testing.expectEqual(@as(*const u32, &nodes[0].data), iter.next().?);
+    try testing.expectEqual(@as(*const u32, &nodes[1].data), iter.next().?);
+    try testing.expectEqual(@as(*const u32, &nodes[2].data), iter.next().?);
+    try testing.expectEqual(@as(?TailQueueConstIter(u32).Item, null), iter.next());
 }
