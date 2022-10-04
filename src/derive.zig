@@ -292,7 +292,7 @@ test "derive cloned" {
             pub fn new(val: u32) Self {
                 return .{ .val = val };
             }
-            pub fn clone(self: Self) CloneError!Self {
+            pub fn clone(self: *const Self) CloneError!Self {
                 if (self.val == 10)
                     return CloneError.CloneError;
                 return Self.new(self.val);
