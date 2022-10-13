@@ -133,13 +133,24 @@ For example, `range(0, 10)` means that the numbers from `0` to `10`, which is ma
 
 In particular, Range instantiated with integral type to be iterator.
 
-
 ```zig
 var rng = range(@as(u32, 0), 3);
 try expectEqual(@as(u32, 0), rng.next().?);
 try expectEqual(@as(u32, 1), rng.next().?);
 try expectEqual(@as(u32, 2), rng.next().?);
 try expectEqual(@as(?u32, null), rng.next());
+```
+
+
+Similarly, `range_from` creates an endless sequence of numbers.
+e.g. `range_from(@as(u32, 0))` creates an endless sequence of natural numbers `0,1,2,...`.
+
+```zig
+var rng = range_from(@as(u32, 0));
+try expectEqual(@as(u32, 0), rng.next().?);
+try expectEqual(@as(u32, 1), rng.next().?);
+try expectEqual(@as(u32, 2), rng.next().?);
+..
 ```
 
 
