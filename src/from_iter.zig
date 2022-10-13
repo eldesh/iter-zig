@@ -1,5 +1,5 @@
-///! Iterator to Container converters.
-///! 
+//! Iterator to Container converters.
+//!
 const std = @import("std");
 const meta = @import("./meta.zig");
 const range = @import("./range.zig");

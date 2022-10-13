@@ -1,5 +1,5 @@
-///! Range Iterator
-///! 
+//! Range Iterator
+//!
 const std = @import("std");
 
 const meta = @import("./meta.zig");
