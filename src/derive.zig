@@ -871,12 +871,7 @@ fn DeriveMax(comptime Iter: type) type {
         return struct {
             pub fn max(self: Iter) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (meta.Ord.cmp(acc, val) == std.math.Order.lt) {
                         acc = val;
@@ -911,12 +906,7 @@ fn DeriveMaxBy(comptime Iter: type) type {
         return struct {
             pub fn max_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (compare(&acc, &val) == .lt) {
                         acc = val;
@@ -953,12 +943,7 @@ fn DeriveMaxByKey(comptime Iter: type) type {
         return struct {
             pub fn max_by_key(self: Iter, f: anytype) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (meta.Ord.cmp(f(&acc), f(&val)) == .lt) {
                         acc = val;
@@ -1007,12 +992,7 @@ fn DeriveMin(comptime Iter: type) type {
         return struct {
             pub fn min(self: Iter) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (meta.Ord.cmp(acc, val) == math.Order.gt) {
                         acc = val;
@@ -1047,12 +1027,7 @@ fn DeriveMinBy(comptime Iter: type) type {
         return struct {
             pub fn min_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (compare(&acc, &val) == .gt) {
                         acc = val;
@@ -1089,12 +1064,7 @@ fn DeriveMinByKey(comptime Iter: type) type {
         return struct {
             pub fn min_by_key(self: Iter, f: anytype) ?Iter.Item {
                 var it = self;
-                var acc: Iter.Item = undefined;
-                if (it.next()) |val| {
-                    acc = val;
-                } else {
-                    return null;
-                }
+                var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
                     if (meta.Ord.cmp(f(&acc), f(&val)) == .gt) {
                         acc = val;
@@ -1308,11 +1278,7 @@ fn DeriveReduce(comptime Iter: type) type {
         return struct {
             pub fn reduce(self: Iter, f: fn (Iter.Item, Iter.Item) Iter.Item) ?Iter.Item {
                 var it = self;
-                var fst = it.next();
-                if (fst == null)
-                    return null;
-
-                var acc = fst.?;
+                var acc = it.next() orelse return null;
                 while (it.next()) |value| {
                     acc = f(acc, value);
                 }
