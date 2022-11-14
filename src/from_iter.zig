@@ -74,7 +74,7 @@ test "bounded_array_from_iter" {
     }
 }
 
-pub fn singly_linked_list_from_iter(iter: anytype) Allocator.Error!SinglyLinkedList(@TypeOf(iter).Item) {
+pub fn singly_linked_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!SinglyLinkedList(@TypeOf(iter).Item) {
     const Iter: type = @TypeOf(iter);
     comptime assert(meta.isIterator(Iter));
     comptime assert(Con.isCopyable(Iter.Item));
@@ -84,9 +84,10 @@ pub fn singly_linked_list_from_iter(iter: anytype) Allocator.Error!SinglyLinkedL
     var list = L{};
 
     var it = iter;
-    for (it.next()) |data| {
-        var node = L.Node{ .data = data };
-        try list.prepend(&node);
+    while (it.next()) |data| {
+        var node = try alloc.create(L.Node);
+        node.* = L.Node{ .data = data };
+        list.prepend(node);
     }
     return list;
 }
