@@ -126,6 +126,19 @@ Note that, these iterators not own container values into it.
 The user must release the memory holding the container if necessary.
 
 
+### Iterators to Containers
+
+Iterator to container converters are defined for some std containers.
+
+- slice_from_iter
+- array_list_from_iter
+- bounded_array_from_iter
+- singly_linked_list_from_iter
+
+These converters consume the input iterator and build a container.
+The constructed container contains all the elements of the iterator and no other elements.
+
+
 ### Range Iterator
 
 `range` creates a Range value such that it represents a range of numbers.
