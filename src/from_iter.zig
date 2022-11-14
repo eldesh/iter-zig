@@ -93,6 +93,26 @@ pub fn singly_linked_list_from_iter(alloc: Allocator, iter: anytype) Allocator.E
 }
 
 test "singly_linked_list_from_iter" {
-    // var rng = range.range(@as(u32, 0), 10);
-    // const arr = try singly_linked_list_from_iter(rng);
+    const allocator = testing.allocator;
+    const rng = comptime range.range(@as(u32, 0), 10);
+    // expand rng to an array
+    const rs = comptime rs: {
+        var rs: [rng.len()]u32 = undefined;
+        var iter = rng;
+        var i: usize = 0;
+        while (iter.next()) |item| : (i += 1)
+            rs[i] = item;
+        break :rs rs;
+    };
+
+    var xs = try singly_linked_list_from_iter(allocator, rng);
+    defer while (xs.popFirst()) |node| allocator.destroy(node);
+    var it = xs.first;
+    var i: usize = 0;
+    while (it) |node| : ({
+        it = node.next;
+        i += 1;
+    }) {
+        try testing.expectEqual(rs[rs.len - i - 1], node.data);
+    }
 }
