@@ -1,5 +1,8 @@
-//! Range Iterator
+//! Range of numbers
 //!
+//! `Range` represents that a half open interval of numbers.
+//! For integral types, `Range` would be an iterator.
+//! The iterator incremented by 1 from `start`.
 const std = @import("std");
 
 const meta = @import("./meta.zig");
@@ -27,14 +30,17 @@ pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
             return .{ .start = start, .end = end };
         }
 
-        pub fn contains(self: Self, value: T) bool {
+        /// Check that the `value` is contained in the range.
+        pub fn contains(self: *const Self, value: T) bool {
             return self.start <= value and value < self.end;
         }
 
-        pub fn is_empty(self: Self) bool {
+        /// Check that the range is empty.
+        pub fn is_empty(self: *const Self) bool {
             return self.end <= self.start;
         }
 
+        /// For integer types, this type would be an iterator.
         pub usingnamespace if (std.meta.trait.isIntegral(T))
             struct {
                 pub fn next(self: *Self) ?Item {
@@ -47,10 +53,13 @@ pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
                     }
                 }
 
+                /// A range specific implementation of `count`.
+                /// The result is same as the `len` method.
                 pub fn count(self: *Self) usize {
                     return self.len();
                 }
 
+                /// Length of the sequence without consuming.
                 pub fn len(self: *const Self) usize {
                     return if (self.is_empty())
                         0
@@ -63,6 +72,11 @@ pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
     };
 }
 
+/// Return type of a half open interval of numbers
+///
+/// # Details
+/// Return type of a half open interval of numbers.
+/// For integer types, it is an iterator is incremented by 1.
 pub fn Range(comptime Item: type) type {
     return MakeRange(derive.DeriveIterator, Item);
 }
@@ -77,6 +91,11 @@ comptime {
     assert(meta.isClonable(Range(f64)));
 }
 
+/// A half open interval of numbers `[start,end)`
+///
+/// # Details
+/// A half open interval of numbers `[start,end)`.
+/// For integer types, it is an iterator is incremented by 1 from `start`.
 pub fn range(start: anytype, end: @TypeOf(start)) Range(@TypeOf(start)) {
     return Range(@TypeOf(start)).new(start, end);
 }

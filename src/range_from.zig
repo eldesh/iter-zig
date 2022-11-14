@@ -1,6 +1,8 @@
 //! RangeFrom Iterator
 //! 
-//! `RangeFrom` iterator generates integer values greater than or equals to `start` in increments of 1.
+//! `RangeFrom` represents that an interval of numbers which right endpoint is infinite.
+//! For integral types, `RangeFrom` would be an iterator.
+//! The iterator incremented by 1 from `start`.
 //! The behaviour when an overflow occurs is implementation dependent.
 const std = @import("std");
 
@@ -28,7 +30,7 @@ pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
             return .{ .start = start };
         }
 
-        /// Check that the `value` is contained in the sequence.
+        /// Check that the `value` is contained in the range.
         pub fn contains(self: *const Self, value: T) bool {
             return self.start <= value;
         }
@@ -66,10 +68,10 @@ comptime {
     assert(meta.isClonable(RangeFrom(f64)));
 }
 
-/// Sequence of numbers from `start`
+/// Interval of numbers from `start`
 ///
 /// # Details
-/// Sequence of numbers from start.
+/// Interval of numbers from `start`.
 /// For integer types, it is an iterator is incremented by 1.
 pub fn range_from(start: anytype) RangeFrom(@TypeOf(start)) {
     return RangeFrom(@TypeOf(start)).new(start);
