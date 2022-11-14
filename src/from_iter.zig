@@ -49,18 +49,15 @@ test "array_list_from_iter" {
     }
 }
 
-pub const BoundedArrayError = error{Overflow};
-
 /// Create an BoundedArray consisting of the elements enumrated from `iter`.
-pub fn bounded_array_from_iter(comptime N: usize, iter: anytype) BoundedArrayError!BoundedArray(@TypeOf(iter).Item, N) {
+pub fn bounded_array_from_iter(comptime N: usize, iter: anytype) error{Overflow}!BoundedArray(@TypeOf(iter).Item, N) {
     const Iter = @TypeOf(iter);
     comptime assert(meta.isIterator(Iter));
 
     var xs = try BoundedArray(Iter.Item, N).init(0);
     var it = iter;
-    while (it.next()) |val| {
+    while (it.next()) |val|
         try xs.append(val);
-    }
     return xs;
 }
 
