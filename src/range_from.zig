@@ -28,10 +28,12 @@ pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
             return .{ .start = start };
         }
 
-        pub fn contains(self: Self, value: T) bool {
+        /// Check that the `value` is contained in the sequence.
+        pub fn contains(self: *const Self, value: T) bool {
             return self.start <= value;
         }
 
+        /// For integer types, this type would be an iterator.
         pub usingnamespace if (std.meta.trait.isIntegral(T))
             struct {
                 pub fn next(self: *Self) ?Item {
@@ -45,6 +47,11 @@ pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
     };
 }
 
+/// Return type of sequence of numbers
+///
+/// # Details
+/// Return type of sequence of numbers
+/// For integer types, it is an iterator is incremented by 1.
 pub fn RangeFrom(comptime Item: type) type {
     return MakeRangeFrom(derive.DeriveIterator, Item);
 }
@@ -59,7 +66,11 @@ comptime {
     assert(meta.isClonable(RangeFrom(f64)));
 }
 
-/// Sequence from `start` in increments of 1.
+/// Sequence of numbers from `start`
+///
+/// # Details
+/// Sequence of numbers from start.
+/// For integer types, it is an iterator is incremented by 1.
 pub fn range_from(start: anytype) RangeFrom(@TypeOf(start)) {
     return RangeFrom(@TypeOf(start)).new(start);
 }
