@@ -5,6 +5,10 @@ const iter = @import("iter-zig");
 const assert = std.debug.assert;
 const print = std.debug.print;
 
+const prelude = struct {
+    pub usingnamespace iter.prelude;
+};
+
 /// User defined iterator type
 /// In order to follow the iterator conventions, takes a 'Derive'r.
 pub fn MakeCounter(comptime Derive: fn (type) type) type {
@@ -27,11 +31,11 @@ pub fn MakeCounter(comptime Derive: fn (type) type) type {
 }
 
 pub fn Counter() type {
-    return MakeCounter(iter.DeriveIterator);
+    return MakeCounter(prelude.DeriveIterator);
 }
 
 comptime {
-    assert(iter.isIterator(Counter()));
+    assert(prelude.isIterator(Counter()));
 }
 
 fn incr(x: u32) u32 {
@@ -52,7 +56,7 @@ pub fn main() anyerror!void {
     print("================================================================\n", .{});
     {
         var arr = [_]u32{ 1, 2, 3 };
-        var it = iter.SliceIter(u32).new(arr[0..]);
+        var it = iter.to_iter.SliceIter(u32).new(arr[0..]);
         while (it.next()) |item| {
             print("item: {}\n", .{item.*});
         }
@@ -61,7 +65,7 @@ pub fn main() anyerror!void {
     print("================================================================\n", .{});
     {
         var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
-        var it = iter.SliceIter(u32).new(arr[0..]).copied().filter(struct {
+        var it = iter.to_iter.SliceIter(u32).new(arr[0..]).copied().filter(struct {
             fn call(x: u32) bool {
                 return x % 2 == 0;
             }

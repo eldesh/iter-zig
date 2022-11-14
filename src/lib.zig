@@ -12,12 +12,22 @@
 //! The order of occurence of values are implementation defined.
 //! But all values must occurence exactly once before 'null' is returned.
 //!
-pub usingnamespace @import("./to_iter.zig");
-pub usingnamespace @import("./iter.zig");
-pub usingnamespace @import("./meta.zig");
-pub usingnamespace @import("./derive.zig");
-pub usingnamespace @import("./from_iter.zig");
-pub usingnamespace @import("./range.zig");
-pub usingnamespace @import("./range_from.zig");
-pub usingnamespace @import("./tuple.zig");
-pub usingnamespace @import("./ops.zig");
+pub const to_iter = @import("./to_iter.zig");
+pub const iter = @import("./iter.zig");
+pub const meta = @import("./meta.zig");
+pub const derive = @import("./derive.zig");
+pub const from_iter = @import("./from_iter.zig");
+pub const range = @import("./range.zig");
+pub const range_from = @import("./range_from.zig");
+pub const tuple = @import("./tuple.zig");
+pub const ops = @import("./ops.zig");
+pub const concept = @import("./concept.zig");
+
+pub const prelude = struct {
+    pub const isIterator: fn (type) bool = meta.isIterator;
+    pub const DeriveIterator: fn (type) type = derive.DeriveIterator;
+};
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}
