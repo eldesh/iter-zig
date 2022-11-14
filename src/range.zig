@@ -47,7 +47,11 @@ pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
                     }
                 }
 
-                pub fn count(self: *const Self) usize {
+                pub fn count(self: *Self) usize {
+                    return self.len();
+                }
+
+                pub fn len(self: *const Self) usize {
                     return if (self.is_empty())
                         0
                     else
