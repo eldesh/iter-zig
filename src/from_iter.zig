@@ -1,6 +1,8 @@
 //! Iterator to Container converters.
 //!
 const std = @import("std");
+const Con = @import("basis_concept");
+
 const meta = @import("./meta.zig");
 const range = @import("./range.zig");
 
@@ -10,6 +12,7 @@ const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const BoundedArray = std.BoundedArray;
+const SinglyLinkedList = std.SinglyLinkedList;
 
 /// Create a slice consisting of the elements enumrated from `iter`.
 pub fn slice_from_iter(alloc: Allocator, iter: anytype) Allocator.Error![]@TypeOf(iter).Item {
@@ -69,4 +72,26 @@ test "bounded_array_from_iter" {
     for (arr.constSlice()) |val, i| {
         try testing.expectEqual(i, val);
     }
+}
+
+pub fn singly_linked_list_from_iter(iter: anytype) Allocator.Error!SinglyLinkedList(@TypeOf(iter).Item) {
+    const Iter: type = @TypeOf(iter);
+    comptime assert(meta.isIterator(Iter));
+    comptime assert(Con.isCopyable(Iter.Item));
+    const T: type = Iter.Item;
+
+    const L = SinglyLinkedList(T);
+    var list = L{};
+
+    var it = iter;
+    for (it.next()) |data| {
+        var node = L.Node{ .data = data };
+        try list.prepend(&node);
+    }
+    return list;
+}
+
+test "singly_linked_list_from_iter" {
+    // var rng = range.range(@as(u32, 0), 10);
+    // const arr = try singly_linked_list_from_iter(rng);
 }
