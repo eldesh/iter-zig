@@ -4,6 +4,7 @@ const iter = @import("./iter.zig");
 const to_iter = @import("./to_iter.zig");
 const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
+const concept = @import("./concept.zig");
 
 const PartialEq = meta.PartialEq;
 const trait = std.meta.trait;
@@ -724,10 +725,10 @@ fn DeriveProduct(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "product")) |_| {
         return struct {};
-    } else if (meta.isProduct(Iter.Item)) {
+    } else if (concept.isProduct(Iter.Item)) {
         return struct {
-            pub fn product(self: Iter) meta.Product.Output(Iter.Item) {
-                return meta.Product.product(self);
+            pub fn product(self: Iter) concept.Product.Output(Iter.Item) {
+                return concept.Product.product(self);
             }
         };
     } else {
@@ -753,10 +754,10 @@ fn DeriveSum(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "sum")) |_| {
         return struct {};
-    } else if (meta.isSum(Iter.Item)) {
+    } else if (concept.isSum(Iter.Item)) {
         return struct {
-            pub fn sum(self: Iter) meta.Sum.Output(Iter.Item) {
-                return meta.Sum.sum(self);
+            pub fn sum(self: Iter) concept.Sum.Output(Iter.Item) {
+                return concept.Sum.sum(self);
             }
         };
     } else {
@@ -780,7 +781,7 @@ test "derive sum ptr" {
     {
         const T = struct {
             val: u32,
-            pub fn sum(it: anytype) meta.Sum.Output(@TypeOf(it).Item) {
+            pub fn sum(it: anytype) concept.Sum.Output(@TypeOf(it).Item) {
                 var jt = it;
                 var acc: @This() = @This(){ .val = 0 };
                 while (jt.next()) |t| {
@@ -1290,12 +1291,12 @@ fn DeriveReduce(comptime Iter: type) type {
 
 test "derive reduce" {
     const Iter = range.MakeRange(DeriveReduce, u32);
-    const sum = Iter.new(@as(u32, 0), 10).reduce(struct {
+    const acc = Iter.new(@as(u32, 0), 10).reduce(struct {
         fn call(acc: u32, val: u32) u32 {
             return acc + val;
         }
     }.call);
-    try testing.expectEqual(@as(?u32, 45), sum);
+    try testing.expectEqual(@as(?u32, 45), acc);
 }
 
 fn DeriveFold(comptime Iter: type) type {
@@ -1320,12 +1321,12 @@ fn DeriveFold(comptime Iter: type) type {
 test "derive fold" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = MakeSliceIter(DeriveFold, u32);
-    const sum = Iter.new(arr[0..]).fold(@as(u32, 0), struct {
+    const acc = Iter.new(arr[0..]).fold(@as(u32, 0), struct {
         fn call(acc: u32, val: *const u32) u32 {
             return acc + val.*;
         }
     }.call);
-    try testing.expectEqual(@as(u32, 15), sum);
+    try testing.expectEqual(@as(u32, 15), acc);
 }
 
 fn DeriveTryFold(comptime Iter: type) type {
