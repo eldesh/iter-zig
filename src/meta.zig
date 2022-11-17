@@ -1,10 +1,12 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const basis_concept = @import("basis_concept");
 
 const range = @import("./range.zig");
 
 const Range = range.Range;
 
+const SemVer = std.SemanticVersion;
 const math = std.math;
 const trait = std.meta.trait;
 const testing = std.testing;
@@ -17,24 +19,38 @@ pub usingnamespace basis_concept;
 ///
 /// # Details
 /// Compare arity and field types each other.
-/// The `==` operator can not comparing std tuples correctly.
+/// For zig 0.9.1, the `==` operator can not comparing std tuples correctly.
 /// Then the below expression evaluated always to false.
 /// ```
 /// std.meta.Tuple(&[_]type{u32}) == std.meta.Tuple(&[_]type{u32})
 /// ```
 pub fn eqTupleType(comptime exp: type, comptime act: type) bool {
     comptime {
-        if (!std.meta.trait.isTuple(exp))
-            return false;
-        if (!std.meta.trait.isTuple(act))
-            return false;
+        // workaround criteria
+        const old_zig = SemVer.parse("0.9.1") catch unreachable;
+        if (builtin.zig_version.order(old_zig) == .gt)
+            return exp == act;
+
+        if (!trait.isTuple(exp)) return false;
+        if (!trait.isTuple(act)) return false;
+        return eqTupleTypeImpl(exp, act);
+    }
+}
+
+fn eqTupleTypeImpl(comptime exp: type, comptime act: type) bool {
+    comptime {
+        assert(trait.isTuple(exp));
+        assert(trait.isTuple(act));
 
         const expfs = std.meta.fields(exp);
         const actfs = std.meta.fields(act);
         if (expfs.len != actfs.len) // compare arity
             return false;
 
+        const isTuple = trait.isTuple;
         inline for (expfs) |expf, i| {
+            if (isTuple(expf.field_type) and isTuple(actfs[i].field_type))
+                return eqTupleTypeImpl(expf.field_type, actfs[i].field_type);
             if (expf.field_type != actfs[i].field_type)
                 return false;
         }
@@ -42,15 +58,76 @@ pub fn eqTupleType(comptime exp: type, comptime act: type) bool {
     }
 }
 
-comptime {
-    assert(eqTupleType(std.meta.Tuple(&[_]type{u32}), std.meta.Tuple(&[_]type{u32})));
-    assert(!eqTupleType(std.meta.Tuple(&[_]type{ u32, u32 }), std.meta.Tuple(&[_]type{u32})));
-    assert(eqTupleType(std.meta.Tuple(&[_]type{ u32, i64 }), std.meta.Tuple(&[_]type{ u32, i64 })));
-    assert(!eqTupleType(std.meta.Tuple(&[_]type{}), std.meta.Tuple(&[_]type{ u32, i64 })));
+pub fn assertEqualTupleType(comptime x: type, comptime y: type) void {
+    if (!eqTupleType(x, y)) unreachable; // assertion failure
 }
 
-pub fn assertEqualTupleType(comptime x: type, comptime y: type) void {
-    comptime assert(eqTupleType(x, y));
+pub fn assertNotEqualTupleType(comptime x: type, comptime y: type) void {
+    if (eqTupleType(x, y)) unreachable; // assertion failure
+}
+
+comptime {
+    const Tuple = std.meta.Tuple;
+    assertEqualTupleType(
+        Tuple(&[_]type{u32}),
+        Tuple(&[_]type{u32}),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{ u32, u32 }),
+        Tuple(&[_]type{u32}),
+    );
+    assertEqualTupleType(
+        Tuple(&[_]type{ u32, i64 }),
+        Tuple(&[_]type{ u32, i64 }),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{ i64, u32 }),
+        Tuple(&[_]type{ i64, u32, f32 }),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{}),
+        Tuple(&[_]type{ u32, i64 }),
+    );
+    assertEqualTupleType(
+        Tuple(&[_]type{
+            Tuple(&[_]type{ u32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+        Tuple(&[_]type{
+            Tuple(&[_]type{ u32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{
+            Tuple(&[_]type{ u32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+        Tuple(&[_]type{
+            Tuple(&[_]type{ i32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{
+            Tuple(&[_]type{ u32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+        Tuple(&[_]type{
+            Tuple(&[_]type{ i32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+    );
+    assertNotEqualTupleType(
+        Tuple(&[_]type{
+            Tuple(&[_]type{ u32, i64 }),
+            f64,
+        }),
+        Tuple(&[_]type{
+            Tuple(&[_]type{ i32, i64 }),
+            Tuple(&[_]type{ u32, i64 }),
+        }),
+    );
 }
 
 pub fn is_or_ptrto(comptime F: fn (type) bool) fn (type) bool {
