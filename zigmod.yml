@@ -4,7 +4,7 @@ main: src/lib.zig
 license: BSD-2-Clause
 description: A basic iterator library
 root_dependencies:
-  - src: git git@github.com:eldesh/basis_concept-zig commit-v1.1
+  - src: git git@github.com:eldesh/basis_concept-zig commit-v1.2
 dependencies:
-  - src: git git@github.com:eldesh/basis_concept-zig commit-v1.1
+  - src: git git@github.com:eldesh/basis_concept-zig commit-v1.2
 
