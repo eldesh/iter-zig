@@ -2,16 +2,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 const basis_concept = @import("basis_concept");
 
-const range = @import("./range.zig");
-
-const Range = range.Range;
-
 const SemVer = std.SemanticVersion;
-const math = std.math;
 const trait = std.meta.trait;
-const testing = std.testing;
 const assert = std.debug.assert;
-const debug = std.debug.print;
 
 pub usingnamespace basis_concept;
 
@@ -194,7 +187,7 @@ comptime {
     assert(remove_const_pointer(*const []u8) == []u8);
 }
 
-pub fn have_type(comptime T: type, name: []const u8) ?type {
+pub fn have_type(comptime T: type, comptime name: []const u8) ?type {
     comptime {
         if (!trait.isContainer(T))
             return null;
@@ -219,24 +212,26 @@ comptime {
     assert(have_type(u32, "cmp") == null);
 }
 
-pub fn have_field(comptime T: type, name: []const u8) ?type {
-    const fields = switch (@typeInfo(T)) {
-        .Struct => |s| s.fields,
-        .Union => |u| u.fields,
-        .Enum => |e| e.fields,
-        else => false,
-    };
+pub fn have_field(comptime T: type, comptime name: []const u8) ?type {
+    comptime {
+        const fields = switch (@typeInfo(T)) {
+            .Struct => |s| s.fields,
+            .Union => |u| u.fields,
+            .Enum => |e| e.fields,
+            else => false,
+        };
 
-    inline for (fields) |field| {
-        if (std.mem.eql(u8, field.name, name)) {
-            return field.field_type;
+        inline for (fields) |field| {
+            if (std.mem.eql(u8, field.name, name)) {
+                return field.field_type;
+            }
         }
-    }
 
-    return null;
+        return null;
+    }
 }
 
-pub fn have_fun(comptime T: type, name: []const u8) ?type {
+pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
     comptime {
         if (!std.meta.trait.isContainer(T))
             return null;
@@ -248,14 +243,16 @@ pub fn have_fun(comptime T: type, name: []const u8) ?type {
 
 /// Check that the type `T` is an Iterator
 pub fn isIterator(comptime T: type) bool {
-    if (have_type(T, "Self")) |Self| {
-        if (have_type(T, "Item")) |Item| {
-            if (have_fun(T, "next")) |next_ty| {
-                return next_ty == fn (*Self) ?Item;
+    comptime {
+        if (have_type(T, "Self")) |Self| {
+            if (have_type(T, "Item")) |Item| {
+                if (have_fun(T, "next")) |next_ty| {
+                    return next_ty == fn (*Self) ?Item;
+                }
             }
         }
+        return false;
     }
-    return false;
 }
 
 comptime {
