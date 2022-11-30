@@ -127,7 +127,7 @@ test "repeat" {
     {
         const U = union(enum) { Tag1, Tag2 };
         var it = repeat(U{ .Tag1 = .{} }).map(struct {
-            fn f(x: meta.Clone.ResultType(U)) U {
+            fn f(x: meta.basis.Clone.ResultType(U)) U {
                 if (x) |_| {} else |_| {}
                 return U{ .Tag2 = .{} };
             }

@@ -120,12 +120,12 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
         }
 
         // derive `next_if_eq` inplace
-        pub usingnamespace if (meta.isPartialEq(*const Item))
+        pub usingnamespace if (meta.basis.isPartialEq(*const Item))
             struct {
                 pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
                     if (self.peek()) |peeked| {
                         // if and only if the `peeked` value is equals to `expected`, it is consumed.
-                        if (meta.PartialEq.eq(peeked, expected))
+                        if (meta.basis.PartialEq.eq(peeked, expected))
                             return self.next();
                     }
                     return null;
@@ -209,7 +209,7 @@ test "Peekable" {
 
 pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isClonable(Iter));
+    comptime assert(meta.basis.isClonable(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -219,12 +219,12 @@ pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
         iter: Iter,
 
         pub fn new(iter: Iter) Self {
-            return .{ .orig = iter, .iter = meta.Clone.clone(iter) catch unreachable };
+            return .{ .orig = iter, .iter = meta.basis.Clone.clone(iter) catch unreachable };
         }
 
         pub fn next(self: *Self) ?Item {
             var fst_elem = false;
-            while (true) : (self.iter = meta.Clone.clone(self.orig) catch unreachable) {
+            while (true) : (self.iter = meta.basis.Clone.clone(self.orig) catch unreachable) {
                 if (self.iter.next()) |val| {
                     return val;
                 }
@@ -273,7 +273,7 @@ test "Cycle" {
 
 pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isCopyable(Iter.Item));
+    comptime assert(meta.basis.isCopyable(Iter.Item));
 
     return struct {
         pub const Self: type = @This();
@@ -320,11 +320,11 @@ test "Copied" {
 
 pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isClonable(Iter.Item));
+    comptime assert(meta.basis.isClonable(Iter.Item));
 
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = meta.Clone.ResultType(Iter.Item);
+        pub const Item: type = meta.basis.Clone.ResultType(Iter.Item);
         pub usingnamespace D(@This());
 
         iter: Iter,
@@ -335,7 +335,7 @@ pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
 
         pub fn next(self: *Self) ?Item {
             if (self.iter.next()) |val| {
-                return meta.Clone.clone(val);
+                return meta.basis.Clone.clone(val);
             }
             return null;
         }
@@ -349,7 +349,7 @@ pub fn Cloned(comptime Iter: type) type {
 comptime {
     const I = SliceIter;
     assert(Cloned(I(u32)).Self == Cloned(I(u32)));
-    assert(Cloned(I(u32)).Item == meta.Clone.ResultType(*u32));
+    assert(Cloned(I(u32)).Item == meta.basis.Clone.ResultType(*u32));
 }
 
 test "Clone" {
@@ -486,7 +486,7 @@ test "FlatMap" {
 }
 
 pub fn PartialCmp(comptime Item: type) type {
-    comptime assert(meta.isPartialOrd(Item));
+    comptime assert(meta.basis.isPartialOrd(Item));
     return struct {
         pub fn partial_cmp(iter: anytype, other: anytype) ?math.Order {
             const Iter = @TypeOf(iter);
@@ -498,7 +498,7 @@ pub fn PartialCmp(comptime Item: type) type {
 
             while (it.next()) |lval| {
                 if (ot.next()) |rval| {
-                    if (meta.PartialOrd.partial_cmp(lval, rval)) |ord| {
+                    if (meta.basis.PartialOrd.partial_cmp(lval, rval)) |ord| {
                         switch (ord) {
                             .eq => continue,
                             .lt, .gt => return ord,
@@ -514,7 +514,7 @@ pub fn PartialCmp(comptime Item: type) type {
 }
 
 pub fn Cmp(comptime Item: type) type {
-    comptime assert(meta.isOrd(Item));
+    comptime assert(meta.basis.isOrd(Item));
     return struct {
         pub fn cmp(iter: anytype, other: anytype) math.Order {
             const Iter = @TypeOf(iter);
@@ -526,7 +526,7 @@ pub fn Cmp(comptime Item: type) type {
 
             while (it.next()) |lval| {
                 if (ot.next()) |rval| {
-                    const ord = meta.Ord.cmp(lval, rval);
+                    const ord = meta.basis.Ord.cmp(lval, rval);
                     switch (ord) {
                         .eq => continue,
                         .lt, .gt => return ord,
@@ -705,7 +705,7 @@ test "Filter" {
 pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(is_unary_func_type(F));
-    comptime assert(std.meta.trait.is(.Optional)(codomain(F)));
+    comptime assert(trait.is(.Optional)(codomain(F)));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(codomain(F));
@@ -1500,10 +1500,10 @@ test "Once" {
 
 /// An iterator that repeatedly yields a certain element indefinitely.
 pub fn MakeRepeat(comptime D: fn (type) type, comptime T: type) type {
-    comptime assert(meta.isClonable(T));
+    comptime assert(meta.basis.isClonable(T));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = meta.Clone.ResultType(T);
+        pub const Item: type = meta.basis.Clone.ResultType(T);
         pub usingnamespace D(@This());
 
         value: T,
@@ -1512,7 +1512,7 @@ pub fn MakeRepeat(comptime D: fn (type) type, comptime T: type) type {
         }
 
         pub fn next(self: *Self) ?Item {
-            return meta.Clone.clone(self.value);
+            return meta.basis.Clone.clone(self.value);
         }
     };
 }
@@ -1526,10 +1526,10 @@ pub fn Repeat(comptime T: type) type {
 comptime {
     assert(meta.isIterator(Repeat(u32)));
     assert(Repeat(u32).Self == Repeat(u32));
-    assert(Repeat(u32).Item == meta.Clone.EmptyError!u32);
+    assert(Repeat(u32).Item == meta.basis.Clone.EmptyError!u32);
     assert(meta.isIterator(Repeat(*const u32)));
     assert(Repeat(*const u32).Self == Repeat(*const u32));
-    assert(Repeat(*const u32).Item == meta.Clone.EmptyError!u32);
+    assert(Repeat(*const u32).Item == meta.basis.Clone.EmptyError!u32);
 }
 
 test "Repeat" {
@@ -1553,6 +1553,6 @@ test "Repeat" {
         try testing.expectEqual(void{}, try it.next().?);
         try testing.expectEqual(void{}, try it.next().?);
         try testing.expectEqual(void{}, try it.next().?);
-        try testing.expectEqual(@as(?meta.Clone.EmptyError!void, null), it.next());
+        try testing.expectEqual(@as(?meta.basis.Clone.EmptyError!void, null), it.next());
     }
 }

@@ -61,11 +61,11 @@ pub fn RangeFrom(comptime Item: type) type {
 comptime {
     assert(meta.isIterator(RangeFrom(u32)));
     assert(meta.isIterator(RangeFrom(i64)));
-    assert(meta.isCopyable(RangeFrom(i64)));
-    assert(meta.isClonable(RangeFrom(u64)));
+    assert(meta.basis.isCopyable(RangeFrom(i64)));
+    assert(meta.basis.isClonable(RangeFrom(u64)));
     assert(!meta.isIterator(RangeFrom(f64)));
-    assert(meta.isCopyable(RangeFrom(f64)));
-    assert(meta.isClonable(RangeFrom(f64)));
+    assert(meta.basis.isCopyable(RangeFrom(f64)));
+    assert(meta.basis.isClonable(RangeFrom(f64)));
 }
 
 /// Interval of numbers from `start`

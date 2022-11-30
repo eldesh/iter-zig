@@ -1,12 +1,10 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const basis_concept = @import("basis_concept");
+pub const basis = @import("basis_concept");
 
 const SemVer = std.SemanticVersion;
 const trait = std.meta.trait;
 const assert = std.debug.assert;
-
-pub usingnamespace basis_concept;
 
 /// Compare std tuple types rather than values
 ///

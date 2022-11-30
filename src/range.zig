@@ -84,11 +84,11 @@ pub fn Range(comptime Item: type) type {
 comptime {
     assert(meta.isIterator(Range(u32)));
     assert(meta.isIterator(Range(i64)));
-    assert(meta.isCopyable(Range(i64)));
-    assert(meta.isClonable(Range(u64)));
+    assert(meta.basis.isCopyable(Range(i64)));
+    assert(meta.basis.isClonable(Range(u64)));
     assert(!meta.isIterator(Range(f64)));
-    assert(meta.isCopyable(Range(f64)));
-    assert(meta.isClonable(Range(f64)));
+    assert(meta.basis.isCopyable(Range(f64)));
+    assert(meta.basis.isClonable(Range(f64)));
 }
 
 /// A half open interval of numbers `[start,end)`

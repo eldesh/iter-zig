@@ -6,7 +6,7 @@ const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
 const concept = @import("./concept.zig");
 
-const PartialEq = meta.PartialEq;
+const PartialEq = meta.basis.PartialEq;
 const trait = std.meta.trait;
 const math = std.math;
 const testing = std.testing;
@@ -103,7 +103,7 @@ fn DeriveCycle(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cycle")) |_| {
         return struct {};
-    } else if (meta.isClonable(Iter)) {
+    } else if (meta.basis.isClonable(Iter)) {
         return struct {
             pub fn cycle(self: Iter) iter.Cycle(Iter) {
                 return iter.Cycle(Iter).new(self);
@@ -117,13 +117,13 @@ fn DeriveCycle(comptime Iter: type) type {
 comptime {
     const Iter = range.MakeRange(DeriveCycle, u32);
     assert(isIterator(Iter));
-    assert(meta.isClonable(Iter));
+    assert(meta.basis.isClonable(Iter));
 }
 
 comptime {
     const Iter = to_iter.MakeSliceIter(DeriveCycle, u32);
     assert(isIterator(Iter));
-    assert(!meta.isClonable(Iter));
+    assert(!meta.basis.isClonable(Iter));
 }
 
 test "derive cycle" {
@@ -159,7 +159,7 @@ fn DeriveCopied(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "copied")) |_| {
         return struct {};
-    } else if (meta.isCopyable(Iter.Item)) {
+    } else if (meta.basis.isCopyable(Iter.Item)) {
         return struct {
             pub fn copied(self: Iter) iter.Copied(Iter) {
                 return iter.Copied(Iter).new(self);
@@ -173,7 +173,7 @@ fn DeriveCopied(comptime Iter: type) type {
 comptime {
     const Iter = MakeSliceIter(DeriveCopied, u32);
     assert(isIterator(Iter));
-    assert(meta.isCopyable(Iter.Item));
+    assert(meta.basis.isCopyable(Iter.Item));
 }
 
 test "derive copied" {
@@ -214,7 +214,7 @@ fn DeriveCloned(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cloned")) |_| {
         return struct {};
-    } else if (meta.isClonable(Iter.Item)) {
+    } else if (meta.basis.isClonable(Iter.Item)) {
         return struct {
             pub fn cloned(self: Iter) iter.Cloned(Iter) {
                 return iter.Cloned(Iter).new(self);
@@ -229,7 +229,7 @@ comptime {
     const Iter = MakeSliceIter(DeriveCloned, []const u8);
     assert(isIterator(Iter));
     // []const u8 is not Clonable,
-    assert(!meta.isClonable(Iter.Item));
+    assert(!meta.basis.isClonable(Iter.Item));
     // then the Iter.cloned() is not derived.
     assert(meta.have_fun(Iter, "cloned") == null);
 }
@@ -237,11 +237,11 @@ comptime {
 comptime {
     const Iter = MakeSliceIter(DeriveCloned, u32);
     assert(isIterator(Iter));
-    assert(meta.isClonable(Iter.Item));
+    assert(meta.basis.isClonable(Iter.Item));
     assert(meta.have_type(Iter, "Self") == Iter);
     // Strangely, for some reason, it's an error
     // assert(meta.have_fun(Iter, "cloned") != null);
-    assert(!meta.isClonable(Iter));
+    assert(!meta.basis.isClonable(Iter));
 }
 
 test "derive cloned" {
@@ -265,7 +265,7 @@ test "derive cloned" {
         // Unable to dump stack trace: debug info stripped
         // Aborted
         // try testing.expectEqual(@as(?(error{}!u32), null), cloned.next());
-        try testing.expectEqual(@as(?(meta.Clone.EmptyError!u32), null), cloned.next());
+        try testing.expectEqual(@as(?(meta.basis.Clone.EmptyError!u32), null), cloned.next());
     }
     {
         const R = union(enum) {
@@ -278,12 +278,12 @@ test "derive cloned" {
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(cloned)));
-            assert(iter.err_type(meta.Clone.ResultType(R)) == meta.Clone.EmptyError);
+            assert(iter.err_type(meta.basis.Clone.ResultType(R)) == meta.basis.Clone.EmptyError);
         }
         try testing.expectEqual(R{ .Ok = 5 }, try cloned.next().?);
         try testing.expectEqual(R{ .Err = 4 }, try cloned.next().?);
         try testing.expectEqual(R{ .Ok = 0 }, try cloned.next().?);
-        try testing.expectEqual(@as(?meta.Clone.EmptyError!R, null), cloned.next());
+        try testing.expectEqual(@as(?meta.basis.Clone.EmptyError!R, null), cloned.next());
     }
     {
         const T = struct {
@@ -485,7 +485,7 @@ fn DerivePartialCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "partial_cmp")) |_| {
         return struct {};
-    } else if (meta.isPartialOrd(Iter.Item)) {
+    } else if (meta.basis.isPartialOrd(Iter.Item)) {
         return struct {
             pub fn partial_cmp(self: Iter, other: anytype) ?math.Order {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -540,7 +540,7 @@ fn DeriveCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cmp")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn cmp(self: Iter, other: anytype) math.Order {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -577,7 +577,7 @@ fn DeriveLe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "le")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn le(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -614,7 +614,7 @@ fn DeriveGe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "ge")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn ge(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -651,7 +651,7 @@ fn DeriveLt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "lt")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn lt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -688,7 +688,7 @@ fn DeriveGt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "gt")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn gt(self: Iter, other: anytype) bool {
                 comptime assert(meta.isIterator(@TypeOf(other)));
@@ -868,13 +868,13 @@ fn DeriveMax(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "max")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn max(self: Iter) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
-                    if (meta.Ord.cmp(acc, val) == std.math.Order.lt) {
+                    if (meta.basis.Ord.cmp(acc, val) == std.math.Order.lt) {
                         acc = val;
                     }
                 }
@@ -921,7 +921,7 @@ fn DeriveMaxBy(comptime Iter: type) type {
 
 test "derive max_by" {
     const Iter = range.MakeRange(DeriveMaxBy, u32);
-    const max_by = Iter.new(@as(u32, 0), 10).max_by(meta.Ord.on(*const u32));
+    const max_by = Iter.new(@as(u32, 0), 10).max_by(meta.basis.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 9), max_by);
 }
 
@@ -946,7 +946,7 @@ fn DeriveMaxByKey(comptime Iter: type) type {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
-                    if (meta.Ord.cmp(f(&acc), f(&val)) == .lt) {
+                    if (meta.basis.Ord.cmp(f(&acc), f(&val)) == .lt) {
                         acc = val;
                     }
                 }
@@ -989,13 +989,13 @@ fn DeriveMin(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "min")) |_| {
         return struct {};
-    } else if (meta.isOrd(Iter.Item)) {
+    } else if (meta.basis.isOrd(Iter.Item)) {
         return struct {
             pub fn min(self: Iter) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
-                    if (meta.Ord.cmp(acc, val) == math.Order.gt) {
+                    if (meta.basis.Ord.cmp(acc, val) == math.Order.gt) {
                         acc = val;
                     }
                 }
@@ -1042,7 +1042,7 @@ fn DeriveMinBy(comptime Iter: type) type {
 
 test "derive min_by" {
     const Iter = range.MakeRange(DeriveMinBy, u32);
-    const min_by = Iter.new(@as(u32, 0), 10).min_by(meta.Ord.on(*const u32));
+    const min_by = Iter.new(@as(u32, 0), 10).min_by(meta.basis.Ord.on(*const u32));
     try testing.expectEqual(@as(?u32, 0), min_by);
 }
 
@@ -1067,7 +1067,7 @@ fn DeriveMinByKey(comptime Iter: type) type {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
-                    if (meta.Ord.cmp(f(&acc), f(&val)) == .gt) {
+                    if (meta.basis.Ord.cmp(f(&acc), f(&val)) == .gt) {
                         acc = val;
                     }
                 }
@@ -1342,7 +1342,7 @@ fn DeriveTryFold(comptime Iter: type) type {
                     const F = @TypeOf(f);
                     const R = iter.codomain(F);
                     assert(iter.is_binary_func_type(F));
-                    assert(std.meta.trait.is(.ErrorUnion)(R));
+                    assert(trait.is(.ErrorUnion)(R));
                     assert(F == fn (B, Iter.Item) iter.err_type(R)!B);
                 }
                 var it = self;
@@ -1390,7 +1390,7 @@ fn DeriveTryForeach(comptime Iter: type) type {
                     const F = @TypeOf(f);
                     const R = iter.codomain(F);
                     assert(iter.is_unary_func_type(F));
-                    assert(std.meta.trait.is(.ErrorUnion)(R));
+                    assert(trait.is(.ErrorUnion)(R));
                     assert(F == fn (Iter.Item) iter.err_type(R)!void);
                 }
                 var it = self;
