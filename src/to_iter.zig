@@ -42,7 +42,7 @@ pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: u
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.array.len) {
                 const i = self.index;
                 self.index += 1;
@@ -89,7 +89,7 @@ pub fn MakeArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.array.len) {
                 const i = self.index;
                 self.index += 1;
@@ -134,7 +134,7 @@ pub fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
             return Self{ .slice = slice, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.slice.len) {
                 const i = self.index;
                 self.index += 1;
@@ -185,7 +185,7 @@ pub fn MakeSliceConstIter(comptime F: fn (type) type, comptime T: type) type {
             return Self{ .slice = slice, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.slice.len) {
                 const i = self.index;
                 self.index += 1;
@@ -234,7 +234,7 @@ pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.array.items.len <= self.index) {
                 return null;
             }
@@ -283,7 +283,7 @@ pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.array.items.len <= self.index) {
                 return null;
             }
@@ -335,7 +335,7 @@ pub fn MakeSinglyLinkedListIter(comptime F: fn (type) type, comptime T: type) ty
             return .{ .list = list, .node = list.first };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.node) |node| {
                 self.node = node.next;
                 return &node.data;
@@ -397,7 +397,7 @@ pub fn MakeSinglyLinkedListConstIter(comptime F: fn (type) type, comptime T: typ
             return .{ .list = list, .node = list.first };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.node) |node| {
                 self.node = node.next;
                 return &node.data;
@@ -451,7 +451,7 @@ pub fn MakeBoundedArrayIter(comptime F: fn (type) type, comptime T: type, compti
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.array.slice().len) {
                 const i = self.index;
                 self.index += 1;
@@ -497,7 +497,7 @@ pub fn MakeBoundedArrayConstIter(comptime F: fn (type) type, comptime T: type, c
             return .{ .array = array, .index = 0 };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.index < self.array.slice().len) {
                 const i = self.index;
                 self.index += 1;
@@ -542,7 +542,7 @@ pub fn MakeTailQueueIter(comptime F: fn (type) type, comptime T: type) type {
             return .{ .queue = queue };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             return if (self.queue.popFirst()) |node| &node.data else null;
         }
     };
@@ -604,7 +604,7 @@ pub fn MakeTailQueueConstIter(comptime F: fn (type) type, comptime T: type) type
             return .{ .queue = queue };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             return if (self.queue.popFirst()) |node| &node.data else null;
         }
     };
