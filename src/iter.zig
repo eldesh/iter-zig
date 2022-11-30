@@ -1163,7 +1163,7 @@ pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: ty
             return .{ .iter = iter, .pred = pred };
         }
 
-        pub fn next(self: *Self) ?Self.Item {
+        pub fn next(self: *Self) ?Item {
             if (self.iter.next()) |val| {
                 if (self.pred(val)) |pval| {
                     return pval;
