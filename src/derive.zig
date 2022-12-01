@@ -278,7 +278,7 @@ test "derive cloned" {
         comptime {
             assert(isIterator(Iter));
             assert(isIterator(@TypeOf(cloned)));
-            assert(iter.err_type(meta.basis.Clone.ResultType(R)) == meta.basis.Clone.EmptyError);
+            assert(meta.err_type(meta.basis.Clone.ResultType(R)) == meta.basis.Clone.EmptyError);
         }
         try testing.expectEqual(R{ .Ok = 5 }, try cloned.next().?);
         try testing.expectEqual(R{ .Err = 4 }, try cloned.next().?);
@@ -1343,7 +1343,7 @@ fn DeriveTryFold(comptime Iter: type) type {
                     const R = iter.codomain(F);
                     assert(iter.is_binary_func_type(F));
                     assert(trait.is(.ErrorUnion)(R));
-                    assert(F == fn (B, Iter.Item) iter.err_type(R)!B);
+                    assert(F == fn (B, Iter.Item) meta.err_type(R)!B);
                 }
                 var it = self;
                 var acc = init;
@@ -1391,7 +1391,7 @@ fn DeriveTryForeach(comptime Iter: type) type {
                     const R = iter.codomain(F);
                     assert(iter.is_unary_func_type(F));
                     assert(trait.is(.ErrorUnion)(R));
-                    assert(F == fn (Iter.Item) iter.err_type(R)!void);
+                    assert(F == fn (Iter.Item) meta.err_type(R)!void);
                 }
                 var it = self;
                 while (it.next()) |value| {

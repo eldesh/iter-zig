@@ -258,3 +258,21 @@ comptime {
     assert(!isIterator([]const u8));
     assert(!isIterator([5]u64));
 }
+
+/// Returns error type of the error union type `R`.
+pub fn err_type(comptime R: type) type {
+    comptime assert(trait.is(.ErrorUnion)(R));
+    return comptime @typeInfo(R).ErrorUnion.error_set;
+}
+
+/// Returns 'right' (not error) type of the error union type `R`.
+pub fn ok_type(comptime R: type) type {
+    comptime assert(trait.is(.ErrorUnion)(R));
+    return comptime @typeInfo(R).ErrorUnion.payload;
+}
+
+comptime {
+    const FooError = error{Foo};
+    assert(err_type(FooError!u32) == FooError);
+    assert(ok_type(FooError!u32) == u32);
+}

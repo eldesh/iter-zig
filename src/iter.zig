@@ -66,24 +66,6 @@ comptime {
     assert(codomain(fn (u32) []const u8) == []const u8);
 }
 
-/// Returns error type of the error union type `R`.
-pub fn err_type(comptime R: type) type {
-    comptime assert(trait.is(.ErrorUnion)(R));
-    return comptime @typeInfo(R).ErrorUnion.error_set;
-}
-
-/// Returns 'right' (not error) type of the error union type `R`.
-pub fn ok_type(comptime R: type) type {
-    comptime assert(trait.is(.ErrorUnion)(R));
-    return comptime @typeInfo(R).ErrorUnion.payload;
-}
-
-comptime {
-    const FooError = error{Foo};
-    assert(err_type(FooError!u32) == FooError);
-    assert(ok_type(FooError!u32) == u32);
-}
-
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
     comptime assert(meta.isIterator(Iter));
     return struct {
