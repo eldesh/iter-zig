@@ -3,7 +3,6 @@
 const std = @import("std");
 const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
-const iterty = @import("./iter.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
