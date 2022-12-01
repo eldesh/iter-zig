@@ -67,43 +67,43 @@ comptime {
 }
 
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
+    comptime {
+        assert(meta.isIterator(Iter));
+        if (meta.basis.isPartialEq(*const Iter.Item)) {
+            return struct {
+                pub const Self: type = @This();
+                pub const Item: type = Iter.Item;
+                pub usingnamespace D(@This());
 
-        iter: Iter,
-        peeked: ?Iter.Item,
+                iter: Iter,
+                peeked: ?Iter.Item,
 
-        pub fn new(iter: Iter) Self {
-            var it = iter;
-            const peeked = it.next();
-            return .{ .iter = it, .peeked = peeked };
-        }
+                pub fn new(iter: Iter) Self {
+                    var it = iter;
+                    const peeked = it.next();
+                    return .{ .iter = it, .peeked = peeked };
+                }
 
-        pub fn peek(self: *Self) ?*const Item {
-            return self.peek_mut();
-        }
+                pub fn peek(self: *Self) ?*const Item {
+                    return self.peek_mut();
+                }
 
-        pub fn peek_mut(self: *Self) ?*Item {
-            if (self.peeked) |*val|
-                return val;
-            return null;
-        }
+                pub fn peek_mut(self: *Self) ?*Item {
+                    if (self.peeked) |*val|
+                        return val;
+                    return null;
+                }
 
-        pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
-            if (self.peek()) |peeked| {
-                // if and only if the func() returns true for the next value, it is consumed.
-                if (func(peeked))
-                    return self.next();
-            }
-            return null;
-        }
+                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
+                    if (self.peek()) |peeked| {
+                        // if and only if the func() returns true for the next value, it is consumed.
+                        if (func(peeked))
+                            return self.next();
+                    }
+                    return null;
+                }
 
-        // derive `next_if_eq` inplace
-        pub usingnamespace if (meta.basis.isPartialEq(*const Item))
-            struct {
+                // derive `next_if_eq` inplace
                 pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
                     if (self.peek()) |peeked| {
                         // if and only if the `peeked` value is equals to `expected`, it is consumed.
@@ -112,16 +112,55 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
                     }
                     return null;
                 }
-            }
-        else
-            struct {};
 
-        pub fn next(self: *Self) ?Item {
-            const peeked = self.peeked;
-            self.peeked = self.iter.next();
-            return peeked;
+                pub fn next(self: *Self) ?Item {
+                    const peeked = self.peeked;
+                    self.peeked = self.iter.next();
+                    return peeked;
+                }
+            };
+        } else {
+            return struct {
+                pub const Self: type = @This();
+                pub const Item: type = Iter.Item;
+                pub usingnamespace D(@This());
+
+                iter: Iter,
+                peeked: ?Iter.Item,
+
+                pub fn new(iter: Iter) Self {
+                    var it = iter;
+                    const peeked = it.next();
+                    return .{ .iter = it, .peeked = peeked };
+                }
+
+                pub fn peek(self: *Self) ?*const Item {
+                    return self.peek_mut();
+                }
+
+                pub fn peek_mut(self: *Self) ?*Item {
+                    if (self.peeked) |*val|
+                        return val;
+                    return null;
+                }
+
+                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
+                    if (self.peek()) |peeked| {
+                        // if and only if the func() returns true for the next value, it is consumed.
+                        if (func(peeked))
+                            return self.next();
+                    }
+                    return null;
+                }
+
+                pub fn next(self: *Self) ?Item {
+                    const peeked = self.peeked;
+                    self.peeked = self.iter.next();
+                    return peeked;
+                }
+            };
         }
-    };
+    }
 }
 
 pub fn Peekable(comptime Iter: type) type {
@@ -813,9 +852,8 @@ pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
                 const count = self.count;
                 self.count += 1;
                 return tuple.tuple2(v, count);
-            } else {
-                return null;
             }
+            return null;
         }
     };
 }
@@ -859,9 +897,8 @@ pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
             if (0 < self.take) {
                 self.take -= 1;
                 return self.iter.next();
-            } else {
-                return null;
             }
+            return null;
         }
     };
 }
@@ -938,6 +975,7 @@ pub fn TakeWhile(comptime Iter: type, comptime P: type) type {
 comptime {
     assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Self == TakeWhile(SliceIter(u32), fn (*const *u32) bool));
     assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
+    assert(TakeWhile(SliceIter(u32), fn (*const SliceIter(u32).Item) bool).Item == SliceIter(u32).Item);
     assert(meta.isIterator(TakeWhile(SliceIter(u32), fn (*const *u32) bool)));
 }
 
