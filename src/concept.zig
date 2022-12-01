@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const tool = @import("./tool.zig");
 const meta = @import("./meta.zig");
 const range = @import("./range.zig");
 const to_iter = @import("./to_iter.zig");
@@ -90,7 +91,7 @@ comptime {
     const U = struct {
         const U = @This();
         val: u32,
-        pub fn sum(iter: range.Range(u32)) U {
+        pub fn sum(iter: range.MakeRange(tool.DeriveNothing, u32)) U {
             var acc = U{ .val = 0 };
             var it = iter;
             while (it.next()) |v| {
@@ -253,7 +254,7 @@ comptime {
     const U = struct {
         const U = @This();
         val: u32,
-        pub fn product(iter: range.Range(u32)) U {
+        pub fn product(iter: range.MakeRange(tool.DeriveNothing, u32)) U {
             var acc = U{ .val = 0 };
             var it = iter;
             while (it.next()) |v| {
