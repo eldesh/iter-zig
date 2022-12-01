@@ -122,7 +122,7 @@ pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
 /// Return type of a half open interval of numbers.
 /// For integer types, it is an iterator is incremented by 1.
 pub fn Range(comptime Item: type) type {
-    return MakeRange(derive.DeriveIterator, Item);
+    comptime return MakeRange(derive.DeriveIterator, Item);
 }
 
 comptime {

@@ -7,46 +7,69 @@
 const std = @import("std");
 
 const meta = @import("./meta.zig");
-const iter = @import("./iter.zig");
 const derive = @import("./derive.zig");
 
 const assert = std.debug.assert;
 const testing = std.testing;
 
-pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
-    comptime assert(std.meta.trait.isNumber(T));
+fn MakeIntegerRangeFrom(comptime F: fn (type) type, comptime T: type) type {
+    comptime {
+        assert(std.meta.trait.isIntegral(T));
+        return struct {
+            pub const Self: type = @This();
+            pub const Item: type = T;
+            pub usingnamespace F(@This());
 
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = T;
-        pub usingnamespace if (std.meta.trait.isIntegral(T))
-            F(@This())
-        else
-            struct {};
+            start: T,
 
-        start: T,
-
-        pub fn new(start: T) Self {
-            return .{ .start = start };
-        }
-
-        /// Check that the `value` is contained in the range.
-        pub fn contains(self: *const Self, value: T) bool {
-            return self.start <= value;
-        }
-
-        /// For integer types, this type would be an iterator.
-        pub usingnamespace if (std.meta.trait.isIntegral(T))
-            struct {
-                pub fn next(self: *Self) ?Item {
-                    const start = self.start;
-                    self.start += 1;
-                    return start;
-                }
+            pub fn new(start: T) Self {
+                return .{ .start = start };
             }
+
+            /// Check that the `value` is contained in the range.
+            pub fn contains(self: *const Self, value: T) bool {
+                return self.start <= value;
+            }
+
+            /// For integer types, this type would be an iterator.
+            pub fn next(self: *Self) ?Item {
+                const start = self.start;
+                self.start += 1;
+                return start;
+            }
+        };
+    }
+}
+
+fn MakeFloatRangeFrom(comptime T: type) type {
+    comptime {
+        assert(std.meta.trait.isFloat(T));
+        return struct {
+            pub const Self: type = @This();
+            pub const Item: type = T;
+
+            start: T,
+
+            pub fn new(start: T) Self {
+                return .{ .start = start };
+            }
+
+            /// Check that the `value` is contained in the range.
+            pub fn contains(self: *const Self, value: T) bool {
+                return self.start <= value;
+            }
+        };
+    }
+}
+
+pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
+    comptime {
+        assert(std.meta.trait.isNumber(T));
+        return if (std.meta.trait.isIntegral(T))
+            MakeIntegerRangeFrom(F, T)
         else
-            struct {};
-    };
+            MakeFloatRangeFrom(T);
+    }
 }
 
 /// Return type of sequence of numbers
@@ -55,7 +78,7 @@ pub fn MakeRangeFrom(comptime F: fn (type) type, comptime T: type) type {
 /// Return type of sequence of numbers
 /// For integer types, it is an iterator is incremented by 1.
 pub fn RangeFrom(comptime Item: type) type {
-    return MakeRangeFrom(derive.DeriveIterator, Item);
+    comptime return MakeRangeFrom(derive.DeriveIterator, Item);
 }
 
 comptime {
