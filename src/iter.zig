@@ -1,5 +1,6 @@
 const std = @import("std");
 const to_iter = @import("./to_iter.zig");
+const prim = @import("./derive/prim.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const tuple = @import("./tuple.zig");
@@ -19,105 +20,8 @@ const ArrayIter = to_iter.ArrayIter;
 const Tuple1 = tuple.Tuple1;
 const Tuple2 = tuple.Tuple2;
 
-pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime {
-        assert(meta.isIterator(Iter));
-        if (meta.basis.isPartialEq(*const Iter.Item)) {
-            return struct {
-                pub const Self: type = @This();
-                pub const Item: type = Iter.Item;
-                pub usingnamespace D(@This());
-
-                iter: Iter,
-                peeked: ?Iter.Item,
-
-                pub fn new(iter: Iter) Self {
-                    var it = iter;
-                    const peeked = it.next();
-                    return .{ .iter = it, .peeked = peeked };
-                }
-
-                pub fn peek(self: *Self) ?*const Item {
-                    return self.peek_mut();
-                }
-
-                pub fn peek_mut(self: *Self) ?*Item {
-                    if (self.peeked) |*val|
-                        return val;
-                    return null;
-                }
-
-                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the func() returns true for the next value, it is consumed.
-                        if (func(peeked))
-                            return self.next();
-                    }
-                    return null;
-                }
-
-                // derive `next_if_eq` inplace
-                pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the `peeked` value is equals to `expected`, it is consumed.
-                        if (meta.basis.PartialEq.eq(peeked, expected))
-                            return self.next();
-                    }
-                    return null;
-                }
-
-                pub fn next(self: *Self) ?Item {
-                    const peeked = self.peeked;
-                    self.peeked = self.iter.next();
-                    return peeked;
-                }
-            };
-        } else {
-            return struct {
-                pub const Self: type = @This();
-                pub const Item: type = Iter.Item;
-                pub usingnamespace D(@This());
-
-                iter: Iter,
-                peeked: ?Iter.Item,
-
-                pub fn new(iter: Iter) Self {
-                    var it = iter;
-                    const peeked = it.next();
-                    return .{ .iter = it, .peeked = peeked };
-                }
-
-                pub fn peek(self: *Self) ?*const Item {
-                    return self.peek_mut();
-                }
-
-                pub fn peek_mut(self: *Self) ?*Item {
-                    if (self.peeked) |*val|
-                        return val;
-                    return null;
-                }
-
-                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the func() returns true for the next value, it is consumed.
-                        if (func(peeked))
-                            return self.next();
-                    }
-                    return null;
-                }
-
-                pub fn next(self: *Self) ?Item {
-                    const peeked = self.peeked;
-                    self.peeked = self.iter.next();
-                    return peeked;
-                }
-            };
-        }
-    }
-}
-
 pub fn Peekable(comptime Iter: type) type {
-    return MakePeekable(derive.DeriveIterator, Iter);
+    return prim.MakePeekable(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -181,38 +85,8 @@ test "Peekable" {
     }
 }
 
-pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.basis.isClonable(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        orig: Iter,
-        iter: Iter,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .orig = iter, .iter = meta.basis.Clone.clone(iter) catch unreachable };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            var fst_elem = false;
-            while (true) : (self.iter = meta.basis.Clone.clone(self.orig) catch unreachable) {
-                if (self.iter.next()) |val| {
-                    return val;
-                }
-                if (fst_elem)
-                    return null;
-                fst_elem = true;
-            }
-            unreachable;
-        }
-    };
-}
-
 pub fn Cycle(comptime Iter: type) type {
-    return MakeCycle(derive.DeriveIterator, Iter);
+    return prim.MakeCycle(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -245,32 +119,8 @@ test "Cycle" {
     }
 }
 
-pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.basis.isCopyable(Iter.Item));
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = meta.deref_type(Iter.Item);
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .iter = iter };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |val| {
-                return if (comptime trait.isSingleItemPtr(Iter.Item)) val.* else val;
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Copied(comptime Iter: type) type {
-    return MakeCopied(derive.DeriveIterator, Iter);
+    return prim.MakeCopied(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -292,32 +142,8 @@ test "Copied" {
     try testing.expectEqual(@as(?Iter.Item, null), copied.next());
 }
 
-pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.basis.isClonable(Iter.Item));
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = meta.basis.Clone.ResultType(Iter.Item);
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .iter = iter };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |val| {
-                return meta.basis.Clone.clone(val);
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Cloned(comptime Iter: type) type {
-    return MakeCloned(derive.DeriveIterator, Iter);
+    return prim.MakeCloned(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -339,36 +165,8 @@ test "Clone" {
     try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
 }
 
-pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(Other));
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = tuple.Tuple2(Iter.Item, Other.Item);
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        other: Other,
-
-        pub fn new(iter: Iter, other: Other) Self {
-            return .{ .iter = iter, .other = other };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            while (self.iter.next()) |it| {
-                if (self.other.next()) |jt| {
-                    return tuple.tuple2(it, jt);
-                }
-                return null;
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Zip(comptime Iter: type, comptime Other: type) type {
-    return MakeZip(derive.DeriveIterator, Iter, Other);
+    return prim.MakeZip(derive.DeriveIterator, Iter, Other);
 }
 
 comptime {
@@ -393,40 +191,8 @@ test "Zip" {
     try testing.expectEqual(@as(?Iter.Item, null), zip.next());
 }
 
-pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type, comptime U: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(U));
-    comptime assert(F == fn (Iter.Item) U);
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = U.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        f: fn (Iter.Item) U,
-        curr: ?U,
-
-        pub fn new(iter: Iter, f: fn (Iter.Item) U) Self {
-            return .{ .iter = iter, .f = f, .curr = null };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.curr == null) {
-                self.curr = if (self.iter.next()) |item| self.f(item) else null;
-            }
-            while (self.curr) |_| : (self.curr = if (self.iter.next()) |item| self.f(item) else null) {
-                if (self.curr.?.next()) |curr| {
-                    return curr;
-                }
-            }
-            return null;
-        }
-    };
-}
-
 pub fn FlatMap(comptime Iter: type, comptime F: type, comptime U: type) type {
-    return MakeFlatMap(derive.DeriveIterator, Iter, F, U);
+    return prim.MakeFlatMap(derive.DeriveIterator, Iter, F, U);
 }
 
 comptime {
@@ -514,37 +280,8 @@ pub fn Cmp(comptime Item: type) type {
     };
 }
 
-pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(Iter.Item));
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        curr: ?Iter.Item,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .iter = iter, .curr = null };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.curr == null)
-                self.curr = self.iter.next();
-            while (self.curr) |_| : (self.curr = self.iter.next()) {
-                if (self.curr.?.next()) |curr| {
-                    return curr;
-                }
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Flatten(comptime Iter: type) type {
-    return MakeFlatten(derive.DeriveIterator, Iter);
+    return prim.MakeFlatten(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -577,33 +314,8 @@ test "Flatten" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
-pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
-
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = meta.codomain(F);
-        pub usingnamespace D(@This());
-
-        f: F,
-        iter: Iter,
-
-        pub fn new(f: F, iter: Iter) Self {
-            return .{ .f = f, .iter = iter };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |item| {
-                return self.f(item);
-            } else {
-                return null;
-            }
-        }
-    };
-}
-
 pub fn Map(comptime Iter: type, comptime F: type) type {
-    return MakeMap(derive.DeriveIterator, Iter, F);
+    return prim.MakeMap(derive.DeriveIterator, Iter, F);
 }
 
 comptime {
@@ -627,32 +339,8 @@ test "Map" {
     try testing.expectEqual(@as(?u64, null), iter.next());
 }
 
-pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        pred: Pred,
-        iter: Iter,
-
-        pub fn new(pred: Pred, iter: Iter) Self {
-            return .{ .pred = pred, .iter = iter };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            while (self.iter.next()) |item| {
-                if (self.pred(item)) {
-                    return item;
-                }
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Filter(comptime Iter: type, comptime Pred: type) type {
-    return MakeFilter(derive.DeriveIterator, Iter, Pred);
+    return prim.MakeFilter(derive.DeriveIterator, Iter, Pred);
 }
 
 comptime {
@@ -676,35 +364,8 @@ test "Filter" {
     try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
-pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.is_unary_func_type(F));
-    comptime assert(trait.is(.Optional)(meta.codomain(F)));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(meta.codomain(F));
-        pub usingnamespace D(@This());
-
-        f: F,
-        iter: Iter,
-
-        pub fn new(f: F, iter: Iter) Self {
-            return .{ .f = f, .iter = iter };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            while (self.iter.next()) |item| {
-                if (self.f(item)) |v| {
-                    return v;
-                }
-            }
-            return null;
-        }
-    };
-}
-
 pub fn FilterMap(comptime Iter: type, comptime F: type) type {
-    return MakeFilterMap(derive.DeriveIterator, Iter, F);
+    return prim.MakeFilterMap(derive.DeriveIterator, Iter, F);
 }
 
 comptime {
@@ -729,40 +390,8 @@ test "FilterMap" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
-pub fn MakeChain(comptime D: fn (type) type, comptime Iter1: type, comptime Iter2: type) type {
-    comptime assert(meta.isIterator(Iter1));
-    comptime assert(meta.isIterator(Iter2));
-    comptime assert(Iter1.Item == Iter2.Item);
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter1.Item;
-        pub usingnamespace D(@This());
-
-        iter1: Iter1,
-        iter2: Iter2,
-        iter1end: bool,
-
-        pub fn new(iter1: Iter1, iter2: Iter2) Self {
-            return .{ .iter1 = iter1, .iter2 = iter2, .iter1end = false };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (!self.iter1end) {
-                if (self.iter1.next()) |v| {
-                    return v;
-                } else {
-                    self.iter1end = true;
-                    return self.iter2.next();
-                }
-            } else {
-                return self.iter2.next();
-            }
-        }
-    };
-}
-
 pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
-    return MakeChain(derive.DeriveIterator, Iter1, Iter2);
+    return prim.MakeChain(derive.DeriveIterator, Iter1, Iter2);
 }
 
 comptime {
@@ -786,33 +415,8 @@ test "Chain" {
     try testing.expectEqual(@as(?*u32, null), iter.next());
 }
 
-pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Tuple2(Iter.Item, usize);
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        count: usize,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .iter = iter, .count = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |v| {
-                const count = self.count;
-                self.count += 1;
-                return tuple.tuple2(v, count);
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Enumerate(comptime Iter: type) type {
-    return MakeEnumerate(derive.DeriveIterator, Iter);
+    return prim.MakeEnumerate(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -832,32 +436,8 @@ test "Enumerate" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        take: usize,
-
-        pub fn new(iter: Iter, take: usize) Self {
-            return .{ .iter = iter, .take = take };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (0 < self.take) {
-                self.take -= 1;
-                return self.iter.next();
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Take(comptime Iter: type) type {
-    return MakeTake(derive.DeriveIterator, Iter);
+    return prim.MakeTake(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -893,36 +473,8 @@ test "Take sequence small than 'n'" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        pred: P,
-        take: bool,
-
-        pub fn new(iter: Iter, pred: P) Self {
-            return .{ .iter = iter, .pred = pred, .take = true };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.take) {
-                if (self.iter.next()) |v| {
-                    if (self.pred(&v))
-                        return v;
-                }
-                self.take = false;
-            }
-            return null;
-        }
-    };
-}
-
 pub fn TakeWhile(comptime Iter: type, comptime P: type) type {
-    return MakeTakeWhile(derive.DeriveIterator, Iter, P);
+    return prim.MakeTakeWhile(derive.DeriveIterator, Iter, P);
 }
 
 comptime {
@@ -949,32 +501,8 @@ test "TakeWhile" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        skip: usize,
-
-        pub fn new(iter: Iter, skip: usize) Self {
-            return .{ .iter = iter, .skip = skip };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            while (0 < self.skip) : (self.skip -= 1) {
-                // TODO: destroy if the aquired value is owned
-                _ = self.iter.next();
-            }
-            return self.iter.next();
-        }
-    };
-}
-
 pub fn Skip(comptime Iter: type) type {
-    return MakeSkip(derive.DeriveIterator, Iter);
+    return prim.MakeSkip(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -995,40 +523,8 @@ test "Skip" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        pred: P,
-        skip: bool,
-
-        pub fn new(iter: Iter, pred: P) Self {
-            return .{ .iter = iter, .pred = pred, .skip = true };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.skip) {
-                while (self.iter.next()) |v| {
-                    if (self.pred(&v)) {
-                        continue;
-                    } else {
-                        self.skip = false;
-                        return v;
-                    }
-                }
-                self.skip = false;
-            }
-            return self.iter.next();
-        }
-    };
-}
-
 pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
-    return MakeSkipWhile(derive.DeriveIterator, Iter, P);
+    return prim.MakeSkipWhile(derive.DeriveIterator, Iter, P);
 }
 
 comptime {
@@ -1053,32 +549,8 @@ test "SkipWhile" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        func: fn (*const Iter.Item) void,
-
-        pub fn new(iter: Iter, func: fn (*const Iter.Item) void) Self {
-            return .{ .iter = iter, .func = func };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |val| {
-                self.func(&val);
-                return val;
-            }
-            return null;
-        }
-    };
-}
-
 pub fn Inspect(comptime Iter: type) type {
-    return MakeInspect(derive.DeriveIterator, Iter);
+    return prim.MakeInspect(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1121,36 +593,8 @@ test "Inspect" {
     }{}).dotest();
 }
 
-pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
-    comptime assert(meta.isIterator(I));
-    comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, meta.domain(P));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(meta.codomain(P));
-        pub usingnamespace F(@This());
-
-        iter: I,
-        pred: P,
-
-        pub fn new(iter: I, pred: P) Self {
-            return .{ .iter = iter, .pred = pred };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |val| {
-                if (self.pred(val)) |pval| {
-                    return pval;
-                } else {
-                    return null;
-                }
-            }
-            return null;
-        }
-    };
-}
-
 pub fn MapWhile(comptime I: type, comptime P: type) type {
-    return MakeMapWhile(derive.DeriveIterator, I, P);
+    return prim.MakeMapWhile(derive.DeriveIterator, I, P);
 }
 
 comptime {
@@ -1174,35 +618,8 @@ test "MapWhile" {
     try testing.expectEqual(@as(?u32, null), iter.next());
 }
 
-pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        step_by: usize,
-
-        pub fn new(iter: Iter, step_by: usize) Self {
-            assert(0 < step_by);
-            return .{ .iter = iter, .step_by = step_by };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            var step = self.step_by - 1;
-            var item = self.iter.next();
-            while (0 < step) : (step -= 1) {
-                // TODO: destroy if the aquired value is owned
-                _ = self.iter.next();
-            }
-            return item;
-        }
-    };
-}
-
 pub fn StepBy(comptime Iter: type) type {
-    return MakeStepBy(derive.DeriveIterator, Iter);
+    return prim.MakeStepBy(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1223,34 +640,8 @@ test "StepBy" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, meta.domain(F)));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(meta.codomain(F));
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        state: St,
-        f: F,
-
-        pub fn new(iter: Iter, initial_state: St, f: F) Self {
-            return .{ .iter = iter, .state = initial_state, .f = f };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.iter.next()) |val| {
-                return self.f(&self.state, val);
-            } else {
-                return null;
-            }
-        }
-    };
-}
-
 pub fn Scan(comptime Iter: type, comptime St: type, comptime F: type) type {
-    return MakeScan(derive.DeriveIterator, Iter, St, F);
+    return prim.MakeScan(derive.DeriveIterator, Iter, St, F);
 }
 
 comptime {
@@ -1289,36 +680,8 @@ test "Scan" {
     try testing.expectEqual(@as(?Iter.Item, null), iter.next());
 }
 
-pub fn MakeFuse(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = Iter.Item;
-        pub usingnamespace D(@This());
-
-        iter: Iter,
-        // 'null' has been occurred
-        none: bool,
-
-        pub fn new(iter: Iter) Self {
-            return .{ .iter = iter, .none = false };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.none)
-                return null;
-            if (self.iter.next()) |val| {
-                return val;
-            } else {
-                self.none = true;
-                return null;
-            }
-        }
-    };
-}
-
 pub fn Fuse(comptime Iter: type) type {
-    return MakeFuse(derive.DeriveIterator, Iter);
+    return prim.MakeFuse(derive.DeriveIterator, Iter);
 }
 
 comptime {
@@ -1370,27 +733,9 @@ test "Fuse" {
     }
 }
 
-/// An iterator that yields nothing
-pub fn MakeEmpty(comptime D: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = T;
-        pub usingnamespace D(@This());
-
-        pub fn new() Self {
-            return .{};
-        }
-
-        pub fn next(self: *Self) ?Item {
-            _ = self;
-            return null;
-        }
-    };
-}
-
 /// An iterator that yields nothing with derived functions by `derive.DeriveIterator`.
 pub fn Empty(comptime T: type) type {
-    return MakeEmpty(derive.DeriveIterator, T);
+    return prim.MakeEmpty(derive.DeriveIterator, T);
 }
 
 comptime {
@@ -1411,31 +756,9 @@ test "Empty" {
 }
 
 /// An iterator that yields an element exactly once.
-pub fn MakeOnce(comptime D: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = T;
-        pub usingnamespace D(@This());
-
-        value: ?T,
-        pub fn new(value: T) Self {
-            return .{ .value = value };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.value) |value| {
-                self.value = null;
-                return value;
-            }
-            return null;
-        }
-    };
-}
-
-/// An iterator that yields an element exactly once.
 /// This iterator is constructed from `ops.once`.
 pub fn Once(comptime T: type) type {
-    return MakeOnce(derive.DeriveIterator, T);
+    return prim.MakeOnce(derive.DeriveIterator, T);
 }
 
 comptime {
@@ -1472,28 +795,9 @@ test "Once" {
 }
 
 /// An iterator that repeatedly yields a certain element indefinitely.
-pub fn MakeRepeat(comptime D: fn (type) type, comptime T: type) type {
-    comptime assert(meta.basis.isClonable(T));
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = meta.basis.Clone.ResultType(T);
-        pub usingnamespace D(@This());
-
-        value: T,
-        pub fn new(value: T) Self {
-            return .{ .value = value };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            return meta.basis.Clone.clone(self.value);
-        }
-    };
-}
-
-/// An iterator that repeatedly yields a certain element indefinitely.
 /// This iterator is constructed from `ops.repeat`.
 pub fn Repeat(comptime T: type) type {
-    return MakeRepeat(derive.DeriveIterator, T);
+    return prim.MakeRepeat(derive.DeriveIterator, T);
 }
 
 comptime {
