@@ -448,8 +448,8 @@ fn DeriveFlatMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn flat_map(self: Iter, f: anytype) iter.FlatMap(Iter, @TypeOf(f), iter.codomain(@TypeOf(f))) {
-                const I = comptime iter.FlatMap(Iter, @TypeOf(f), iter.codomain(@TypeOf(f)));
+            pub fn flat_map(self: Iter, f: anytype) iter.FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f))) {
+                const I = comptime iter.FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f)));
                 return I.new(self, f);
             }
         };
@@ -1336,12 +1336,12 @@ fn DeriveTryFold(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn try_fold(self: Iter, init: anytype, f: anytype) iter.codomain(@TypeOf(f)) {
+            pub fn try_fold(self: Iter, init: anytype, f: anytype) meta.codomain(@TypeOf(f)) {
                 comptime {
                     const B = @TypeOf(init);
                     const F = @TypeOf(f);
-                    const R = iter.codomain(F);
-                    assert(iter.is_binary_func_type(F));
+                    const R = meta.codomain(F);
+                    assert(meta.is_binary_func_type(F));
                     assert(trait.is(.ErrorUnion)(R));
                     assert(F == fn (B, Iter.Item) meta.err_type(R)!B);
                 }
@@ -1385,11 +1385,11 @@ fn DeriveTryForeach(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn try_for_each(self: Iter, f: anytype) iter.codomain(@TypeOf(f)) {
+            pub fn try_for_each(self: Iter, f: anytype) meta.codomain(@TypeOf(f)) {
                 comptime {
                     const F = @TypeOf(f);
-                    const R = iter.codomain(F);
-                    assert(iter.is_unary_func_type(F));
+                    const R = meta.codomain(F);
+                    assert(meta.is_unary_func_type(F));
                     assert(trait.is(.ErrorUnion)(R));
                     assert(F == fn (Iter.Item) meta.err_type(R)!void);
                 }
@@ -1538,7 +1538,7 @@ fn DeriveFindMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn find_map(self: *Iter, f: anytype) iter.codomain(@TypeOf(f)) {
+            pub fn find_map(self: *Iter, f: anytype) meta.codomain(@TypeOf(f)) {
                 while (self.next()) |val| {
                     if (f(val)) |mval| {
                         return mval;

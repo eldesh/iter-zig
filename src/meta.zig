@@ -2,9 +2,12 @@ const std = @import("std");
 const builtin = @import("builtin");
 pub const basis = @import("basis_concept");
 
+const tuple = @import("tuple.zig");
+
 const SemVer = std.SemanticVersion;
 const trait = std.meta.trait;
 const assert = std.debug.assert;
+const Tuple1 = tuple.Tuple1;
 
 /// Compare std tuple types rather than values
 ///
@@ -275,4 +278,51 @@ comptime {
     const FooError = error{Foo};
     assert(err_type(FooError!u32) == FooError);
     assert(ok_type(FooError!u32) == u32);
+}
+
+fn is_func_type(comptime F: type) bool {
+    const TypeInfo: type = std.builtin.TypeInfo;
+    const FInfo: TypeInfo = @typeInfo(F);
+    return switch (FInfo) {
+        .Fn => |_| true,
+        else => false,
+    };
+}
+
+pub fn func_arity(comptime F: type) usize {
+    comptime assert(is_func_type(F));
+    return @typeInfo(F).Fn.args.len;
+}
+
+pub fn is_unary_func_type(comptime F: type) bool {
+    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 1;
+}
+
+pub fn is_binary_func_type(comptime F: type) bool {
+    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 2;
+}
+
+pub fn domain(comptime F: type) type {
+    comptime {
+        return std.meta.ArgsTuple(F);
+    }
+}
+
+pub fn codomain(comptime F: type) type {
+    comptime {
+        assert(is_func_type(F));
+    }
+    const FInfo: std.builtin.TypeInfo = @typeInfo(F);
+    if (FInfo.Fn.return_type) |ty| {
+        return ty;
+    } else {
+        return void;
+    }
+}
+
+comptime {
+    assertEqualTupleType(domain(fn (u32) u16), Tuple1(u32).StdTuple);
+    assert(codomain(fn (u32) u16) == u16);
+    assertEqualTupleType(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
+    assert(codomain(fn (u32) []const u8) == []const u8);
 }

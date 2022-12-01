@@ -19,53 +19,6 @@ const ArrayIter = to_iter.ArrayIter;
 const Tuple1 = tuple.Tuple1;
 const Tuple2 = tuple.Tuple2;
 
-fn is_func_type(comptime F: type) bool {
-    const TypeInfo: type = std.builtin.TypeInfo;
-    const FInfo: TypeInfo = @typeInfo(F);
-    return switch (FInfo) {
-        .Fn => |_| true,
-        else => false,
-    };
-}
-
-pub fn func_arity(comptime F: type) usize {
-    comptime assert(is_func_type(F));
-    return @typeInfo(F).Fn.args.len;
-}
-
-pub fn is_unary_func_type(comptime F: type) bool {
-    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 1;
-}
-
-pub fn is_binary_func_type(comptime F: type) bool {
-    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 2;
-}
-
-pub fn domain(comptime F: type) type {
-    comptime {
-        return std.meta.ArgsTuple(F);
-    }
-}
-
-pub fn codomain(comptime F: type) type {
-    comptime {
-        assert(is_func_type(F));
-    }
-    const FInfo: std.builtin.TypeInfo = @typeInfo(F);
-    if (FInfo.Fn.return_type) |ty| {
-        return ty;
-    } else {
-        return void;
-    }
-}
-
-comptime {
-    assertEqualTupleType(domain(fn (u32) u16), Tuple1(u32).StdTuple);
-    assert(codomain(fn (u32) u16) == u16);
-    assertEqualTupleType(domain(fn (u32) []const u8), Tuple1(u32).StdTuple);
-    assert(codomain(fn (u32) []const u8) == []const u8);
-}
-
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
     comptime {
         assert(meta.isIterator(Iter));
@@ -629,7 +582,7 @@ pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type
 
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = codomain(F);
+        pub const Item: type = meta.codomain(F);
         pub usingnamespace D(@This());
 
         f: F,
@@ -725,11 +678,11 @@ test "Filter" {
 
 pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(is_unary_func_type(F));
-    comptime assert(trait.is(.Optional)(codomain(F)));
+    comptime assert(meta.is_unary_func_type(F));
+    comptime assert(trait.is(.Optional)(meta.codomain(F)));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(codomain(F));
+        pub const Item: type = std.meta.Child(meta.codomain(F));
         pub usingnamespace D(@This());
 
         f: F,
@@ -1170,10 +1123,10 @@ test "Inspect" {
 
 pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
     comptime assert(meta.isIterator(I));
-    comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, domain(P));
+    comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, meta.domain(P));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(codomain(P));
+        pub const Item: type = std.meta.Child(meta.codomain(P));
         pub usingnamespace F(@This());
 
         iter: I,
@@ -1272,10 +1225,10 @@ test "StepBy" {
 
 pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, domain(F)));
+    comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, meta.domain(F)));
     return struct {
         pub const Self: type = @This();
-        pub const Item: type = std.meta.Child(codomain(F));
+        pub const Item: type = std.meta.Child(meta.codomain(F));
         pub usingnamespace D(@This());
 
         iter: Iter,
