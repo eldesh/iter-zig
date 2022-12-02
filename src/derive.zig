@@ -39,7 +39,7 @@ const range = struct {
     }
 };
 
-fn DerivePeekable(comptime Iter: type) type {
+pub fn DerivePeekable(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "peekable")) |_| {
@@ -76,7 +76,7 @@ test "derive peekable" {
     }
 }
 
-fn DerivePosition(comptime Iter: type) type {
+pub fn DerivePosition(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "position")) |_| {
@@ -121,7 +121,7 @@ test "derive position" {
     }
 }
 
-fn DeriveCycle(comptime Iter: type) type {
+pub fn DeriveCycle(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "cycle")) |_| {
@@ -177,7 +177,7 @@ test "derive cycle" {
     }
 }
 
-fn DeriveCopied(comptime Iter: type) type {
+pub fn DeriveCopied(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "copied")) |_| {
@@ -232,7 +232,7 @@ test "derive copied" {
     }
 }
 
-fn DeriveCloned(comptime Iter: type) type {
+pub fn DeriveCloned(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "cloned")) |_| {
@@ -336,7 +336,7 @@ test "derive cloned" {
     }
 }
 
-fn DeriveZip(comptime Iter: type) type {
+pub fn DeriveZip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "zip")) |_| {
@@ -394,7 +394,7 @@ test "derive zip" {
     }
 }
 
-fn DeriveLast(comptime Iter: type) type {
+pub fn DeriveLast(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "last")) |_| {
@@ -432,7 +432,7 @@ test "derive last" {
     }
 }
 
-fn DeriveNth(comptime Iter: type) type {
+pub fn DeriveNth(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "nth")) |_| {
@@ -464,7 +464,7 @@ test "derive nth" {
     try testing.expectEqual(@as(?*u32, null), Iter.new(arr[0..]).nth(4));
 }
 
-fn DeriveFlatMap(comptime Iter: type) type {
+pub fn DeriveFlatMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "flat_map")) |_| {
@@ -503,7 +503,7 @@ test "derive flat_map" {
     try testing.expectEqual(@as(?u32, null), flat_map.next());
 }
 
-fn DerivePartialCmp(comptime Iter: type) type {
+pub fn DerivePartialCmp(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "partial_cmp")) |_| {
@@ -558,7 +558,7 @@ test "derive partial_cmp Ptr" {
     }
 }
 
-fn DeriveCmp(comptime Iter: type) type {
+pub fn DeriveCmp(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "cmp")) |_| {
@@ -595,7 +595,7 @@ test "derive cmp Ptr" {
     try testing.expectEqual(math.Order.gt, Iter.new(arr1[0..3]).cmp(Iter.new(arr2[0..2])));
 }
 
-fn DeriveLe(comptime Iter: type) type {
+pub fn DeriveLe(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "le")) |_| {
@@ -632,7 +632,7 @@ test "derive le Ptr" {
     try testing.expect(!Iter.new(arr1[0..3]).le(Iter.new(arr2[0..2])));
 }
 
-fn DeriveGe(comptime Iter: type) type {
+pub fn DeriveGe(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "ge")) |_| {
@@ -669,7 +669,7 @@ test "derive ge Ptr" {
     try testing.expect(Iter.new(arr1[0..3]).ge(Iter.new(arr2[0..2])));
 }
 
-fn DeriveLt(comptime Iter: type) type {
+pub fn DeriveLt(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "lt")) |_| {
@@ -706,7 +706,7 @@ test "derive lt Ptr" {
     try testing.expect(!Iter.new(arr1[0..3]).lt(Iter.new(arr2[0..2])));
 }
 
-fn DeriveGt(comptime Iter: type) type {
+pub fn DeriveGt(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "gt")) |_| {
@@ -743,7 +743,7 @@ test "derive gt Ptr" {
     try testing.expect(Iter.new(arr1[0..3]).gt(Iter.new(arr2[0..2])));
 }
 
-fn DeriveProduct(comptime Iter: type) type {
+pub fn DeriveProduct(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "product")) |_| {
@@ -772,7 +772,7 @@ test "derive product ptr" {
     try testing.expectEqual(Iter.new(arr[0..]).product(), @as(u32, 120));
 }
 
-fn DeriveSum(comptime Iter: type) type {
+pub fn DeriveSum(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "sum")) |_| {
@@ -820,7 +820,7 @@ test "derive sum ptr" {
     }
 }
 
-fn DeriveEq(comptime Iter: type) type {
+pub fn DeriveEq(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "eq")) |_| {
@@ -853,7 +853,7 @@ test "derive eq" {
     try testing.expect(!Range.new(1, 6).eq(Range.new(0, 0)));
 }
 
-fn DeriveNe(comptime Iter: type) type {
+pub fn DeriveNe(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "ne")) |_| {
@@ -886,7 +886,7 @@ test "derive ne" {
     try testing.expect(Range.new(1, 6).ne(Range.new(0, 0)));
 }
 
-fn DeriveMax(comptime Iter: type) type {
+pub fn DeriveMax(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "max")) |_| {
@@ -921,7 +921,7 @@ test "derive max empty" {
     try testing.expectEqual(@as(?u32, null), max);
 }
 
-fn DeriveMaxBy(comptime Iter: type) type {
+pub fn DeriveMaxBy(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "max_by")) |_| {
@@ -958,7 +958,7 @@ test "derive max_by empty" {
     try testing.expectEqual(@as(?u32, null), max_by);
 }
 
-fn DeriveMaxByKey(comptime Iter: type) type {
+pub fn DeriveMaxByKey(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "max_by_key")) |_| {
@@ -1007,7 +1007,7 @@ test "derive max_by_key empty" {
     try testing.expectEqual(@as(?*T, null), max_by_key);
 }
 
-fn DeriveMin(comptime Iter: type) type {
+pub fn DeriveMin(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "min")) |_| {
@@ -1042,7 +1042,7 @@ test "derive min empty" {
     try testing.expectEqual(@as(?u32, null), min);
 }
 
-fn DeriveMinBy(comptime Iter: type) type {
+pub fn DeriveMinBy(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "min_by")) |_| {
@@ -1079,7 +1079,7 @@ test "derive min_by empty" {
     try testing.expectEqual(@as(?u32, null), min_by);
 }
 
-fn DeriveMinByKey(comptime Iter: type) type {
+pub fn DeriveMinByKey(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "min_by_key")) |_| {
@@ -1128,7 +1128,7 @@ test "derive min_by_key empty" {
     try testing.expectEqual(@as(?*T, null), min_by_key);
 }
 
-fn DeriveStepBy(comptime Iter: type) type {
+pub fn DeriveStepBy(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "step_by")) |_| {
@@ -1153,7 +1153,7 @@ test "derive skip_by" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
 }
 
-fn DeriveFuse(comptime Iter: type) type {
+pub fn DeriveFuse(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "fuse")) |_| {
@@ -1194,7 +1194,7 @@ test "derive fuse" {
     try testing.expectEqual(@as(?u32, null), fuse.next());
 }
 
-fn DeriveScan(comptime Iter: type) type {
+pub fn DeriveScan(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "scan")) |_| {
@@ -1225,7 +1225,7 @@ test "derive scan" {
     try testing.expectEqual(@as(?i64, null), scan.next());
 }
 
-fn DeriveSkip(comptime Iter: type) type {
+pub fn DeriveSkip(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "skip")) |_| {
@@ -1257,7 +1257,7 @@ test "derive skip over" {
     try testing.expectEqual(@as(?*u32, null), skip.next());
 }
 
-fn DeriveFlatten(comptime Iter: type) type {
+pub fn DeriveFlatten(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "flatten")) |_| {
@@ -1293,7 +1293,7 @@ test "derive flatten" {
     try testing.expectEqual(@as(?u32, null), it.next());
 }
 
-fn DeriveReduce(comptime Iter: type) type {
+pub fn DeriveReduce(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "reduce")) |_| {
@@ -1322,7 +1322,7 @@ test "derive reduce" {
     try testing.expectEqual(@as(?u32, 45), acc);
 }
 
-fn DeriveFold(comptime Iter: type) type {
+pub fn DeriveFold(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "fold")) |_| {
@@ -1352,7 +1352,7 @@ test "derive fold" {
     try testing.expectEqual(@as(u32, 15), acc);
 }
 
-fn DeriveTryFold(comptime Iter: type) type {
+pub fn DeriveTryFold(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "try_fold")) |_| {
@@ -1401,7 +1401,7 @@ test "derive try_fold" {
     }
 }
 
-fn DeriveTryForeach(comptime Iter: type) type {
+pub fn DeriveTryForeach(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "try_for_each")) |_| {
@@ -1451,7 +1451,7 @@ test "derive try_for_each" {
     }.dotest();
 }
 
-fn DeriveForeach(comptime Iter: type) type {
+pub fn DeriveForeach(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "for_each")) |_| {
@@ -1483,7 +1483,7 @@ test "derive for_each" {
     }.dotest();
 }
 
-fn DeriveMapWhile(comptime Iter: type) type {
+pub fn DeriveMapWhile(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "map_while")) |_| {
@@ -1511,7 +1511,7 @@ test "derive map_while" {
     try testing.expectEqual(@as(?u32, null), map_while.next());
 }
 
-fn DeriveInspect(comptime Iter: type) type {
+pub fn DeriveInspect(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "inspect")) |_| {
@@ -1554,7 +1554,7 @@ test "derive inspect" {
     }.dotest();
 }
 
-fn DeriveFindMap(comptime Iter: type) type {
+pub fn DeriveFindMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "find_map")) |_| {
@@ -1588,7 +1588,7 @@ test "derive find_map" {
     }.call), null);
 }
 
-fn DeriveFind(comptime Iter: type) type {
+pub fn DeriveFind(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "find")) |_| {
@@ -1616,7 +1616,7 @@ test "derive find" {
     }.call).?.*, 4);
 }
 
-fn DeriveCount(comptime Iter: type) type {
+pub fn DeriveCount(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "count")) |_| {
@@ -1643,7 +1643,7 @@ test "derive count" {
     try testing.expectEqual(@as(usize, 1000000000), range.range(@as(u32, 0), 1000000000).count());
 }
 
-fn DeriveAll(comptime Iter: type) type {
+pub fn DeriveAll(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "all")) |_| {
@@ -1676,7 +1676,7 @@ test "derive all" {
     }.greater10));
 }
 
-fn DeriveAny(comptime Iter: type) type {
+pub fn DeriveAny(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "any")) |_| {
@@ -1709,7 +1709,7 @@ test "derive any" {
     }.greater10));
 }
 
-fn DeriveTake(comptime Iter: type) type {
+pub fn DeriveTake(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "take")) |_| {
@@ -1751,7 +1751,7 @@ test "derive take" {
     try testing.expectEqual(@as(?@TypeOf(take).Item, null), take.next());
 }
 
-fn DeriveTakeWhile(comptime Iter: type) type {
+pub fn DeriveTakeWhile(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "take_while")) |_| {
@@ -1787,7 +1787,7 @@ test "derive take_while" {
     try testing.expectEqual(@as(?@TypeOf(take_while).Item, null), take_while.next());
 }
 
-fn DeriveSkipWhile(comptime Iter: type) type {
+pub fn DeriveSkipWhile(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "skip_while")) |_| {
@@ -1821,7 +1821,7 @@ test "derive skip_while" {
     try testing.expectEqual(@as(?@TypeOf(skip_while).Item, null), skip_while.next());
 }
 
-fn DeriveEnumerate(comptime Iter: type) type {
+pub fn DeriveEnumerate(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "enumerate")) |_| {
@@ -1871,7 +1871,7 @@ test "derive enumerate map" {
     try testing.expectEqual(@as(?*u32, null), eiter.next());
 }
 
-fn DeriveChain(comptime Iter: type) type {
+pub fn DeriveChain(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "chain")) |_| {
@@ -1911,7 +1911,7 @@ test "derive chain" {
     try testing.expectEqual(@as(?*u32, null), chain.next());
 }
 
-fn DeriveMap(comptime Iter: type) type {
+pub fn DeriveMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "map")) |_| {
@@ -1945,7 +1945,7 @@ test "derive map" {
     try testing.expectEqual(@as(?u32, null), map.next());
 }
 
-fn DeriveFilter(comptime Iter: type) type {
+pub fn DeriveFilter(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "filter")) |_| {
@@ -1980,7 +1980,7 @@ test "derive filter" {
     try testing.expectEqual(@as(?*u32, null), filter.next());
 }
 
-fn DeriveFilterMap(comptime Iter: type) type {
+pub fn DeriveFilterMap(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
 
     if (meta.have_fun(Iter, "filter_map")) |_| {
