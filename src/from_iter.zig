@@ -1,7 +1,6 @@
 //! Iterator to Container converters.
 //!
 const std = @import("std");
-const Con = @import("basis_concept");
 
 const meta = @import("./meta.zig");
 const range = @import("./range.zig");
@@ -77,7 +76,7 @@ test "bounded_array_from_iter" {
 pub fn singly_linked_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!SinglyLinkedList(@TypeOf(iter).Item) {
     const Iter: type = @TypeOf(iter);
     comptime assert(meta.isIterator(Iter));
-    comptime assert(Con.isCopyable(Iter.Item));
+    comptime assert(meta.basis.isCopyable(Iter.Item));
     const T: type = Iter.Item;
 
     const L = SinglyLinkedList(T);
