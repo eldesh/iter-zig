@@ -1,4 +1,5 @@
 const std = @import("std");
+
 const to_iter = @import("./to_iter.zig");
 const prim = @import("./derive/prim.zig");
 const derive = @import("./derive.zig");
@@ -6,19 +7,12 @@ const meta = @import("./meta.zig");
 const tuple = @import("./tuple.zig");
 const range = @import("./range.zig");
 
-const trait = std.meta.trait;
 const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
-const assertEqualTupleType = meta.assertEqualTupleType;
-const debug = std.debug.print;
 
-const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
 const SliceIter = to_iter.SliceIter;
 const ArrayIter = to_iter.ArrayIter;
-const Tuple1 = tuple.Tuple1;
-const Tuple2 = tuple.Tuple2;
 
 pub fn Peekable(comptime Iter: type) type {
     return prim.MakePeekable(derive.DeriveIterator, Iter);
@@ -421,7 +415,7 @@ pub fn Enumerate(comptime Iter: type) type {
 
 comptime {
     assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
-    assert(Enumerate(SliceIter(u32)).Item == Tuple2(SliceIter(u32).Item, usize));
+    assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
     assert(meta.isIterator(Enumerate(SliceIter(u32))));
 }
 
