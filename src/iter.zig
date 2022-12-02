@@ -1,18 +1,48 @@
 const std = @import("std");
 
-const to_iter = @import("./to_iter.zig");
 const prim = @import("./derive/prim.zig");
 const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const tuple = @import("./tuple.zig");
-const range = @import("./range.zig");
 
 const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
 
+// iterator converters for unit tests
+const to_iter = struct {
+    const make = @import("./to_iter/make.zig");
+    fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
+        comptime return make.MakeSliceIter(F, T);
+    }
+
+    fn SliceIter(comptime Item: type) type {
+        comptime return make.MakeSliceIter(derive.DeriveIterator, Item);
+    }
+
+    fn ArrayIter(comptime Item: type, comptime N: usize) type {
+        comptime return make.MakeArrayIter(derive.DeriveIterator, Item, N);
+    }
+};
+
 const SliceIter = to_iter.SliceIter;
 const ArrayIter = to_iter.ArrayIter;
+
+// range iterators for unit tests
+const range = struct {
+    const make = @import("./range/make.zig");
+    fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
+        comptime return make.MakeRange(F, T);
+    }
+
+    fn Range(comptime T: type) type {
+        comptime return make.MakeRange(derive.DeriveIterator, T);
+    }
+
+    fn range(start: anytype, end: @TypeOf(start)) Range(@TypeOf(start)) {
+        return Range(@TypeOf(start)).new(start, end);
+    }
+};
 
 pub fn Peekable(comptime Iter: type) type {
     return prim.MakePeekable(derive.DeriveIterator, Iter);

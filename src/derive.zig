@@ -12,6 +12,7 @@ const assert = std.debug.assert;
 
 const isIterator = meta.isIterator;
 
+// iterator converters for unit tests
 const to_iter = struct {
     const make = @import("./to_iter/make.zig");
     fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
