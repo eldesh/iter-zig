@@ -281,26 +281,32 @@ comptime {
 }
 
 fn is_func_type(comptime F: type) bool {
-    comptime return trait.is(.Fn)(F);
+    comptime {
+        const info = @typeInfo(F);
+        return switch (info) {
+            .Fn => true,
+            else => false,
+        };
+    }
 }
 
 pub fn func_arity(comptime F: type) usize {
-    comptime assert(is_func_type(F));
-    return @typeInfo(F).Fn.args.len;
+    comptime {
+        assert(is_func_type(F));
+        return @typeInfo(F).Fn.args.len;
+    }
 }
 
 pub fn is_unary_func_type(comptime F: type) bool {
-    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 1;
+    comptime return is_func_type(F) and @typeInfo(F).Fn.args.len == 1;
 }
 
 pub fn is_binary_func_type(comptime F: type) bool {
-    return trait.is(.Fn)(F) and @typeInfo(F).Fn.args.len == 2;
+    comptime return is_func_type(F) and @typeInfo(F).Fn.args.len == 2;
 }
 
 pub fn domain(comptime F: type) type {
-    comptime {
-        return std.meta.ArgsTuple(F);
-    }
+    comptime return std.meta.ArgsTuple(F);
 }
 
 pub fn codomain(comptime F: type) type {
