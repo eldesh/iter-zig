@@ -281,12 +281,7 @@ comptime {
 }
 
 fn is_func_type(comptime F: type) bool {
-    const TypeInfo: type = std.builtin.TypeInfo;
-    const FInfo: TypeInfo = @typeInfo(F);
-    return switch (FInfo) {
-        .Fn => |_| true,
-        else => false,
-    };
+    comptime return trait.is(.Fn)(F);
 }
 
 pub fn func_arity(comptime F: type) usize {
@@ -311,12 +306,11 @@ pub fn domain(comptime F: type) type {
 pub fn codomain(comptime F: type) type {
     comptime {
         assert(is_func_type(F));
-    }
-    const FInfo: std.builtin.TypeInfo = @typeInfo(F);
-    if (FInfo.Fn.return_type) |ty| {
-        return ty;
-    } else {
-        return void;
+        if (@typeInfo(F).Fn.return_type) |ty| {
+            return ty;
+        } else {
+            return void;
+        }
     }
 }
 
