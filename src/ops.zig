@@ -2,6 +2,7 @@ const std = @import("std");
 
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
+const derive = @import("./derive.zig");
 
 const assert = std.debug.assert;
 const testing = std.testing;
@@ -66,19 +67,35 @@ test "once" {
 }
 
 /// Takes iterators and zips them
-pub fn zip(aiter: anytype, biter: anytype) iter.Zip(@TypeOf(aiter), @TypeOf(biter)) {
+pub fn zip(aiter: anytype, biter: anytype) derive.ops.Zip(@TypeOf(aiter), @TypeOf(biter)) {
     comptime assert(meta.isIterator(@TypeOf(aiter)));
     comptime assert(meta.isIterator(@TypeOf(biter)));
-    return iter.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
+    return derive.ops.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
 }
 
 test "zip" {
-    const to_iter = @import("./to_iter.zig");
     const tuple = @import("./tuple.zig");
+
+    // iterator converters for unit tests
+    const to_iter = struct {
+        const make = @import("./to_iter/make.zig");
+        fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
+            comptime return make.MakeSliceIter(F, T);
+        }
+
+        fn SliceIter(comptime Item: type) type {
+            comptime return make.MakeSliceIter(derive.DeriveIterator, Item);
+        }
+
+        fn ArrayIter(comptime Item: type, comptime N: usize) type {
+            comptime return make.MakeArrayIter(derive.DeriveIterator, Item, N);
+        }
+    };
+
     const Tup2 = tuple.Tuple2;
     const tup2 = tuple.tuple2;
     const from_slice = struct {
-        fn call(xs: []u32) iter.Copied(to_iter.SliceIter(u32)) {
+        fn call(xs: []u32) derive.ops.Copied(to_iter.SliceIter(u32)) {
             return to_iter.SliceIter(u32).new(xs).copied();
         }
     }.call;
