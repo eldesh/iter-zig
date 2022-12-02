@@ -1,9 +1,10 @@
 const std = @import("std");
+
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 const to_iter = @import("./to_iter.zig");
 const tuple = @import("./tuple.zig");
-const range = @import("./range.zig");
+const range_make = @import("./range/make.zig");
 const concept = @import("./concept.zig");
 
 const PartialEq = meta.basis.PartialEq;
@@ -15,6 +16,20 @@ const debug = std.debug.print;
 
 const MakeSliceIter = to_iter.MakeSliceIter;
 const isIterator = meta.isIterator;
+
+const range = struct {
+    fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
+        comptime return range_make.MakeRange(F, T);
+    }
+
+    fn Range(comptime T: type) type {
+        comptime return range_make.MakeRange(DeriveIterator, T);
+    }
+
+    fn range(start: anytype, end: @TypeOf(start)) Range(@TypeOf(start)) {
+        return Range(@TypeOf(start)).new(start, end);
+    }
+};
 
 fn DerivePeekable(comptime Iter: type) type {
     comptime assert(isIterator(Iter));
