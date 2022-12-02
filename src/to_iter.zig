@@ -1,8 +1,10 @@
 //! Container to iterator converters.
 //!
 const std = @import("std");
+
 const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
+const make = @import("./to_iter/make.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -27,35 +29,12 @@ const DeriveIterator = derive.DeriveIterator;
 /// Each items is a pointer to an item of an array.
 ///
 pub fn MakeArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
-    return struct {
-        pub const Self: type = @This();
-        /// Const pointer points to items of an array.
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        array: *[N]T,
-        index: usize,
-
-        /// Creates an iterator wraps the `array`.
-        pub fn new(array: *[N]T) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.array.len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.array[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime make.MakeArrayIter(F, T, N);
 }
 
 /// Create an array iterator with passing DeriveIterator to MakeArrayIter.
 pub fn ArrayIter(comptime Item: type, comptime N: usize) type {
-    return MakeArrayIter(DeriveIterator, Item, N);
+    return make.MakeArrayIter(DeriveIterator, Item, N);
 }
 
 comptime {
@@ -75,33 +54,11 @@ test "ArrayIter" {
 }
 
 pub fn MakeArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
-    return struct {
-        pub const Self: type = @This();
-        /// Const pointer points to items of an array.
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        array: *const [N]T,
-        index: usize,
-
-        pub fn new(array: *const [N]T) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.array.len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.array[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime return make.MakeArrayConstIter(F, T, N);
 }
 
 pub fn ArrayConstIter(comptime Item: type, comptime N: usize) type {
-    return MakeArrayConstIter(DeriveIterator, Item, N);
+    return make.MakeArrayConstIter(DeriveIterator, Item, N);
 }
 
 comptime {
@@ -121,32 +78,11 @@ test "ArrayConstIter" {
 }
 
 pub fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        slice: []T,
-        index: usize,
-
-        pub fn new(slice: []T) Self {
-            return Self{ .slice = slice, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.slice.len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.slice[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime return make.MakeSliceIter(F, T);
 }
 
 pub fn SliceIter(comptime Item: type) type {
-    return MakeSliceIter(DeriveIterator, Item);
+    return make.MakeSliceIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -172,32 +108,11 @@ test "SliceIter" {
 }
 
 pub fn MakeSliceConstIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        slice: []const T,
-        index: usize,
-
-        pub fn new(slice: []const T) Self {
-            return Self{ .slice = slice, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.slice.len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.slice[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime return make.MakeSliceConstIter(F, T);
 }
 
 pub fn SliceConstIter(comptime Item: type) type {
-    return MakeSliceConstIter(DeriveIterator, Item);
+    return make.MakeSliceConstIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -221,31 +136,11 @@ test "SliceConstIter" {
 }
 
 pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        array: ArrayList(T),
-        index: usize,
-
-        pub fn new(array: ArrayList(T)) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.array.items.len <= self.index) {
-                return null;
-            }
-            const index = self.index;
-            self.index += 1;
-            return &self.array.items[index];
-        }
-    };
+    comptime return make.MakeArrayListIter(F, T);
 }
 
 pub fn ArrayListIter(comptime Item: type) type {
-    return MakeArrayListIter(DeriveIterator, Item);
+    return make.MakeArrayListIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -270,31 +165,11 @@ test "ArrayListIter" {
 }
 
 pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        array: ArrayList(T),
-        index: usize,
-
-        pub fn new(array: ArrayList(T)) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.array.items.len <= self.index) {
-                return null;
-            }
-            const index = self.index;
-            self.index += 1;
-            return &self.array.items[index];
-        }
-    };
+    comptime return make.MakeArrayListConstIter(F, T);
 }
 
 pub fn ArrayListConstIter(comptime Item: type) type {
-    return MakeArrayListConstIter(DeriveIterator, Item);
+    return make.MakeArrayListConstIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -322,30 +197,11 @@ test "ArrayListConstIter" {
 }
 
 pub fn MakeSinglyLinkedListIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        list: SinglyLinkedList(T),
-        node: ?*SinglyLinkedList(T).Node,
-
-        pub fn new(list: SinglyLinkedList(T)) Self {
-            return .{ .list = list, .node = list.first };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.node) |node| {
-                self.node = node.next;
-                return &node.data;
-            }
-            return null;
-        }
-    };
+    comptime return make.MakeSinglyLinkedListIter(F, T);
 }
 
 pub fn SinglyLinkedListIter(comptime Item: type) type {
-    return MakeSinglyLinkedListIter(DeriveIterator, Item);
+    return make.MakeSinglyLinkedListIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -384,30 +240,11 @@ test "SinglyLinkedListIter" {
 }
 
 pub fn MakeSinglyLinkedListConstIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        list: SinglyLinkedList(T),
-        node: ?*const SinglyLinkedList(T).Node,
-
-        pub fn new(list: SinglyLinkedList(T)) Self {
-            return .{ .list = list, .node = list.first };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.node) |node| {
-                self.node = node.next;
-                return &node.data;
-            }
-            return null;
-        }
-    };
+    comptime return make.MakeSinglyLinkedListConstIter(F, T);
 }
 
 pub fn SinglyLinkedListConstIter(comptime Item: type) type {
-    return MakeSinglyLinkedListConstIter(DeriveIterator, Item);
+    return make.MakeSinglyLinkedListConstIter(DeriveIterator, Item);
 }
 
 comptime {
@@ -438,32 +275,11 @@ test "SinglyLinkedListConstIter" {
 }
 
 pub fn MakeBoundedArrayIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        array: *BoundedArray(T, N),
-        index: usize,
-
-        pub fn new(array: *BoundedArray(T, N)) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.array.slice().len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.array.slice()[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime return make.MakeBoundedArrayIter(F, T, N);
 }
 
 pub fn BoundedArrayIter(comptime T: type, comptime N: usize) type {
-    return MakeBoundedArrayIter(DeriveIterator, T, N);
+    return make.MakeBoundedArrayIter(DeriveIterator, T, N);
 }
 
 comptime {
@@ -484,32 +300,11 @@ test "BoundedArrayIter" {
 }
 
 pub fn MakeBoundedArrayConstIter(comptime F: fn (type) type, comptime T: type, comptime N: usize) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        array: *BoundedArray(T, N),
-        index: usize,
-
-        pub fn new(array: *BoundedArray(T, N)) Self {
-            return .{ .array = array, .index = 0 };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            if (self.index < self.array.slice().len) {
-                const i = self.index;
-                self.index += 1;
-                return &self.array.slice()[i];
-            } else {
-                return null;
-            }
-        }
-    };
+    comptime return make.MakeBoundedArrayConstIter(F, T, N);
 }
 
 pub fn BoundedArrayConstIter(comptime T: type, comptime N: usize) type {
-    return MakeBoundedArrayConstIter(DeriveIterator, T, N);
+    return make.MakeBoundedArrayConstIter(DeriveIterator, T, N);
 }
 
 comptime {
@@ -530,25 +325,11 @@ test "BoundedArrayConstIter" {
 }
 
 pub fn MakeTailQueueIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *T;
-        pub usingnamespace F(@This());
-
-        queue: *TailQueue(T),
-
-        pub fn new(queue: *TailQueue(T)) Self {
-            return .{ .queue = queue };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            return if (self.queue.popFirst()) |node| &node.data else null;
-        }
-    };
+    comptime return MakeTailQueueIter(F, T);
 }
 
 pub fn TailQueueIter(comptime T: type) type {
-    return MakeTailQueueIter(DeriveIterator, T);
+    return make.MakeTailQueueIter(DeriveIterator, T);
 }
 
 comptime {
@@ -592,25 +373,11 @@ test "TailQueueIter" {
 }
 
 pub fn MakeTailQueueConstIter(comptime F: fn (type) type, comptime T: type) type {
-    return struct {
-        pub const Self: type = @This();
-        pub const Item: type = *const T;
-        pub usingnamespace F(@This());
-
-        queue: *TailQueue(T),
-
-        pub fn new(queue: *TailQueue(T)) Self {
-            return .{ .queue = queue };
-        }
-
-        pub fn next(self: *Self) ?Item {
-            return if (self.queue.popFirst()) |node| &node.data else null;
-        }
-    };
+    comptime return make.MakeTailQueueConstIter(F, T);
 }
 
 pub fn TailQueueConstIter(comptime T: type) type {
-    return MakeTailQueueConstIter(DeriveIterator, T);
+    return make.MakeTailQueueConstIter(DeriveIterator, T);
 }
 
 comptime {
