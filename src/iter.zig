@@ -60,10 +60,14 @@ comptime {
 
 test "Empty" {
     const unit = struct {};
-    try testing.expectEqual(@as(?u32, null), Empty(u32).new().next());
-    try testing.expectEqual(@as(?f64, null), Empty(f64).new().next());
-    try testing.expectEqual(@as(?void, null), Empty(void).new().next());
-    try testing.expectEqual(@as(?unit, null), Empty(unit).new().next());
+    var emp_u32 = Empty(u32).new();
+    try testing.expectEqual(@as(?u32, null), emp_u32.next());
+    var emp_f64 = Empty(f64).new();
+    try testing.expectEqual(@as(?f64, null), emp_f64.next());
+    var emp_void = Empty(void).new();
+    try testing.expectEqual(@as(?void, null), emp_void.next());
+    var emp_unit = Empty(unit).new();
+    try testing.expectEqual(@as(?unit, null), emp_unit.next());
 }
 
 /// An iterator that yields an element exactly once.

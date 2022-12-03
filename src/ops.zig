@@ -23,10 +23,16 @@ test "empty" {
             return true;
         }
     };
-    try testing.expectEqual(@as(?u32, null), empty(u32).next());
-    try testing.expectEqual(@as(?f64, null), empty(f64).map(F.id).next());
-    try testing.expectEqual(@as(?void, null), empty(void).filter(F.truth).next());
-    try testing.expectEqual(@as(?unit, null), empty(unit).cycle().take(5).next());
+    var empty_u32 = empty(u32);
+    try testing.expectEqual(@as(?u32, null), empty_u32.next());
+    var empty_f64 = empty(f64).map(F.id);
+    try testing.expectEqual(@as(?f64, null), empty_f64.next());
+    if (comptime meta.older_zig091) {
+        var empty_void = empty(void).filter(F.truth);
+        try testing.expectEqual(@as(?void, null), empty_void.next());
+    }
+    var empty_unit = empty(unit).cycle().take(5);
+    try testing.expectEqual(@as(?unit, null), empty_unit.next());
 }
 
 /// Make an `Once` iterator.
@@ -52,7 +58,7 @@ test "once" {
         try testing.expectEqual(@as(?u32, 42), it.next());
         try testing.expectEqual(@as(?u32, null), it.next());
     }
-    {
+    if (comptime meta.older_zig091) {
         var it = once(void{}).map(F.id).filter(F.truth);
         try testing.expectEqual(@as(?void, void{}), it.next());
         try testing.expectEqual(@as(?void, null), it.next());

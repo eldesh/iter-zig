@@ -827,7 +827,8 @@ test "derive position" {
     {
         const Iter = to_iter.MakeSliceIter(DerivePosition, i32);
         var arr = [_]i32{ 1, 0, -1, 2, 3, -2 };
-        try testing.expectEqual(@as(?usize, 2), Iter.new(arr[0..]).position(struct {
+        var it = Iter.new(arr[0..]);
+        try testing.expectEqual(@as(?usize, 2), it.position(struct {
             fn p(x: *const i32) bool {
                 return x.* < 0;
             }
@@ -836,7 +837,8 @@ test "derive position" {
     {
         const Iter = to_iter.MakeSliceIter(DerivePosition, i32);
         var arr = [_]i32{ 1, 0, -1, 2, 3, -2 };
-        try testing.expectEqual(@as(?usize, null), Iter.new(arr[0..]).position(struct {
+        var it = Iter.new(arr[0..]);
+        try testing.expectEqual(@as(?usize, null), it.position(struct {
             fn p(x: *const i32) bool {
                 return x.* > 10;
             }
@@ -2299,12 +2301,14 @@ pub fn DeriveFindMap(comptime Iter: type) type {
 test "derive find_map" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(DeriveFindMap, u32);
-    try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
+    var it = Iter.new(arr[0..]);
+    try testing.expectEqual(it.find_map(struct {
         fn call(x: *u32) ?u32 {
             return if (x.* > 3) x.* * 2 else null;
         }
     }.call), 8);
-    try testing.expectEqual(Iter.new(arr[0..]).find_map(struct {
+    it = Iter.new(arr[0..]);
+    try testing.expectEqual(it.find_map(struct {
         fn call(x: *u32) ?u32 {
             return if (x.* > 10) x.* * 2 else null;
         }
@@ -2332,7 +2336,8 @@ pub fn DeriveFind(comptime Iter: type) type {
 test "derive find" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(DeriveFind, u32);
-    try testing.expectEqual(Iter.new(arr[0..]).find(struct {
+    var it = Iter.new(arr[0..]);
+    try testing.expectEqual(it.find(struct {
         fn call(x: *const *u32) bool {
             return x.*.* > 3;
         }
@@ -2360,10 +2365,13 @@ pub fn DeriveCount(comptime Iter: type) type {
 test "derive count" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(DeriveCount, u32);
-    try testing.expectEqual(@as(usize, 0), Iter.new(arr[0..0]).count());
-    try testing.expectEqual(arr[0..].len, Iter.new(arr[0..]).count());
+    var it = Iter.new(arr[0..0]);
+    try testing.expectEqual(@as(usize, 0), it.count());
+    it = Iter.new(arr[0..]);
+    try testing.expectEqual(arr[0..].len, it.count());
 
-    try testing.expectEqual(@as(usize, 1000000000), range.range(@as(u32, 0), 1000000000).count());
+    var rng = range.range(@as(u32, 0), 1000000000);
+    try testing.expectEqual(@as(usize, 1000000000), rng.count());
 }
 
 pub fn DeriveAll(comptime Iter: type) type {
@@ -2387,12 +2395,14 @@ pub fn DeriveAll(comptime Iter: type) type {
 test "derive all" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(DeriveAll, u32);
-    try testing.expect(Iter.new(arr[0..]).all(struct {
+    var it = Iter.new(arr[0..]);
+    try testing.expect(it.all(struct {
         fn less10(x: *const *u32) bool {
             return x.*.* < 10;
         }
     }.less10));
-    try testing.expect(!Iter.new(arr[0..]).all(struct {
+    it = Iter.new(arr[0..]);
+    try testing.expect(!it.all(struct {
         fn greater10(x: *const *u32) bool {
             return x.*.* > 10;
         }
@@ -2420,12 +2430,14 @@ pub fn DeriveAny(comptime Iter: type) type {
 test "derive any" {
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(DeriveAny, u32);
-    try testing.expect(Iter.new(arr[0..]).any(struct {
+    var it = Iter.new(arr[0..]);
+    try testing.expect(it.any(struct {
         fn greater4(x: *const *u32) bool {
             return x.*.* > 4;
         }
     }.greater4));
-    try testing.expect(!Iter.new(arr[0..]).any(struct {
+    it = Iter.new(arr[0..]);
+    try testing.expect(!it.any(struct {
         fn greater10(x: *const *u32) bool {
             return x.*.* > 10;
         }
