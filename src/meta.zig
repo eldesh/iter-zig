@@ -232,16 +232,6 @@ pub fn have_field(comptime T: type, comptime name: []const u8) ?type {
     }
 }
 
-pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
-    comptime {
-        if (!std.meta.trait.isContainer(T))
-            return null;
-        if (!@hasDecl(T, name))
-            return null;
-        return @TypeOf(@field(T, name));
-    }
-}
-
 /// Check that the type `T` is an Iterator
 pub fn isIterator(comptime T: type) bool {
     comptime {
@@ -253,6 +243,39 @@ pub fn isIterator(comptime T: type) bool {
             }
         }
         return false;
+    }
+}
+
+pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
+    comptime {
+        switch (@typeInfo(T)) {
+            .Struct => |Struct| {
+                for (Struct.decls) |decl| {
+                    if (std.mem.eql(u8, decl.name, name))
+                        return @TypeOf(@field(T, name));
+                }
+            },
+            .Union => |Union| {
+                for (Union.decls) |decl| {
+                    if (std.mem.eql(u8, decl.name, name))
+                        return @TypeOf(@field(T, name));
+                }
+            },
+            .Enum => |Enum| {
+                for (Enum.decls) |decl| {
+                    if (std.mem.eql(u8, decl.name, name))
+                        return @TypeOf(@field(T, name));
+                }
+            },
+            .Opaque => |Opaque| {
+                for (Opaque.decls) |decl| {
+                    if (std.mem.eql(u8, decl.name, name))
+                        return @TypeOf(@field(T, name));
+                }
+            },
+            else => {},
+        }
+        return null;
     }
 }
 
