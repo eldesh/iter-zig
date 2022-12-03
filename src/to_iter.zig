@@ -136,20 +136,27 @@ test "SliceConstIter" {
 }
 
 pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
-    comptime return make.MakeArrayListIter(F, T);
+    comptime {
+        assert(meta.newer_zig091);
+        return make.MakeArrayListIter(F, T);
+    }
 }
 
 pub fn ArrayListIter(comptime Item: type) type {
-    return make.MakeArrayListIter(DeriveIterator, Item);
-}
-
-comptime {
-    assert(ArrayListIter(u32).Self == ArrayListIter(u32));
-    assert(ArrayListIter(u32).Item == *u32);
-    assert(meta.isIterator(ArrayListIter(u32)));
+    comptime {
+        assert(meta.newer_zig091);
+        return make.MakeArrayListIter(DeriveIterator, Item);
+    }
 }
 
 test "ArrayListIter" {
+    comptime if (meta.older_zig091) return;
+    comptime {
+        assert(ArrayListIter(u32).Self == ArrayListIter(u32));
+        assert(ArrayListIter(u32).Item == *u32);
+        assert(meta.isIterator(ArrayListIter(u32)));
+    }
+
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
     var xs = ArrayList(u32).init(testing.allocator);
     defer xs.deinit();
@@ -165,20 +172,27 @@ test "ArrayListIter" {
 }
 
 pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type {
-    comptime return make.MakeArrayListConstIter(F, T);
+    comptime {
+        assert(meta.newer_zig091);
+        return make.MakeArrayListConstIter(F, T);
+    }
 }
 
 pub fn ArrayListConstIter(comptime Item: type) type {
-    return make.MakeArrayListConstIter(DeriveIterator, Item);
-}
-
-comptime {
-    assert(ArrayListConstIter(u32).Self == ArrayListConstIter(u32));
-    assert(ArrayListConstIter(u32).Item == *const u32);
-    assert(meta.isIterator(ArrayListConstIter(u32)));
+    comptime {
+        assert(meta.newer_zig091);
+        return make.MakeArrayListConstIter(DeriveIterator, Item);
+    }
 }
 
 test "ArrayListConstIter" {
+    comptime if (meta.older_zig091) return;
+    comptime {
+        assert(ArrayListConstIter(u32).Self == ArrayListConstIter(u32));
+        assert(ArrayListConstIter(u32).Item == *const u32);
+        assert(meta.isIterator(ArrayListConstIter(u32)));
+    }
+
     var xs = ArrayList(u32).init(testing.allocator);
     defer xs.deinit();
     try xs.append(@as(u32, 1));

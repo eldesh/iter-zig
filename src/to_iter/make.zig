@@ -9,6 +9,8 @@ const SinglyLinkedList = std.SinglyLinkedList;
 const BoundedArray = std.BoundedArray;
 const TailQueue = std.TailQueue;
 
+const assert = std.debug.assert;
+
 /// Iterator wraps an array (typed to '[N]T').
 ///
 /// # Arguments
@@ -124,6 +126,7 @@ pub fn MakeSliceConstIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
+    comptime assert(meta.newer_zig091);
     return struct {
         pub const Self: type = @This();
         pub const Item: type = *T;
@@ -148,6 +151,7 @@ pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type {
+    comptime assert(meta.newer_zig091);
     return struct {
         pub const Self: type = @This();
         pub const Item: type = *const T;
