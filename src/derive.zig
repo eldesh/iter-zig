@@ -11,6 +11,8 @@ const testing = std.testing;
 const assert = std.debug.assert;
 
 const isIterator = meta.isIterator;
+const Func = meta.Func;
+const Func2 = meta.Func2;
 
 // iterator converters for unit tests
 const to_iter = struct {
@@ -47,732 +49,736 @@ const range = struct {
     }
 };
 
-pub const ops = struct {
-    pub fn Peekable(comptime Iter: type) type {
-        return prim.MakePeekable(DeriveIterator, Iter);
+pub fn Peekable(comptime Iter: type) type {
+    comptime return prim.MakePeekable(DeriveIterator, Iter);
+}
+
+comptime {
+    const Range = range.Range;
+    assert(Peekable(Range(u32)).Self == Peekable(Range(u32)));
+    assert(Peekable(Range(u32)).Item == u32);
+}
+
+test "Peekable" {
+    const Range = range.Range;
+    const Iter = Peekable(Range(u32));
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
+        try testing.expectEqual(@as(u32, 1), peek.peek().?.*);
+        try testing.expectEqual(@as(?u32, 1), peek.next());
+
+        try testing.expectEqual(@as(?u32, 2), peek.next());
+
+        try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
+        try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
+
+        try testing.expectEqual(@as(?u32, 3), peek.next());
+
+        try testing.expectEqual(@as(?*const u32, null), peek.peek());
+        try testing.expectEqual(@as(?u32, null), peek.next());
     }
-
-    comptime {
-        const Range = range.Range;
-        assert(Peekable(Range(u32)).Self == Peekable(Range(u32)));
-        assert(Peekable(Range(u32)).Item == u32);
-    }
-
-    test "Peekable" {
-        const Range = range.Range;
-        const Iter = Peekable(Range(u32));
-        {
-            var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
-            try testing.expectEqual(@as(u32, 1), peek.peek().?.*);
-            try testing.expectEqual(@as(?u32, 1), peek.next());
-
-            try testing.expectEqual(@as(?u32, 2), peek.next());
-
-            try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
-            try testing.expectEqual(@as(u32, 3), peek.peek().?.*);
-
-            try testing.expectEqual(@as(?u32, 3), peek.next());
-
-            try testing.expectEqual(@as(?*const u32, null), peek.peek());
-            try testing.expectEqual(@as(?u32, null), peek.next());
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
+        try comptime testing.expectEqual(?*u32, @TypeOf(peek.peek_mut()));
+        try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
+        try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
+        try testing.expectEqual(@as(?u32, 1), peek.next());
+        if (peek.peek_mut()) |p| {
+            try testing.expectEqual(p.*, 2);
+            p.* = 5;
         }
-        {
-            var peek = Iter.new(Range(u32).new(@as(u32, 1), 4));
-            try comptime testing.expectEqual(?*u32, @TypeOf(peek.peek_mut()));
-            try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
-            try testing.expectEqual(@as(u32, 1), peek.peek_mut().?.*);
-            try testing.expectEqual(@as(?u32, 1), peek.next());
-            if (peek.peek_mut()) |p| {
-                try testing.expectEqual(p.*, 2);
-                p.* = 5;
+        try testing.expectEqual(@as(?u32, 5), peek.next());
+        try testing.expectEqual(@as(?u32, 3), peek.next());
+        try testing.expectEqual(@as(?u32, null), peek.next());
+    }
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
+        try testing.expectEqual(@as(?u32, 0), peek.next_if(struct {
+            fn f(x: *const u32) bool {
+                return x.* == 0;
             }
-            try testing.expectEqual(@as(?u32, 5), peek.next());
-            try testing.expectEqual(@as(?u32, 3), peek.next());
-            try testing.expectEqual(@as(?u32, null), peek.next());
-        }
-        {
-            var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
-            try testing.expectEqual(@as(?u32, 0), peek.next_if(struct {
-                fn f(x: *const u32) bool {
-                    return x.* == 0;
-                }
-            }.f));
-            try testing.expectEqual(@as(?u32, null), peek.next_if(struct {
-                fn f(x: *const u32) bool {
-                    return x.* == 0;
-                }
-            }.f));
-            try testing.expectEqual(@as(?u32, 1), peek.next());
-        }
-        {
-            var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
-            var zero: u32 = 0;
-            try testing.expectEqual(@as(?u32, 0), peek.next_if_eq(&zero));
-            try testing.expectEqual(@as(?u32, null), peek.next_if_eq(&zero));
-            try testing.expectEqual(@as(?u32, 1), peek.next());
-        }
-    }
-
-    pub fn Cycle(comptime Iter: type) type {
-        return prim.MakeCycle(DeriveIterator, Iter);
-    }
-
-    comptime {
-        const Range = range.Range;
-        assert(Cycle(Range(u32)).Self == Cycle(Range(u32)));
-        assert(Cycle(Range(u32)).Item == u32);
-    }
-
-    test "Cycle" {
-        const Range = range.Range;
-        const Iter = Cycle(Range(u32));
-        {
-            var cycle = Iter.new(range.range(@as(u32, 1), 4));
-            try testing.expectEqual(@as(?u32, 1), cycle.next());
-            try testing.expectEqual(@as(?u32, 2), cycle.next());
-            try testing.expectEqual(@as(?u32, 3), cycle.next());
-            try testing.expectEqual(@as(?u32, 1), cycle.next());
-            try testing.expectEqual(@as(?u32, 2), cycle.next());
-            try testing.expectEqual(@as(?u32, 3), cycle.next());
-            try testing.expectEqual(@as(?u32, 1), cycle.next());
-            try testing.expectEqual(@as(?u32, 2), cycle.next());
-            try testing.expectEqual(@as(?u32, 3), cycle.next());
-        }
-        {
-            var cycle = Iter.new(range.range(@as(u32, 1), 1));
-            try testing.expectEqual(@as(?u32, null), cycle.next());
-            try testing.expectEqual(@as(?u32, null), cycle.next());
-            try testing.expectEqual(@as(?u32, null), cycle.next());
-            try testing.expectEqual(@as(?u32, null), cycle.next());
-        }
-    }
-
-    pub fn Copied(comptime Iter: type) type {
-        return prim.MakeCopied(DeriveIterator, Iter);
-    }
-
-    comptime {
-        const I = SliceIter;
-        assert(Copied(I(u32)).Self == Copied(I(u32)));
-        assert(Copied(I(u32)).Item == u32);
-    }
-
-    test "Copied" {
-        const Slice = SliceIter;
-        const Iter = Copied(Slice(u32));
-        var arr = [_]u32{ 0, 1, 2, 3 };
-        var copied = Iter.new(Slice(u32).new(arr[0..]));
-
-        try testing.expectEqual(@as(?Iter.Item, 0), copied.next());
-        try testing.expectEqual(@as(?Iter.Item, 1), copied.next());
-        try testing.expectEqual(@as(?Iter.Item, 2), copied.next());
-        try testing.expectEqual(@as(?Iter.Item, 3), copied.next());
-        try testing.expectEqual(@as(?Iter.Item, null), copied.next());
-    }
-
-    pub fn Cloned(comptime Iter: type) type {
-        return prim.MakeCloned(DeriveIterator, Iter);
-    }
-
-    comptime {
-        const I = SliceIter;
-        assert(Cloned(I(u32)).Self == Cloned(I(u32)));
-        assert(Cloned(I(u32)).Item == meta.basis.Clone.ResultType(*u32));
-    }
-
-    test "Clone" {
-        const Slice = SliceIter;
-        const Iter = Cloned(Slice(u32));
-        var arr = [_]u32{ 0, 1, 2, 3 };
-        var cloned = Iter.new(Slice(u32).new(arr[0..]));
-
-        try testing.expectEqual(@as(Iter.Item, 0), cloned.next().?);
-        try testing.expectEqual(@as(Iter.Item, 1), cloned.next().?);
-        try testing.expectEqual(@as(Iter.Item, 2), cloned.next().?);
-        try testing.expectEqual(@as(Iter.Item, 3), cloned.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
-    }
-
-    pub fn Zip(comptime Iter: type, comptime Other: type) type {
-        return prim.MakeZip(DeriveIterator, Iter, Other);
-    }
-
-    comptime {
-        const I = SliceIter;
-        assert(Zip(I(u32), I(u32)).Self == Zip(I(u32), I(u32)));
-        assert(Zip(I(u32), I(u32)).Item == tuple.Tuple2(*u32, *u32));
-    }
-
-    test "Zip" {
-        const str = []const u8;
-        const I = SliceIter;
-        const R = range.Range;
-        const Iter = Zip(I(str), R(u32));
-        var arr = [_]str{ "foo", "bar", "buzz" };
-        var zip = Iter.new(I(str).new(arr[0..]), range.range(@as(u32, 2), 10));
-
-        // specialized ctor to Iter.Item
-        const tup = tuple.Tuple2(*str, u32).new;
-        try testing.expectEqual(tup(&arr[0], 2), zip.next().?);
-        try testing.expectEqual(tup(&arr[1], 3), zip.next().?);
-        try testing.expectEqual(tup(&arr[2], 4), zip.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), zip.next());
-    }
-
-    pub fn FlatMap(comptime Iter: type, comptime F: type, comptime U: type) type {
-        return prim.MakeFlatMap(DeriveIterator, Iter, F, U);
-    }
-
-    comptime {
-        const I = SliceIter;
-        assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Self ==
-            FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)));
-        assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Item == *u32);
-    }
-
-    test "FlatMap" {
-        const I = SliceIter;
-        const R = range.Range;
-        const Iter = FlatMap(I(u32), fn (*u32) R(u32), R(u32));
-        var arr = [_]u32{ 2, 3, 4 };
-        var iter = Iter.new(I(u32).new(arr[0..]), struct {
-            fn call(i: *const u32) R(u32) {
-                return range.range(@as(u32, 0), i.*);
+        }.f));
+        try testing.expectEqual(@as(?u32, null), peek.next_if(struct {
+            fn f(x: *const u32) bool {
+                return x.* == 0;
             }
-        }.call);
-
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        try testing.expectEqual(@as(?u32, 1), iter.next());
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        try testing.expectEqual(@as(?u32, 1), iter.next());
-        try testing.expectEqual(@as(?u32, 2), iter.next());
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        try testing.expectEqual(@as(?u32, 1), iter.next());
-        try testing.expectEqual(@as(?u32, 2), iter.next());
-        try testing.expectEqual(@as(?u32, 3), iter.next());
-        try testing.expectEqual(@as(?u32, null), iter.next());
+        }.f));
+        try testing.expectEqual(@as(?u32, 1), peek.next());
     }
-
-    pub fn PartialCmp(comptime Item: type) type {
-        comptime assert(meta.basis.isPartialOrd(Item));
-        return struct {
-            pub fn partial_cmp(iter: anytype, other: anytype) ?math.Order {
-                const Iter = @TypeOf(iter);
-                const Other = @TypeOf(other);
-                comptime assert(Iter.Item == Item);
-                comptime assert(Other.Item == Item);
-                var it = iter;
-                var ot = other;
-
-                while (it.next()) |lval| {
-                    if (ot.next()) |rval| {
-                        if (meta.basis.PartialOrd.partial_cmp(lval, rval)) |ord| {
-                            switch (ord) {
-                                .eq => continue,
-                                .lt, .gt => return ord,
-                            }
-                        } else return null;
-                    } else {
-                        return .gt;
-                    }
-                }
-                return if (ot.next()) |_| .lt else .eq;
-            }
-        };
+    {
+        var peek = Iter.new(Range(u32).new(@as(u32, 0), 6));
+        var zero: u32 = 0;
+        try testing.expectEqual(@as(?u32, 0), peek.next_if_eq(&zero));
+        try testing.expectEqual(@as(?u32, null), peek.next_if_eq(&zero));
+        try testing.expectEqual(@as(?u32, 1), peek.next());
     }
+}
 
-    pub fn Cmp(comptime Item: type) type {
-        comptime assert(meta.basis.isOrd(Item));
-        return struct {
-            pub fn cmp(iter: anytype, other: anytype) math.Order {
-                const Iter = @TypeOf(iter);
-                const Other = @TypeOf(other);
-                comptime assert(Iter.Item == Item);
-                comptime assert(Other.Item == Item);
-                var it = iter;
-                var ot = other;
+pub fn Cycle(comptime Iter: type) type {
+    return prim.MakeCycle(DeriveIterator, Iter);
+}
 
-                while (it.next()) |lval| {
-                    if (ot.next()) |rval| {
-                        const ord = meta.basis.Ord.cmp(lval, rval);
+comptime {
+    const Range = range.Range;
+    assert(Cycle(Range(u32)).Self == Cycle(Range(u32)));
+    assert(Cycle(Range(u32)).Item == u32);
+}
+
+test "Cycle" {
+    const Range = range.Range;
+    const Iter = Cycle(Range(u32));
+    {
+        var cycle = Iter.new(range.range(@as(u32, 1), 4));
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+        try testing.expectEqual(@as(?u32, 1), cycle.next());
+        try testing.expectEqual(@as(?u32, 2), cycle.next());
+        try testing.expectEqual(@as(?u32, 3), cycle.next());
+    }
+    {
+        var cycle = Iter.new(range.range(@as(u32, 1), 1));
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+        try testing.expectEqual(@as(?u32, null), cycle.next());
+    }
+}
+
+pub fn Copied(comptime Iter: type) type {
+    return prim.MakeCopied(DeriveIterator, Iter);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Copied(I(u32)).Self == Copied(I(u32)));
+    assert(Copied(I(u32)).Item == u32);
+}
+
+test "Copied" {
+    const Slice = SliceIter;
+    const Iter = Copied(Slice(u32));
+    var arr = [_]u32{ 0, 1, 2, 3 };
+    var copied = Iter.new(Slice(u32).new(arr[0..]));
+
+    try testing.expectEqual(@as(?Iter.Item, 0), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 1), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 2), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, 3), copied.next());
+    try testing.expectEqual(@as(?Iter.Item, null), copied.next());
+}
+
+pub fn Cloned(comptime Iter: type) type {
+    return prim.MakeCloned(DeriveIterator, Iter);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Cloned(I(u32)).Self == Cloned(I(u32)));
+    assert(Cloned(I(u32)).Item == meta.basis.Clone.ResultType(*u32));
+}
+
+test "Clone" {
+    const Slice = SliceIter;
+    const Iter = Cloned(Slice(u32));
+    var arr = [_]u32{ 0, 1, 2, 3 };
+    var cloned = Iter.new(Slice(u32).new(arr[0..]));
+
+    try testing.expectEqual(@as(Iter.Item, 0), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 1), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 2), cloned.next().?);
+    try testing.expectEqual(@as(Iter.Item, 3), cloned.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), cloned.next());
+}
+
+pub fn Zip(comptime Iter: type, comptime Other: type) type {
+    return prim.MakeZip(DeriveIterator, Iter, Other);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(Zip(I(u32), I(u32)).Self == Zip(I(u32), I(u32)));
+    assert(Zip(I(u32), I(u32)).Item == tuple.Tuple2(*u32, *u32));
+}
+
+test "Zip" {
+    const str = []const u8;
+    const I = SliceIter;
+    const R = range.Range;
+    const Iter = Zip(I(str), R(u32));
+    var arr = [_]str{ "foo", "bar", "buzz" };
+    var zip = Iter.new(I(str).new(arr[0..]), range.range(@as(u32, 2), 10));
+
+    // specialized ctor to Iter.Item
+    const tup = tuple.Tuple2(*str, u32).new;
+    try testing.expectEqual(tup(&arr[0], 2), zip.next().?);
+    try testing.expectEqual(tup(&arr[1], 3), zip.next().?);
+    try testing.expectEqual(tup(&arr[2], 4), zip.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), zip.next());
+}
+
+pub fn FlatMap(comptime Iter: type, comptime F: type, comptime U: type) type {
+    return prim.MakeFlatMap(DeriveIterator, Iter, F, U);
+}
+
+comptime {
+    const I = SliceIter;
+    assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Self ==
+        FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)));
+    assert(FlatMap(I(I(u32)), fn (*I(u32)) I(u32), I(u32)).Item == *u32);
+}
+
+test "FlatMap" {
+    const I = SliceIter;
+    const R = range.Range;
+    const Iter = FlatMap(I(u32), fn (*u32) R(u32), R(u32));
+    var arr = [_]u32{ 2, 3, 4 };
+    var iter = Iter.new(I(u32).new(arr[0..]), struct {
+        fn call(i: *const u32) R(u32) {
+            return range.range(@as(u32, 0), i.*);
+        }
+    }.call);
+
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, 3), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
+pub fn PartialCmp(comptime Item: type) type {
+    comptime assert(meta.basis.isPartialOrd(Item));
+    return struct {
+        pub fn partial_cmp(iter: anytype, other: anytype) ?math.Order {
+            const Iter = @TypeOf(iter);
+            const Other = @TypeOf(other);
+            comptime assert(Iter.Item == Item);
+            comptime assert(Other.Item == Item);
+            var it = iter;
+            var ot = other;
+
+            while (it.next()) |lval| {
+                if (ot.next()) |rval| {
+                    if (meta.basis.PartialOrd.partial_cmp(lval, rval)) |ord| {
                         switch (ord) {
                             .eq => continue,
                             .lt, .gt => return ord,
                         }
-                    } else {
-                        return .gt;
-                    }
-                }
-                return if (ot.next()) |_| .lt else .eq;
-            }
-        };
-    }
-
-    pub fn Flatten(comptime Iter: type) type {
-        return prim.MakeFlatten(DeriveIterator, Iter);
-    }
-
-    comptime {
-        const Range = range.Range;
-        assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Self == Flatten(Map(Range(u32), fn (u32) Range(u32))));
-        assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Item == u32);
-        assert(meta.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
-    }
-
-    test "Flatten" {
-        const Range = range.Range;
-        const Gen = struct {
-            fn call(x: u32) Range(u32) {
-                return Range(u32).new(@as(u32, 0), x);
-            }
-        };
-        const Iter = Flatten(Map(Range(u32), fn (u32) Range(u32)));
-        var iter = Iter.new(Map(Range(u32), fn (u32) Range(u32))
-            .new(Gen.call, Range(u32).new(@as(u32, 1), 4)));
-
-        // range(0, 1)
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        // range(0, 2)
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        try testing.expectEqual(@as(?u32, 1), iter.next());
-        // range(0, 3)
-        try testing.expectEqual(@as(?u32, 0), iter.next());
-        try testing.expectEqual(@as(?u32, 1), iter.next());
-        try testing.expectEqual(@as(?u32, 2), iter.next());
-        try testing.expectEqual(@as(?u32, null), iter.next());
-    }
-
-    pub fn Map(comptime Iter: type, comptime F: type) type {
-        return prim.MakeMap(DeriveIterator, Iter, F);
-    }
-
-    comptime {
-        assert(Map(SliceIter(u32), fn (*const u32) []u8).Self == Map(SliceIter(u32), fn (*const u32) []u8));
-        assert(Map(SliceIter(u32), fn (*const u32) []u8).Item == []u8);
-        assert(meta.isIterator(Map(SliceIter(u32), fn (*const u32) []u8)));
-    }
-
-    test "Map" {
-        const Square = struct {
-            pub fn f(v: *const u32) u64 {
-                return v.* * v.*;
-            }
-        };
-        var arr = [_]u32{ 1, 2, 3 };
-        var arr_iter = ArrayIter(u32, arr.len).new(&arr);
-        var iter = Map(ArrayIter(u32, arr.len), fn (*const u32) u64).new(Square.f, arr_iter);
-        try testing.expectEqual(@as(?u64, 1), iter.next());
-        try testing.expectEqual(@as(?u64, 4), iter.next());
-        try testing.expectEqual(@as(?u64, 9), iter.next());
-        try testing.expectEqual(@as(?u64, null), iter.next());
-    }
-
-    pub fn Filter(comptime Iter: type, comptime Pred: type) type {
-        return prim.MakeFilter(DeriveIterator, Iter, Pred);
-    }
-
-    comptime {
-        assert(Filter(SliceIter(u32), fn (*u32) bool).Self == Filter(SliceIter(u32), fn (*u32) bool));
-        assert(Filter(SliceIter(u32), fn (*u32) bool).Item == *u32);
-        assert(meta.isIterator(Filter(SliceIter(u32), fn (*u32) bool)));
-    }
-
-    test "Filter" {
-        const IsEven = struct {
-            pub fn call(value: *const u32) bool {
-                return value.* % 2 == 0;
-            }
-        };
-        var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
-        var arr_iter = ArrayIter(u32, arr.len).new(&arr);
-        var iter = Filter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.call, arr_iter);
-        try testing.expectEqual(@as(u32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 4), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 6), iter.next().?.*);
-        try testing.expectEqual(@as(?*u32, null), iter.next());
-    }
-
-    pub fn FilterMap(comptime Iter: type, comptime F: type) type {
-        return prim.MakeFilterMap(DeriveIterator, Iter, F);
-    }
-
-    comptime {
-        assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Self == FilterMap(SliceIter(u32), fn (*const u32) ?u8));
-        assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Item == u8);
-        assert(meta.isIterator(FilterMap(SliceIter(u32), fn (*const u32) ?u8)));
-    }
-
-    test "FilterMap" {
-        const ParseInt = struct {
-            pub fn call(value: *const []const u8) ?u32 {
-                return std.fmt.parseInt(u32, value.*, 10) catch null;
-            }
-        };
-        var arr = [_][]const u8{ "abc", "123", "345", "-123.", "1abc" };
-        var arr_iter = ArrayIter([]const u8, arr.len).new(&arr);
-        var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.call, arr_iter);
-        try testing.expectEqual(@as(u32, 123), iter.next().?);
-        try testing.expectEqual(@as(u32, 345), iter.next().?);
-        try testing.expectEqual(@as(?u32, null), iter.next());
-        try testing.expectEqual(@as(?u32, null), iter.next());
-        try testing.expectEqual(@as(?u32, null), iter.next());
-    }
-
-    pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
-        return prim.MakeChain(DeriveIterator, Iter1, Iter2);
-    }
-
-    comptime {
-        assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Self == Chain(SliceIter(u32), ArrayIter(u32, 5)));
-        assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Item == *u32);
-        assert(meta.isIterator(Chain(SliceIter(u32), ArrayIter(u32, 5))));
-    }
-
-    test "Chain" {
-        var arr1 = [_]u32{ 1, 2, 3 };
-        var arr2 = [_]u32{ 4, 5, 6 };
-        var iter1 = ArrayIter(u32, arr1.len).new(&arr1);
-        var iter2 = SliceIter(u32).new(arr2[0..]);
-        var iter = Chain(@TypeOf(iter1), @TypeOf(iter2)).new(iter1, iter2);
-        try testing.expectEqual(@as(u32, 1), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 4), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 5), iter.next().?.*);
-        try testing.expectEqual(@as(u32, 6), iter.next().?.*);
-        try testing.expectEqual(@as(?*u32, null), iter.next());
-    }
-
-    pub fn Enumerate(comptime Iter: type) type {
-        return prim.MakeEnumerate(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
-        assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
-        assert(meta.isIterator(Enumerate(SliceIter(u32))));
-    }
-
-    test "Enumerate" {
-        var arr = [_][]const u8{ "foo", "bar", "bazz" };
-        var siter = SliceIter([]const u8).new(arr[0..]);
-        const Iter = Enumerate(@TypeOf(siter));
-        var iter = Enumerate(@TypeOf(siter)).new(siter);
-        try testing.expectEqual(tuple.tuple2(&arr[0], @as(usize, 0)), iter.next().?);
-        try testing.expectEqual(tuple.tuple2(&arr[1], @as(usize, 1)), iter.next().?);
-        try testing.expectEqual(tuple.tuple2(&arr[2], @as(usize, 2)), iter.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn Take(comptime Iter: type) type {
-        return prim.MakeTake(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(Take(SliceIter(u32)).Self == Take(SliceIter(u32)));
-        assert(Take(SliceIter(u32)).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(Take(SliceIter(u32))));
-    }
-
-    test "Take" {
-        var arr = [_]i32{ 3, 2, 1, 0, 1, 2, 3 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = Take(@TypeOf(siter));
-        var iter = Iter.new(siter, 4);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 1), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 0), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    test "Take sequence small than 'n'" {
-        var arr = [_]i32{ 3, 2, 1 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = Take(@TypeOf(siter));
-        var iter = Iter.new(siter, 4);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 1), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn TakeWhile(comptime Iter: type, comptime P: type) type {
-        return prim.MakeTakeWhile(DeriveIterator, Iter, P);
-    }
-
-    comptime {
-        assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Self == TakeWhile(SliceIter(u32), fn (*const *u32) bool));
-        assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
-        assert(TakeWhile(SliceIter(u32), fn (*const SliceIter(u32).Item) bool).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(TakeWhile(SliceIter(u32), fn (*const *u32) bool)));
-    }
-
-    test "TakeWhile" {
-        var arr = [_]i32{ 3, 2, 1, 0, 1, 2, 3 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = TakeWhile(@TypeOf(siter), fn (*const *i32) bool);
-        var iter = Iter.new(siter, struct {
-            fn call(v: *const *i32) bool {
-                return v.*.* > 0;
-            }
-        }.call);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 1), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn Skip(comptime Iter: type) type {
-        return prim.MakeSkip(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(Skip(SliceIter(u32)).Self == Skip(SliceIter(u32)));
-        assert(Skip(SliceIter(u32)).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(Skip(SliceIter(u32))));
-    }
-
-    test "Skip" {
-        var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = Skip(@TypeOf(siter));
-        var iter = Iter.new(siter, 3);
-        try testing.expectEqual(@as(i32, 0), iter.next().?.*);
-        try testing.expectEqual(@as(i32, -1), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
-        return prim.MakeSkipWhile(DeriveIterator, Iter, P);
-    }
-
-    comptime {
-        assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Self == SkipWhile(SliceIter(u32), fn (*const *u32) bool));
-        assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(SkipWhile(SliceIter(u32), fn (*const *u32) bool)));
-    }
-
-    test "SkipWhile" {
-        var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = SkipWhile(@TypeOf(siter), fn (*const *i32) bool);
-        var iter = Iter.new(siter, struct {
-            fn call(v: *const *i32) bool {
-                return v.*.* > 0;
-            }
-        }.call);
-        try testing.expectEqual(@as(i32, 0), iter.next().?.*);
-        try testing.expectEqual(@as(i32, -1), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 2), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn Inspect(comptime Iter: type) type {
-        return prim.MakeInspect(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(Inspect(SliceIter(u32)).Self == Inspect(SliceIter(u32)));
-        assert(Inspect(SliceIter(u32)).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(Inspect(SliceIter(u32))));
-    }
-
-    test "Inspect" {
-        // The function 'call' cannot access to out of namespace
-        // if it's type is to be 'Fn' rather than 'BoundFn'.
-        try (struct {
-            var i: u32 = 0;
-            fn call(x: *const *i32) void {
-                _ = x;
-                i += 1;
-            }
-            fn dotest(self: @This()) !void {
-                _ = self;
-                var arr = [_]i32{ 3, 1, 0, -1, -2, 3 };
-                var siter = SliceIter(i32).new(arr[0..]);
-                const Iter = Inspect(@TypeOf(siter));
-                var iter = Iter.new(siter, call);
-
-                try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 1), i);
-                try testing.expectEqual(@as(i32, 1), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 2), i);
-                try testing.expectEqual(@as(i32, 0), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 3), i);
-                try testing.expectEqual(@as(i32, -1), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 4), i);
-                try testing.expectEqual(@as(i32, -2), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 5), i);
-                try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-                try testing.expectEqual(@as(u32, 6), i);
-                try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-                try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-            }
-        }{}).dotest();
-    }
-
-    pub fn MapWhile(comptime I: type, comptime P: type) type {
-        return prim.MakeMapWhile(DeriveIterator, I, P);
-    }
-
-    comptime {
-        assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Self == MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8));
-        assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Item == []const u8);
-        assert(meta.isIterator(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8)));
-    }
-
-    test "MapWhile" {
-        var arr = [_][]const u8{ "1", "2abc", "3" };
-        const Iter = ArrayIter([]const u8, arr.len);
-        var iter = MapWhile(Iter, fn (*[]const u8) ?u32)
-            .new(Iter.new(&arr), struct {
-            fn call(buf: *[]const u8) ?u32 {
-                return std.fmt.parseInt(u32, buf.*, 10) catch null;
-            }
-        }.call);
-        try testing.expectEqual(@as(?u32, 1), iter.next().?);
-        try testing.expectEqual(@as(?u32, null), iter.next());
-        try testing.expectEqual(@as(?u32, 3), iter.next().?);
-        try testing.expectEqual(@as(?u32, null), iter.next());
-    }
-
-    pub fn StepBy(comptime Iter: type) type {
-        return prim.MakeStepBy(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(StepBy(SliceIter(u32)).Self == StepBy(SliceIter(u32)));
-        assert(StepBy(SliceIter(u32)).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(StepBy(SliceIter(u32))));
-    }
-
-    test "StepBy" {
-        var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3, 4 };
-        var siter = SliceIter(i32).new(arr[0..]);
-        const Iter = StepBy(@TypeOf(siter));
-        var iter = Iter.new(siter, 3);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 0), iter.next().?.*);
-        try testing.expectEqual(@as(i32, 3), iter.next().?.*);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn Scan(comptime Iter: type, comptime St: type, comptime F: type) type {
-        return prim.MakeScan(DeriveIterator, Iter, St, F);
-    }
-
-    comptime {
-        const St = std.ArrayList(u32);
-        assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Self == Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8));
-        assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Item == []const u8);
-        assert(meta.isIterator(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8)));
-    }
-
-    test "Scan" {
-        var arr = [_][]const u8{ "32", "4", "0", "abc", "2", "def", "3" };
-        var siter = SliceIter([]const u8).new(arr[0..]);
-        const Iter = Scan(@TypeOf(siter), i32, fn (*i32, *[]const u8) ?i32);
-        var iter = Iter.new(siter, @as(i32, 1), struct {
-            fn call(st: *i32, v: *[]const u8) ?i32 {
-                if (std.fmt.parseInt(i32, v.*, 10) catch null) |val| {
-                    if (st.* == 0) {
-                        st.* = val;
-                    } else {
-                        st.* *= val;
-                    }
-                    return st.*;
+                    } else return null;
                 } else {
-                    return null;
+                    return .gt;
                 }
             }
-        }.call);
-        try testing.expectEqual(@as(i32, 32), iter.next().?);
-        try testing.expectEqual(@as(i32, 128), iter.next().?);
-        try testing.expectEqual(@as(i32, 0), iter.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(i32, 2), iter.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(i32, 6), iter.next().?);
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-    }
-
-    pub fn Fuse(comptime Iter: type) type {
-        return prim.MakeFuse(DeriveIterator, Iter);
-    }
-
-    comptime {
-        assert(Fuse(SliceIter(u32)).Self == Fuse(SliceIter(u32)));
-        assert(Fuse(SliceIter(u32)).Item == SliceIter(u32).Item);
-        assert(meta.isIterator(Fuse(SliceIter(u32))));
-    }
-
-    test "Fuse" {
-        const Divisor = struct {
-            pub const Self: type = @This();
-            pub const Item: type = u32;
-            val: u32,
-            div: u32,
-            pub fn next(self: *Self) ?Item {
-                if (self.val <= self.div or self.val % self.div == 0) {
-                    const val = self.val;
-                    self.val += 1;
-                    return val;
-                } else {
-                    self.val += 1;
-                    return null;
-                }
-            }
-        };
-        {
-            const Iter = Divisor;
-            var iter = Divisor{ .val = 0, .div = 2 };
-            try testing.expectEqual(@as(u32, 0), iter.next().?);
-            try testing.expectEqual(@as(u32, 1), iter.next().?);
-            try testing.expectEqual(@as(u32, 2), iter.next().?);
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-            try testing.expectEqual(@as(u32, 4), iter.next().?);
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-            try testing.expectEqual(@as(u32, 6), iter.next().?);
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+            return if (ot.next()) |_| .lt else .eq;
         }
-        {
-            const Iter = Fuse(Divisor);
-            var iter = Iter.new(.{ .val = 0, .div = 2 });
-            try testing.expectEqual(@as(u32, 0), iter.next().?);
-            try testing.expectEqual(@as(u32, 1), iter.next().?);
-            try testing.expectEqual(@as(u32, 2), iter.next().?);
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
-            try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    };
+}
+
+pub fn Cmp(comptime Item: type) type {
+    comptime assert(meta.basis.isOrd(Item));
+    return struct {
+        pub fn cmp(iter: anytype, other: anytype) math.Order {
+            const Iter = @TypeOf(iter);
+            const Other = @TypeOf(other);
+            comptime assert(Iter.Item == Item);
+            comptime assert(Other.Item == Item);
+            var it = iter;
+            var ot = other;
+
+            while (it.next()) |lval| {
+                if (ot.next()) |rval| {
+                    const ord = meta.basis.Ord.cmp(lval, rval);
+                    switch (ord) {
+                        .eq => continue,
+                        .lt, .gt => return ord,
+                    }
+                } else {
+                    return .gt;
+                }
+            }
+            return if (ot.next()) |_| .lt else .eq;
+        }
+    };
+}
+
+pub fn Flatten(comptime Iter: type) type {
+    return prim.MakeFlatten(DeriveIterator, Iter);
+}
+
+comptime {
+    const Range = range.Range;
+    assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Self == Flatten(Map(Range(u32), fn (u32) Range(u32))));
+    assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Item == u32);
+    assert(meta.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
+}
+
+test "Flatten" {
+    const Range = range.Range;
+    const Gen = struct {
+        fn call(x: u32) Range(u32) {
+            return Range(u32).new(@as(u32, 0), x);
+        }
+    };
+    const Iter = Flatten(Map(Range(u32), fn (u32) Range(u32)));
+    var iter = Iter.new(Map(Range(u32), fn (u32) Range(u32))
+        .new(Gen.call, Range(u32).new(@as(u32, 1), 4)));
+
+    // range(0, 1)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    // range(0, 2)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    // range(0, 3)
+    try testing.expectEqual(@as(?u32, 0), iter.next());
+    try testing.expectEqual(@as(?u32, 1), iter.next());
+    try testing.expectEqual(@as(?u32, 2), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
+pub fn Map(comptime Iter: type, comptime F: type) type {
+    return prim.MakeMap(DeriveIterator, Iter, F);
+}
+
+comptime {
+    assert(
+        Map(SliceIter(u32), fn (*const u32) []u8).Self ==
+            Map(SliceIter(u32), fn (*const u32) []u8),
+    );
+    assert(Map(SliceIter(u32), fn (*const u32) []u8).Item == []u8);
+    assert(meta.isIterator(Map(SliceIter(u32), fn (*const u32) []u8)));
+}
+
+test "Map" {
+    const Square = struct {
+        pub fn f(v: *const u32) u64 {
+            return v.* * v.*;
+        }
+    };
+    var arr = [_]u32{ 1, 2, 3 };
+    var arr_iter = ArrayIter(u32, arr.len).new(&arr);
+    var iter = Map(ArrayIter(u32, arr.len), fn (*const u32) u64).new(Square.f, arr_iter);
+    try testing.expectEqual(@as(?u64, 1), iter.next());
+    try testing.expectEqual(@as(?u64, 4), iter.next());
+    try testing.expectEqual(@as(?u64, 9), iter.next());
+    try testing.expectEqual(@as(?u64, null), iter.next());
+}
+
+pub fn Filter(comptime Iter: type, comptime Pred: type) type {
+    return prim.MakeFilter(DeriveIterator, Iter, Pred);
+}
+
+comptime {
+    assert(Filter(SliceIter(u32), fn (*u32) bool).Self == Filter(SliceIter(u32), fn (*u32) bool));
+    assert(Filter(SliceIter(u32), fn (*u32) bool).Item == *u32);
+    assert(meta.isIterator(Filter(SliceIter(u32), fn (*u32) bool)));
+}
+
+test "Filter" {
+    const IsEven = struct {
+        pub fn call(value: *const u32) bool {
+            return value.* % 2 == 0;
+        }
+    };
+    var arr = [_]u32{ 1, 2, 3, 4, 5, 6 };
+    var arr_iter = ArrayIter(u32, arr.len).new(&arr);
+    var iter = Filter(ArrayIter(u32, arr.len), fn (*const u32) bool).new(IsEven.call, arr_iter);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 6), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
+}
+
+pub fn FilterMap(comptime Iter: type, comptime F: type) type {
+    return prim.MakeFilterMap(DeriveIterator, Iter, F);
+}
+
+comptime {
+    assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Self == FilterMap(SliceIter(u32), fn (*const u32) ?u8));
+    assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Item == u8);
+    assert(meta.isIterator(FilterMap(SliceIter(u32), fn (*const u32) ?u8)));
+}
+
+test "FilterMap" {
+    const ParseInt = struct {
+        pub fn call(value: *const []const u8) ?u32 {
+            return std.fmt.parseInt(u32, value.*, 10) catch null;
+        }
+    };
+    var arr = [_][]const u8{ "abc", "123", "345", "-123.", "1abc" };
+    var arr_iter = ArrayIter([]const u8, arr.len).new(&arr);
+    var iter = FilterMap(ArrayIter([]const u8, arr.len), fn (*const []const u8) ?u32).new(ParseInt.call, arr_iter);
+    try testing.expectEqual(@as(u32, 123), iter.next().?);
+    try testing.expectEqual(@as(u32, 345), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
+pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
+    return prim.MakeChain(DeriveIterator, Iter1, Iter2);
+}
+
+comptime {
+    assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Self == Chain(SliceIter(u32), ArrayIter(u32, 5)));
+    assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Item == *u32);
+    assert(meta.isIterator(Chain(SliceIter(u32), ArrayIter(u32, 5))));
+}
+
+test "Chain" {
+    var arr1 = [_]u32{ 1, 2, 3 };
+    var arr2 = [_]u32{ 4, 5, 6 };
+    var iter1 = ArrayIter(u32, arr1.len).new(&arr1);
+    var iter2 = SliceIter(u32).new(arr2[0..]);
+    var iter = Chain(@TypeOf(iter1), @TypeOf(iter2)).new(iter1, iter2);
+    try testing.expectEqual(@as(u32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 4), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 5), iter.next().?.*);
+    try testing.expectEqual(@as(u32, 6), iter.next().?.*);
+    try testing.expectEqual(@as(?*u32, null), iter.next());
+}
+
+pub fn Enumerate(comptime Iter: type) type {
+    return prim.MakeEnumerate(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
+    assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
+    assert(meta.isIterator(Enumerate(SliceIter(u32))));
+}
+
+test "Enumerate" {
+    var arr = [_][]const u8{ "foo", "bar", "bazz" };
+    var siter = SliceIter([]const u8).new(arr[0..]);
+    const Iter = Enumerate(@TypeOf(siter));
+    var iter = Enumerate(@TypeOf(siter)).new(siter);
+    try testing.expectEqual(tuple.tuple2(&arr[0], @as(usize, 0)), iter.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[1], @as(usize, 1)), iter.next().?);
+    try testing.expectEqual(tuple.tuple2(&arr[2], @as(usize, 2)), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn Take(comptime Iter: type) type {
+    return prim.MakeTake(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(Take(SliceIter(u32)).Self == Take(SliceIter(u32)));
+    assert(Take(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Take(SliceIter(u32))));
+}
+
+test "Take" {
+    var arr = [_]i32{ 3, 2, 1, 0, 1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Take(@TypeOf(siter));
+    var iter = Iter.new(siter, 4);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+test "Take sequence small than 'n'" {
+    var arr = [_]i32{ 3, 2, 1 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Take(@TypeOf(siter));
+    var iter = Iter.new(siter, 4);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn TakeWhile(comptime Iter: type, comptime P: type) type {
+    return prim.MakeTakeWhile(DeriveIterator, Iter, P);
+}
+
+comptime {
+    assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Self == TakeWhile(SliceIter(u32), fn (*const *u32) bool));
+    assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
+    assert(TakeWhile(SliceIter(u32), fn (*const SliceIter(u32).Item) bool).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(TakeWhile(SliceIter(u32), fn (*const *u32) bool)));
+}
+
+test "TakeWhile" {
+    var arr = [_]i32{ 3, 2, 1, 0, 1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = TakeWhile(@TypeOf(siter), fn (*const *i32) bool);
+    var iter = Iter.new(siter, struct {
+        fn call(v: *const *i32) bool {
+            return v.*.* > 0;
+        }
+    }.call);
+    _ = iter;
+    // try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    // try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    // try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+    // try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    // try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    // try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn Skip(comptime Iter: type) type {
+    return prim.MakeSkip(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(Skip(SliceIter(u32)).Self == Skip(SliceIter(u32)));
+    assert(Skip(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Skip(SliceIter(u32))));
+}
+
+test "Skip" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = Skip(@TypeOf(siter));
+    var iter = Iter.new(siter, 3);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
+    return prim.MakeSkipWhile(DeriveIterator, Iter, P);
+}
+
+comptime {
+    assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Self == SkipWhile(SliceIter(u32), fn (*const *u32) bool));
+    assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(SkipWhile(SliceIter(u32), fn (*const *u32) bool)));
+}
+
+test "SkipWhile" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = SkipWhile(@TypeOf(siter), fn (*const *i32) bool);
+    var iter = Iter.new(siter, struct {
+        fn call(v: *const *i32) bool {
+            return v.*.* > 0;
+        }
+    }.call);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 2), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn Inspect(comptime Iter: type) type {
+    return prim.MakeInspect(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(Inspect(SliceIter(u32)).Self == Inspect(SliceIter(u32)));
+    assert(Inspect(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Inspect(SliceIter(u32))));
+}
+
+test "Inspect" {
+    // The function 'call' cannot access to out of namespace
+    // if it's type is to be 'Fn' rather than 'BoundFn'.
+    try (struct {
+        var i: u32 = 0;
+        fn call(x: *const *i32) void {
+            _ = x;
+            i += 1;
+        }
+        fn dotest(self: @This()) !void {
+            _ = self;
+            var arr = [_]i32{ 3, 1, 0, -1, -2, 3 };
+            var siter = SliceIter(i32).new(arr[0..]);
+            const Iter = Inspect(@TypeOf(siter));
+            var iter = Iter.new(siter, call);
+
+            try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 1), i);
+            try testing.expectEqual(@as(i32, 1), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 2), i);
+            try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 3), i);
+            try testing.expectEqual(@as(i32, -1), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 4), i);
+            try testing.expectEqual(@as(i32, -2), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 5), i);
+            try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+            try testing.expectEqual(@as(u32, 6), i);
             try testing.expectEqual(@as(?Iter.Item, null), iter.next());
             try testing.expectEqual(@as(?Iter.Item, null), iter.next());
         }
+    }{}).dotest();
+}
+
+pub fn MapWhile(comptime I: type, comptime P: type) type {
+    return prim.MakeMapWhile(DeriveIterator, I, P);
+}
+
+comptime {
+    assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Self == MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8));
+    assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Item == []const u8);
+    assert(meta.isIterator(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8)));
+}
+
+test "MapWhile" {
+    var arr = [_][]const u8{ "1", "2abc", "3" };
+    const Iter = ArrayIter([]const u8, arr.len);
+    var iter = MapWhile(Iter, fn (*[]const u8) ?u32)
+        .new(Iter.new(&arr), struct {
+        fn call(buf: *[]const u8) ?u32 {
+            return std.fmt.parseInt(u32, buf.*, 10) catch null;
+        }
+    }.call);
+    try testing.expectEqual(@as(?u32, 1), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+    try testing.expectEqual(@as(?u32, 3), iter.next().?);
+    try testing.expectEqual(@as(?u32, null), iter.next());
+}
+
+pub fn StepBy(comptime Iter: type) type {
+    return prim.MakeStepBy(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(StepBy(SliceIter(u32)).Self == StepBy(SliceIter(u32)));
+    assert(StepBy(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(StepBy(SliceIter(u32))));
+}
+
+test "StepBy" {
+    var arr = [_]i32{ 3, 2, 1, 0, -1, 2, 3, 4 };
+    var siter = SliceIter(i32).new(arr[0..]);
+    const Iter = StepBy(@TypeOf(siter));
+    var iter = Iter.new(siter, 3);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 0), iter.next().?.*);
+    try testing.expectEqual(@as(i32, 3), iter.next().?.*);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn Scan(comptime Iter: type, comptime St: type, comptime F: type) type {
+    return prim.MakeScan(DeriveIterator, Iter, St, F);
+}
+
+comptime {
+    const St = std.ArrayList(u32);
+    assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Self == Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8));
+    assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Item == []const u8);
+    assert(meta.isIterator(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8)));
+}
+
+test "Scan" {
+    var arr = [_][]const u8{ "32", "4", "0", "abc", "2", "def", "3" };
+    var siter = SliceIter([]const u8).new(arr[0..]);
+    const Iter = Scan(@TypeOf(siter), i32, fn (*i32, *[]const u8) ?i32);
+    var iter = Iter.new(siter, @as(i32, 1), struct {
+        fn call(st: *i32, v: *[]const u8) ?i32 {
+            if (std.fmt.parseInt(i32, v.*, 10) catch null) |val| {
+                if (st.* == 0) {
+                    st.* = val;
+                } else {
+                    st.* *= val;
+                }
+                return st.*;
+            } else {
+                return null;
+            }
+        }
+    }.call);
+    try testing.expectEqual(@as(i32, 32), iter.next().?);
+    try testing.expectEqual(@as(i32, 128), iter.next().?);
+    try testing.expectEqual(@as(i32, 0), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(i32, 2), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(i32, 6), iter.next().?);
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+}
+
+pub fn Fuse(comptime Iter: type) type {
+    return prim.MakeFuse(DeriveIterator, Iter);
+}
+
+comptime {
+    assert(Fuse(SliceIter(u32)).Self == Fuse(SliceIter(u32)));
+    assert(Fuse(SliceIter(u32)).Item == SliceIter(u32).Item);
+    assert(meta.isIterator(Fuse(SliceIter(u32))));
+}
+
+test "Fuse" {
+    const Divisor = struct {
+        pub const Self: type = @This();
+        pub const Item: type = u32;
+        val: u32,
+        div: u32,
+        pub fn next(self: *Self) ?Item {
+            if (self.val <= self.div or self.val % self.div == 0) {
+                const val = self.val;
+                self.val += 1;
+                return val;
+            } else {
+                self.val += 1;
+                return null;
+            }
+        }
+    };
+    {
+        const Iter = Divisor;
+        var iter = Divisor{ .val = 0, .div = 2 };
+        try testing.expectEqual(@as(u32, 0), iter.next().?);
+        try testing.expectEqual(@as(u32, 1), iter.next().?);
+        try testing.expectEqual(@as(u32, 2), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(u32, 4), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(u32, 6), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
     }
-};
+    {
+        const Iter = Fuse(Divisor);
+        var iter = Iter.new(.{ .val = 0, .div = 2 });
+        try testing.expectEqual(@as(u32, 0), iter.next().?);
+        try testing.expectEqual(@as(u32, 1), iter.next().?);
+        try testing.expectEqual(@as(u32, 2), iter.next().?);
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+        try testing.expectEqual(@as(?Iter.Item, null), iter.next());
+    }
+}
 
 pub fn DerivePeekable(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "peekable")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn peekable(self: Iter) ops.Peekable(Iter) {
-                return ops.Peekable(Iter).new(self);
-            }
-        };
+        if (meta.have_fun(Iter, "peekable")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn peekable(self: Iter) Peekable(Iter) {
+                    return Peekable(Iter).new(self);
+                }
+            };
+        }
     }
 }
 
@@ -783,38 +789,38 @@ comptime {
 
 test "derive peekable" {
     {
-        var arr = [_]i32{ 1, 0, -1, 2 };
-        const Iter = to_iter.MakeSliceIter(DerivePeekable, i32);
-        var peek = Iter.new(arr[0..]).peekable();
+        const Iter = range.MakeRange(DerivePeekable, i32);
+        var peek = Iter.new(@as(i32, -1), 3).peekable();
 
-        try comptime testing.expectEqual(?*const *i32, @TypeOf(peek.peek()));
-        try testing.expectEqual(@as(*i32, &arr[0]), peek.peek().?.*);
-        try testing.expectEqual(@as(*i32, &arr[0]), peek.peek().?.*);
-        try testing.expectEqual(@as(?*i32, &arr[0]), peek.next());
-        try testing.expectEqual(@as(?*i32, &arr[1]), peek.next());
-        try testing.expectEqual(@as(*i32, &arr[2]), peek.peek().?.*);
-        try testing.expectEqual(@as(?*i32, &arr[2]), peek.next());
-        try testing.expectEqual(@as(?*i32, &arr[3]), peek.next());
-        try testing.expectEqual(@as(?*i32, null), peek.next());
+        comptime try testing.expectEqual(?*const Iter.Item, @TypeOf(peek.peek()));
+        try testing.expectEqual(@as(i32, -1), peek.peek().?.*);
+        try testing.expectEqual(@as(i32, -1), peek.peek().?.*);
+        try testing.expectEqual(@as(i32, -1), peek.next().?);
+        try testing.expectEqual(@as(i32, 0), peek.next().?);
+        try testing.expectEqual(@as(i32, 1), peek.peek().?.*);
+        try testing.expectEqual(@as(i32, 1), peek.next().?);
+        try testing.expectEqual(@as(i32, 2), peek.next().?);
+        try testing.expectEqual(@as(?i32, null), peek.next());
     }
 }
 
 pub fn DerivePosition(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
-
-    if (meta.have_fun(Iter, "position")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn position(self: *Iter, predicate: fn (Iter.Item) bool) ?usize {
-                var idx: usize = 0;
-                while (self.next()) |val| : (idx += 1) {
-                    if (predicate(val))
-                        return idx;
+    comptime {
+        assert(isIterator(Iter));
+        if (meta.have_fun(Iter, "position")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn position(self: *Iter, predicate: Func(Iter.Item, bool)) ?usize {
+                    var idx: usize = 0;
+                    while (self.next()) |val| : (idx += 1) {
+                        if (predicate(val))
+                            return idx;
+                    }
+                    return null;
                 }
-                return null;
-            }
-        };
+            };
+        }
     }
 }
 
@@ -853,8 +859,8 @@ pub fn DeriveCycle(comptime Iter: type) type {
         return struct {};
     } else if (meta.basis.isClonable(Iter)) {
         return struct {
-            pub fn cycle(self: Iter) ops.Cycle(Iter) {
-                return ops.Cycle(Iter).new(self);
+            pub fn cycle(self: Iter) Cycle(Iter) {
+                return Cycle(Iter).new(self);
             }
         };
     } else {
@@ -907,14 +913,19 @@ pub fn DeriveCopied(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "copied")) |_| {
         return struct {};
-    } else if (meta.basis.isCopyable(Iter.Item)) {
-        return struct {
-            pub fn copied(self: Iter) ops.Copied(Iter) {
-                return ops.Copied(Iter).new(self);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isCopyable(Item)) {
+                return struct {
+                    pub fn copied(self: Iter) Copied(Iter) {
+                        return Copied(Iter).new(self);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -958,18 +969,26 @@ test "derive copied" {
 }
 
 pub fn DeriveCloned(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "cloned")) |_| {
-        return struct {};
-    } else if (meta.basis.isClonable(Iter.Item)) {
-        return struct {
-            pub fn cloned(self: Iter) ops.Cloned(Iter) {
-                return ops.Cloned(Iter).new(self);
+        if (meta.have_fun(Iter, "cloned")) |_| {
+            return struct {};
+        } else {
+            if (meta.have_type(Iter, "Item")) |Item| {
+                if (meta.basis.isClonable(Item)) {
+                    return struct {
+                        pub fn cloned(self: Iter) Cloned(Iter) {
+                            return Cloned(Iter).new(self);
+                        }
+                    };
+                } else {
+                    return struct {};
+                }
             }
-        };
-    } else {
-        return struct {};
+            // Iterator must have 'Item'
+            unreachable;
+        }
     }
 }
 
@@ -1068,8 +1087,8 @@ pub fn DeriveZip(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn zip(self: Iter, other: anytype) ops.Zip(Iter, @TypeOf(other)) {
-                return ops.Zip(Iter, @TypeOf(other)).new(self, other);
+            pub fn zip(self: Iter, other: anytype) Zip(Iter, @TypeOf(other)) {
+                return Zip(Iter, @TypeOf(other)).new(self, other);
             }
         };
     }
@@ -1099,6 +1118,7 @@ test "derive zip" {
         var arr1 = [_]u32{ 2, 3, 4 };
         const Iter = to_iter.MakeSliceIter(struct {
             fn derive(comptime T: type) type {
+                comptime assert(isIterator(T));
                 return struct {
                     pub usingnamespace DeriveZip(T);
                     pub usingnamespace DeriveStepBy(T);
@@ -1196,8 +1216,8 @@ pub fn DeriveFlatMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn flat_map(self: Iter, f: anytype) ops.FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f))) {
-                const I = comptime ops.FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f)));
+            pub fn flat_map(self: Iter, f: anytype) FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f))) {
+                const I = comptime FlatMap(Iter, @TypeOf(f), meta.codomain(@TypeOf(f)));
                 return I.new(self, f);
             }
         };
@@ -1233,16 +1253,21 @@ pub fn DerivePartialCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "partial_cmp")) |_| {
         return struct {};
-    } else if (meta.basis.isPartialOrd(Iter.Item)) {
-        return struct {
-            pub fn partial_cmp(self: Iter, other: anytype) ?math.Order {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.PartialCmp(Iter.Item).partial_cmp(self, other);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isPartialOrd(Item)) {
+                return struct {
+                    pub fn partial_cmp(self: Iter, other: anytype) ?math.Order {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return PartialCmp(Iter.Item).partial_cmp(self, other);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1288,16 +1313,21 @@ pub fn DeriveCmp(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "cmp")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn cmp(self: Iter, other: anytype) math.Order {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.Cmp(Iter.Item).cmp(self, other);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn cmp(self: Iter, other: anytype) math.Order {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return Cmp(Iter.Item).cmp(self, other);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1325,16 +1355,21 @@ pub fn DeriveLe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "le")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn le(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.Cmp(Iter.Item).cmp(self, other).compare(.lte);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn le(self: Iter, other: anytype) bool {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return Cmp(Iter.Item).cmp(self, other).compare(.lte);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1362,16 +1397,21 @@ pub fn DeriveGe(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "ge")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn ge(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.Cmp(Iter.Item).cmp(self, other).compare(.gte);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn ge(self: Iter, other: anytype) bool {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return Cmp(Iter.Item).cmp(self, other).compare(.gte);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1399,16 +1439,21 @@ pub fn DeriveLt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "lt")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn lt(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.Cmp(Iter.Item).cmp(self, other).compare(.lt);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn lt(self: Iter, other: anytype) bool {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return Cmp(Iter.Item).cmp(self, other).compare(.lt);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1436,16 +1481,21 @@ pub fn DeriveGt(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "gt")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn gt(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                return ops.Cmp(Iter.Item).cmp(self, other).compare(.gt);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn gt(self: Iter, other: anytype) bool {
+                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(Iter.Item == @TypeOf(other).Item);
+                        return Cmp(Iter.Item).cmp(self, other).compare(.gt);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1473,14 +1523,19 @@ pub fn DeriveProduct(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "product")) |_| {
         return struct {};
-    } else if (concept.isProduct(Iter.Item)) {
-        return struct {
-            pub fn product(self: Iter) concept.Product.Output(Iter.Item) {
-                return concept.Product.product(self);
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (concept.isProduct(Item)) {
+                return struct {
+                    pub fn product(self: Iter) concept.Product.Output(Iter.Item) {
+                        return concept.Product.product(self);
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1488,6 +1543,29 @@ test "derive product int" {
     const Iter = range.MakeRange(DeriveProduct, u32);
     try testing.expectEqual(@as(u32, 1814400), Iter.new(@as(u32, 3), 11).product());
     try testing.expectEqual(@as(u32, 0), Iter.new(@as(u32, 0), 10).product());
+}
+
+test "product" {
+    const T = struct {
+        const T = @This();
+        val: u32,
+        pub fn product(iter: anytype) T {
+            var acc: u32 = 1;
+            var it = iter;
+            while (it.next()) |v| {
+                acc *= v.val;
+            }
+            return T{ .val = acc };
+        }
+    };
+    comptime assert(concept.isProduct(T));
+    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
+    const product = T.product(to_iter.SliceIter(T).new(arr[0..]).map(struct {
+        fn call(x: *const T) T {
+            return x.*;
+        }
+    }.call));
+    try testing.expectEqual(T{ .val = 24 }, product);
 }
 
 test "derive product ptr" {
@@ -1498,19 +1576,49 @@ test "derive product ptr" {
 }
 
 pub fn DeriveSum(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "sum")) |_| {
-        return struct {};
-    } else if (concept.isSum(Iter.Item)) {
-        return struct {
-            pub fn sum(self: Iter) concept.Sum.Output(Iter.Item) {
-                return concept.Sum.sum(self);
+        if (meta.have_fun(Iter, "sum")) |_| {
+            return struct {};
+        } else {
+            if (meta.have_type(Iter, "Item")) |Item| {
+                if (concept.isSum(Item)) {
+                    return struct {
+                        pub fn sum(self: Iter) concept.Sum.Output(Iter.Item) {
+                            return concept.Sum.sum(self);
+                        }
+                    };
+                }
+                return struct {};
             }
-        };
-    } else {
-        return struct {};
+            // Iterator must have 'Item'
+            unreachable;
+        }
     }
+}
+
+test "Sum" {
+    const T = struct {
+        const T = @This();
+        val: u32,
+        pub fn sum(iter: anytype) T {
+            var acc: u32 = 0;
+            var it = iter;
+            while (it.next()) |v| {
+                acc += v.val;
+            }
+            return T{ .val = acc };
+        }
+    };
+    comptime assert(concept.isSum(T));
+    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
+    const sum = T.sum(to_iter.SliceIter(T).new(arr[0..]).map(struct {
+        fn call(x: *const T) T {
+            return x.*;
+        }
+    }.call));
+    try testing.expectEqual(T{ .val = 10 }, sum);
 }
 
 test "derive sum int" {
@@ -1616,21 +1724,26 @@ pub fn DeriveMax(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "max")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn max(self: Iter) ?Iter.Item {
-                var it = self;
-                var acc: Iter.Item = it.next() orelse return null;
-                while (it.next()) |val| {
-                    if (meta.basis.Ord.cmp(acc, val) == std.math.Order.lt) {
-                        acc = val;
-                    }
-                }
-                return acc;
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn max(self: Iter) ?Iter.Item {
+                        var it = self;
+                        var acc: Iter.Item = it.next() orelse return null;
+                        while (it.next()) |val| {
+                            if (meta.basis.Ord.cmp(acc, val) == std.math.Order.lt) {
+                                acc = val;
+                            }
+                        }
+                        return acc;
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1653,7 +1766,7 @@ pub fn DeriveMaxBy(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn max_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
+            pub fn max_by(self: Iter, compare: Func2(*const Iter.Item, *const Iter.Item, math.Order)) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
@@ -1737,21 +1850,26 @@ pub fn DeriveMin(comptime Iter: type) type {
 
     if (meta.have_fun(Iter, "min")) |_| {
         return struct {};
-    } else if (meta.basis.isOrd(Iter.Item)) {
-        return struct {
-            pub fn min(self: Iter) ?Iter.Item {
-                var it = self;
-                var acc: Iter.Item = it.next() orelse return null;
-                while (it.next()) |val| {
-                    if (meta.basis.Ord.cmp(acc, val) == math.Order.gt) {
-                        acc = val;
-                    }
-                }
-                return acc;
-            }
-        };
     } else {
-        return struct {};
+        if (meta.have_type(Iter, "Item")) |Item| {
+            if (meta.basis.isOrd(Item)) {
+                return struct {
+                    pub fn min(self: Iter) ?Iter.Item {
+                        var it = self;
+                        var acc: Iter.Item = it.next() orelse return null;
+                        while (it.next()) |val| {
+                            if (meta.basis.Ord.cmp(acc, val) == math.Order.gt) {
+                                acc = val;
+                            }
+                        }
+                        return acc;
+                    }
+                };
+            }
+            return struct {};
+        }
+        // Iterator must have 'Item'
+        unreachable;
     }
 }
 
@@ -1774,7 +1892,7 @@ pub fn DeriveMinBy(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn min_by(self: Iter, compare: fn (*const Iter.Item, *const Iter.Item) math.Order) ?Iter.Item {
+            pub fn min_by(self: Iter, compare: Func2(*const Iter.Item, *const Iter.Item, math.Order)) ?Iter.Item {
                 var it = self;
                 var acc: Iter.Item = it.next() orelse return null;
                 while (it.next()) |val| {
@@ -1860,8 +1978,8 @@ pub fn DeriveStepBy(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn step_by(self: Iter, skip: usize) ops.StepBy(Iter) {
-                return ops.StepBy(Iter).new(self, skip);
+            pub fn step_by(self: Iter, skip: usize) StepBy(Iter) {
+                return StepBy(Iter).new(self, skip);
             }
         };
     }
@@ -1885,8 +2003,8 @@ pub fn DeriveFuse(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn fuse(self: Iter) ops.Fuse(Iter) {
-                return ops.Fuse(Iter).new(self);
+            pub fn fuse(self: Iter) Fuse(Iter) {
+                return Fuse(Iter).new(self);
             }
         };
     }
@@ -1926,8 +2044,8 @@ pub fn DeriveScan(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn scan(self: Iter, st: anytype, f: anytype) ops.Scan(Iter, @TypeOf(st), @TypeOf(f)) {
-                return ops.Scan(Iter, @TypeOf(st), @TypeOf(f)).new(self, st, f);
+            pub fn scan(self: Iter, st: anytype, f: anytype) Scan(Iter, @TypeOf(st), @TypeOf(f)) {
+                return Scan(Iter, @TypeOf(st), @TypeOf(f)).new(self, st, f);
             }
         };
     }
@@ -1957,8 +2075,8 @@ pub fn DeriveSkip(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn skip(self: Iter, size: usize) ops.Skip(Iter) {
-                return ops.Skip(Iter).new(self, size);
+            pub fn skip(self: Iter, size: usize) Skip(Iter) {
+                return Skip(Iter).new(self, size);
             }
         };
     }
@@ -1983,18 +2101,26 @@ test "derive skip over" {
 }
 
 pub fn DeriveFlatten(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "flatten")) |_| {
-        return struct {};
-    } else if (meta.isIterator(Iter.Item)) {
-        return struct {
-            pub fn flatten(self: Iter) ops.Flatten(Iter) {
-                return ops.Flatten(Iter).new(self);
+        if (meta.have_fun(Iter, "flatten")) |_| {
+            return struct {};
+        } else {
+            if (meta.have_type(Iter, "Item")) |Item| {
+                if (meta.isIterator(Item)) {
+                    return struct {
+                        pub fn flatten(self: Iter) Flatten(Iter) {
+                            return Flatten(Iter).new(self);
+                        }
+                    };
+                } else {
+                    return struct {};
+                }
             }
-        };
-    } else {
-        return struct {};
+            // Iterator must have 'Item'
+            unreachable;
+        }
     }
 }
 
@@ -2025,7 +2151,7 @@ pub fn DeriveReduce(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn reduce(self: Iter, f: fn (Iter.Item, Iter.Item) Iter.Item) ?Iter.Item {
+            pub fn reduce(self: Iter, f: Func2(Iter.Item, Iter.Item, Iter.Item)) ?Iter.Item {
                 var it = self;
                 var acc = it.next() orelse return null;
                 while (it.next()) |value| {
@@ -2183,7 +2309,7 @@ pub fn DeriveForeach(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn for_each(self: Iter, f: fn (Iter.Item) void) void {
+            pub fn for_each(self: Iter, f: Func(Iter.Item, void)) void {
                 var it = self;
                 while (it.next()) |value| {
                     f(value);
@@ -2215,8 +2341,8 @@ pub fn DeriveMapWhile(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn map_while(self: Iter, pred: anytype) ops.MapWhile(Iter, @TypeOf(pred)) {
-                return ops.MapWhile(Iter, @TypeOf(pred)).new(self, pred);
+            pub fn map_while(self: Iter, pred: anytype) MapWhile(Iter, @TypeOf(pred)) {
+                return MapWhile(Iter, @TypeOf(pred)).new(self, pred);
             }
         };
     }
@@ -2237,16 +2363,18 @@ test "derive map_while" {
 }
 
 pub fn DeriveInspect(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "inspect")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn inspect(self: Iter, f: fn (*const Iter.Item) void) ops.Inspect(Iter) {
-                return ops.Inspect(Iter).new(self, f);
-            }
-        };
+        if (meta.have_fun(Iter, "inspect")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn inspect(self: Iter, f: anytype) Inspect(Iter) {
+                    return Inspect(Iter).new(self, f);
+                }
+            };
+        }
     }
 }
 
@@ -2345,20 +2473,22 @@ test "derive find" {
 }
 
 pub fn DeriveCount(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "count")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn count(self: *Iter) usize {
-                var i: usize = 0;
-                while (self.next()) |_| {
-                    i += 1;
+        if (meta.have_fun(Iter, "count")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn count(self: *Iter) usize {
+                    var i: usize = 0;
+                    while (self.next()) |_| {
+                        i += 1;
+                    }
+                    return i;
                 }
-                return i;
-            }
-        };
+            };
+        }
     }
 }
 
@@ -2381,7 +2511,7 @@ pub fn DeriveAll(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn all(self: *Iter, P: fn (*const Iter.Item) bool) bool {
+            pub fn all(self: *Iter, P: Func(*const Iter.Item, bool)) bool {
                 while (self.next()) |val| {
                     if (!P(&val))
                         return false;
@@ -2416,7 +2546,7 @@ pub fn DeriveAny(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn any(self: *Iter, P: fn (*const Iter.Item) bool) bool {
+            pub fn any(self: *Iter, P: Func(*const Iter.Item, bool)) bool {
                 while (self.next()) |val| {
                     if (P(&val))
                         return true;
@@ -2451,23 +2581,24 @@ pub fn DeriveTake(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn take(self: Iter, size: usize) ops.Take(Iter) {
-                return ops.Take(Iter).new(self, size);
+            pub fn take(self: Iter, size: usize) Take(Iter) {
+                return Take(Iter).new(self, size);
             }
         };
     }
 }
 
 test "derive take" {
-    var arr = [_]i32{ -3, -2, -1, 0, 1, -2, -3, 4, 5 };
     const Iter = to_iter.MakeSliceIter(struct {
         fn derive(comptime T: type) type {
+            comptime assert(isIterator(T));
             return struct {
                 pub usingnamespace DeriveTake(T);
                 pub usingnamespace DeriveFilter(T);
             };
         }
     }.derive, i32);
+    var arr = [_]i32{ -3, -2, -1, 0, 1, -2, -3, 4, 5 };
     var take = Iter.new(arr[0..]).filter(struct {
         fn call(v: *i32) bool {
             return v.* < 0;
@@ -2493,8 +2624,8 @@ pub fn DeriveTakeWhile(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn take_while(self: Iter, pred: anytype) ops.TakeWhile(Iter, @TypeOf(pred)) {
-                return ops.TakeWhile(Iter, @TypeOf(pred)).new(self, pred);
+            pub fn take_while(self: Iter, pred: anytype) TakeWhile(Iter, @TypeOf(pred)) {
+                return TakeWhile(Iter, @TypeOf(pred)).new(self, pred);
             }
         };
     }
@@ -2529,8 +2660,8 @@ pub fn DeriveSkipWhile(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn skip_while(self: Iter, pred: anytype) ops.SkipWhile(Iter, @TypeOf(pred)) {
-                return ops.SkipWhile(Iter, @TypeOf(pred)).new(self, pred);
+            pub fn skip_while(self: Iter, pred: anytype) SkipWhile(Iter, @TypeOf(pred)) {
+                return SkipWhile(Iter, @TypeOf(pred)).new(self, pred);
             }
         };
     }
@@ -2563,8 +2694,8 @@ pub fn DeriveEnumerate(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn enumerate(self: Iter) ops.Enumerate(Iter) {
-                return ops.Enumerate(Iter).new(self);
+            pub fn enumerate(self: Iter) Enumerate(Iter) {
+                return Enumerate(Iter).new(self);
             }
         };
     }
@@ -2613,8 +2744,8 @@ pub fn DeriveChain(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn chain(self: Iter, other: anytype) ops.Chain(Iter, @TypeOf(other)) {
-                return ops.Chain(Iter, @TypeOf(other)).new(self, other);
+            pub fn chain(self: Iter, other: anytype) Chain(Iter, @TypeOf(other)) {
+                return Chain(Iter, @TypeOf(other)).new(self, other);
             }
         };
     }
@@ -2653,8 +2784,8 @@ pub fn DeriveMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn map(self: Iter, f: anytype) ops.Map(Iter, @TypeOf(f)) {
-                return ops.Map(Iter, @TypeOf(f)).new(f, self);
+            pub fn map(self: Iter, f: anytype) Map(Iter, @TypeOf(f)) {
+                return Map(Iter, @TypeOf(f)).new(f, self);
             }
         };
     }
@@ -2687,8 +2818,8 @@ pub fn DeriveFilter(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn filter(self: Iter, p: fn (Iter.Item) bool) ops.Filter(Iter, fn (Iter.Item) bool) {
-                return ops.Filter(Iter, fn (Iter.Item) bool).new(p, self);
+            pub fn filter(self: Iter, p: anytype) Filter(Iter, @TypeOf(p)) {
+                return Filter(Iter, @TypeOf(p)).new(p, self);
             }
         };
     }
@@ -2722,8 +2853,8 @@ pub fn DeriveFilterMap(comptime Iter: type) type {
         return struct {};
     } else {
         return struct {
-            pub fn filter_map(self: Iter, m: anytype) ops.FilterMap(Iter, @TypeOf(m)) {
-                return ops.FilterMap(Iter, @TypeOf(m)).new(m, self);
+            pub fn filter_map(self: Iter, m: anytype) FilterMap(Iter, @TypeOf(m)) {
+                return FilterMap(Iter, @TypeOf(m)).new(m, self);
             }
         };
     }

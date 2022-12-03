@@ -73,10 +73,10 @@ test "once" {
 }
 
 /// Takes iterators and zips them
-pub fn zip(aiter: anytype, biter: anytype) derive.ops.Zip(@TypeOf(aiter), @TypeOf(biter)) {
+pub fn zip(aiter: anytype, biter: anytype) derive.Zip(@TypeOf(aiter), @TypeOf(biter)) {
     comptime assert(meta.isIterator(@TypeOf(aiter)));
     comptime assert(meta.isIterator(@TypeOf(biter)));
-    return derive.ops.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
+    return derive.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
 }
 
 test "zip" {
@@ -101,7 +101,7 @@ test "zip" {
     const Tup2 = tuple.Tuple2;
     const tup2 = tuple.tuple2;
     const from_slice = struct {
-        fn call(xs: []u32) derive.ops.Copied(to_iter.SliceIter(u32)) {
+        fn call(xs: []u32) derive.Copied(to_iter.SliceIter(u32)) {
             return to_iter.SliceIter(u32).new(xs).copied();
         }
     }.call;

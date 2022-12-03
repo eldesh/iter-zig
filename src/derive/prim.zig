@@ -11,100 +11,67 @@ const assertEqualTupleType = meta.assertEqualTupleType;
 const Tuple1 = tuple.Tuple1;
 const Tuple2 = tuple.Tuple2;
 
+const Func = meta.Func;
+const toFunc = meta.toFunc;
+const toFunc2 = meta.toFunc2;
+
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
     comptime {
         assert(meta.isIterator(Iter));
-        if (meta.basis.isPartialEq(*const Iter.Item)) {
-            return struct {
-                pub const Self: type = @This();
-                pub const Item: type = Iter.Item;
-                pub usingnamespace D(@This());
+        return struct {
+            pub const Self: type = @This();
+            pub const Item: type = Iter.Item;
+            pub usingnamespace D(@This());
 
-                iter: Iter,
-                peeked: ?Iter.Item,
+            iter: Iter,
+            peeked: ?Iter.Item,
 
-                pub fn new(iter: Iter) Self {
-                    var it = iter;
-                    const peeked = it.next();
-                    return .{ .iter = it, .peeked = peeked };
+            pub fn new(iter: Iter) Self {
+                var it = iter;
+                const peeked = it.next();
+                return .{ .iter = it, .peeked = peeked };
+            }
+
+            pub fn peek(self: *Self) ?*const Item {
+                return self.peek_mut();
+            }
+
+            pub fn peek_mut(self: *Self) ?*Item {
+                if (self.peeked) |*val|
+                    return val;
+                return null;
+            }
+
+            pub fn next_if(self: *Self, func: Func(*const Item, bool)) ?Item {
+                if (self.peek()) |peeked| {
+                    // if and only if the func() returns true for the next value, it is consumed.
+                    if (func(peeked))
+                        return self.next();
                 }
+                return null;
+            }
 
-                pub fn peek(self: *Self) ?*const Item {
-                    return self.peek_mut();
-                }
-
-                pub fn peek_mut(self: *Self) ?*Item {
-                    if (self.peeked) |*val|
-                        return val;
-                    return null;
-                }
-
-                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the func() returns true for the next value, it is consumed.
-                        if (func(peeked))
-                            return self.next();
+            pub usingnamespace if (meta.basis.isPartialEq(*const Iter.Item))
+                struct {
+                    // derive `next_if_eq` inplace
+                    pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
+                        if (self.peek()) |peeked| {
+                            // if and only if the `peeked` value is equals to `expected`, it is consumed.
+                            if (meta.basis.PartialEq.eq(peeked, expected))
+                                return self.next();
+                        }
+                        return null;
                     }
-                    return null;
                 }
+            else
+                struct {};
 
-                // derive `next_if_eq` inplace
-                pub fn next_if_eq(self: *Self, expected: *const Item) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the `peeked` value is equals to `expected`, it is consumed.
-                        if (meta.basis.PartialEq.eq(peeked, expected))
-                            return self.next();
-                    }
-                    return null;
-                }
-
-                pub fn next(self: *Self) ?Item {
-                    const peeked = self.peeked;
-                    self.peeked = self.iter.next();
-                    return peeked;
-                }
-            };
-        } else {
-            return struct {
-                pub const Self: type = @This();
-                pub const Item: type = Iter.Item;
-                pub usingnamespace D(@This());
-
-                iter: Iter,
-                peeked: ?Iter.Item,
-
-                pub fn new(iter: Iter) Self {
-                    var it = iter;
-                    const peeked = it.next();
-                    return .{ .iter = it, .peeked = peeked };
-                }
-
-                pub fn peek(self: *Self) ?*const Item {
-                    return self.peek_mut();
-                }
-
-                pub fn peek_mut(self: *Self) ?*Item {
-                    if (self.peeked) |*val|
-                        return val;
-                    return null;
-                }
-
-                pub fn next_if(self: *Self, func: fn (*const Item) bool) ?Item {
-                    if (self.peek()) |peeked| {
-                        // if and only if the func() returns true for the next value, it is consumed.
-                        if (func(peeked))
-                            return self.next();
-                    }
-                    return null;
-                }
-
-                pub fn next(self: *Self) ?Item {
-                    const peeked = self.peeked;
-                    self.peeked = self.iter.next();
-                    return peeked;
-                }
-            };
-        }
+            pub fn next(self: *Self) ?Item {
+                const peeked = self.peeked;
+                self.peeked = self.iter.next();
+                return peeked;
+            }
+        };
     }
 }
 
@@ -225,10 +192,10 @@ pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: 
         pub usingnamespace D(@This());
 
         iter: Iter,
-        f: fn (Iter.Item) U,
+        f: Func(Iter.Item, U),
         curr: ?U,
 
-        pub fn new(iter: Iter, f: fn (Iter.Item) U) Self {
+        pub fn new(iter: Iter, f: Func(Iter.Item, U)) Self {
             return .{ .iter = iter, .f = f, .curr = null };
         }
 
@@ -332,16 +299,16 @@ pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
-
+    const G = comptime if (meta.newer_zig091) toFunc(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = meta.codomain(F);
         pub usingnamespace D(@This());
 
-        f: F,
+        f: G,
         iter: Iter,
 
-        pub fn new(f: F, iter: Iter) Self {
+        pub fn new(f: G, iter: Iter) Self {
             return .{ .f = f, .iter = iter };
         }
 
@@ -355,7 +322,8 @@ pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type
     };
 }
 
-pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime Pred: type) type {
+pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
+    const Pred = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -383,15 +351,16 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.is_unary_func_type(F));
     comptime assert(trait.is(.Optional)(meta.codomain(F)));
+    const G = comptime if (meta.newer_zig091) toFunc(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(F));
         pub usingnamespace D(@This());
 
-        f: F,
+        f: G,
         iter: Iter,
 
-        pub fn new(f: F, iter: Iter) Self {
+        pub fn new(f: G, iter: Iter) Self {
             return .{ .f = f, .iter = iter };
         }
 
@@ -489,16 +458,17 @@ pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(meta.isIterator(Iter));
+    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
         pub usingnamespace D(@This());
 
         iter: Iter,
-        pred: P,
+        pred: Q,
         take: bool,
 
-        pub fn new(iter: Iter, pred: P) Self {
+        pub fn new(iter: Iter, pred: Q) Self {
             return .{ .iter = iter, .pred = pred, .take = true };
         }
 
@@ -541,16 +511,17 @@ pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(meta.isIterator(Iter));
+    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
         pub usingnamespace D(@This());
 
         iter: Iter,
-        pred: P,
+        pred: Q,
         skip: bool,
 
-        pub fn new(iter: Iter, pred: P) Self {
+        pub fn new(iter: Iter, pred: Q) Self {
             return .{ .iter = iter, .pred = pred, .skip = true };
         }
 
@@ -579,9 +550,9 @@ pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
         pub usingnamespace D(@This());
 
         iter: Iter,
-        func: fn (*const Iter.Item) void,
+        func: Func(*const Iter.Item, void),
 
-        pub fn new(iter: Iter, func: fn (*const Iter.Item) void) Self {
+        pub fn new(iter: Iter, func: Func(*const Iter.Item, void)) Self {
             return .{ .iter = iter, .func = func };
         }
 
@@ -598,25 +569,23 @@ pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
 pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
     comptime assert(meta.isIterator(I));
     comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, meta.domain(P));
+    comptime assert(trait.is(.Optional)(meta.codomain(P)));
+    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(P));
         pub usingnamespace F(@This());
 
         iter: I,
-        pred: P,
+        pred: Q,
 
-        pub fn new(iter: I, pred: P) Self {
+        pub fn new(iter: I, pred: Q) Self {
             return .{ .iter = iter, .pred = pred };
         }
 
         pub fn next(self: *Self) ?Item {
             if (self.iter.next()) |val| {
-                if (self.pred(val)) |pval| {
-                    return pval;
-                } else {
-                    return null;
-                }
+                return self.pred(val);
             }
             return null;
         }
@@ -653,6 +622,8 @@ pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
 pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
     comptime assert(meta.isIterator(Iter));
     comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, meta.domain(F)));
+
+    const G = comptime if (meta.newer_zig091) toFunc2(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(F));
@@ -660,9 +631,9 @@ pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: ty
 
         iter: Iter,
         state: St,
-        f: F,
+        f: G,
 
-        pub fn new(iter: Iter, initial_state: St, f: F) Self {
+        pub fn new(iter: Iter, initial_state: St, f: G) Self {
             return .{ .iter = iter, .state = initial_state, .f = f };
         }
 
