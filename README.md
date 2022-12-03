@@ -9,8 +9,8 @@ Where the *iterator* means that the types enumrating all element of a set of val
 This library is developped with:
 
 - Debian (x86_64) 10.4
-- Zig 0.9.1
-- Zigmod r79
+- Zig 0.10.0 and Zigmod r80
+- Zig 0.9.1 and Zigmod r79
 
 
 ## Build
