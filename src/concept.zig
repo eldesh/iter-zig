@@ -2,8 +2,6 @@ const std = @import("std");
 
 const tool = @import("./tool.zig");
 const meta = @import("./meta.zig");
-const range = @import("./range.zig");
-const to_iter = @import("./to_iter.zig");
 
 const trait = std.meta.trait;
 const assert = std.debug.assert;
@@ -12,7 +10,39 @@ const testing = std.testing;
 const deref_type = meta.deref_type;
 const is_or_ptrto = meta.is_or_ptrto;
 
-pub fn implSum(comptime T: type) bool {
+// iterator converters for unit tests
+const to_iter = struct {
+    const make = @import("./to_iter/make.zig");
+    fn MakeSliceIter(comptime F: fn (type) type, comptime T: type) type {
+        comptime return make.MakeSliceIter(F, T);
+    }
+
+    fn SliceIter(comptime Item: type) type {
+        comptime return make.MakeSliceIter(tool.DeriveNothing, Item);
+    }
+
+    fn ArrayIter(comptime Item: type, comptime N: usize) type {
+        comptime return make.MakeArrayIter(tool.DeriveNothing, Item, N);
+    }
+};
+
+// range iterators for unit tests
+const range = struct {
+    const make = @import("./range/make.zig");
+    fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
+        comptime return make.MakeRange(F, T);
+    }
+
+    fn Range(comptime T: type) type {
+        comptime return make.MakeRange(tool.DeriveNothing, T);
+    }
+
+    fn range(start: anytype, end: @TypeOf(start)) Range(@TypeOf(start)) {
+        return Range(@TypeOf(start)).new(start, end);
+    }
+};
+
+fn implSum(comptime T: type) bool {
     comptime {
         if (trait.isNumber(T) or trait.is(.Vector)(T))
             return true;
@@ -25,8 +55,8 @@ pub fn implSum(comptime T: type) bool {
             if (!info.Fn.is_generic or info.Fn.args[0].arg_type != null)
                 return false;
 
-            if (info.Fn.return_type != null)
-                return false;
+            // if (info.Fn.return_type) |_|
+            //     return false;
 
             // Following constraints should be verified to be met if possible.
             // But this is not allowed by Zig 0.9.1 type system.
@@ -117,13 +147,6 @@ test "Sum" {
         }
     };
     comptime assert(implSum(T));
-    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
-    const sum = T.sum(to_iter.SliceIter(T).new(arr[0..]).map(struct {
-        fn call(x: *const T) T {
-            return x.*;
-        }
-    }.call));
-    try testing.expectEqual(T{ .val = 10 }, sum);
 }
 
 pub const Sum = struct {
@@ -178,7 +201,7 @@ test "Sum" {
     try testing.expectEqual(@as(u32, 55), Sum.sum(I.new(arr[0..])));
 }
 
-pub fn implProduct(comptime T: type) bool {
+fn implProduct(comptime T: type) bool {
     comptime {
         if (trait.isNumber(T) or trait.is(.Vector)(T))
             return true;
@@ -191,8 +214,8 @@ pub fn implProduct(comptime T: type) bool {
             if (!info.Fn.is_generic or info.Fn.args[0].arg_type != null)
                 return false;
 
-            if (info.Fn.return_type != null)
-                return false;
+            // if (info.Fn.return_type) |_|
+            //     return false;
 
             // Following constraints should be verified to be met if possible.
             // But this is not allowed by Zig 0.9.1 type system.
@@ -280,13 +303,6 @@ test "product" {
         }
     };
     comptime assert(implProduct(T));
-    var arr = [_]T{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 }, .{ .val = 4 } };
-    const product = T.product(to_iter.SliceIter(T).new(arr[0..]).map(struct {
-        fn call(x: *const T) T {
-            return x.*;
-        }
-    }.call));
-    try testing.expectEqual(T{ .val = 24 }, product);
 }
 
 pub const Product = struct {
