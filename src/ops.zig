@@ -149,15 +149,16 @@ test "repeat" {
     }
     {
         const U = union(enum) { Tag1, Tag2 };
-        var it = repeat(U{ .Tag1 = .{} }).map(struct {
+        const t1: U = U.Tag1;
+        var it = repeat(t1).map(struct {
             fn f(x: meta.basis.Clone.ResultType(U)) U {
                 if (x) |_| {} else |_| {}
-                return U{ .Tag2 = .{} };
+                return U.Tag2;
             }
         }.f);
-        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
-        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
-        try testing.expectEqual(U{ .Tag2 = .{} }, it.next().?);
+        try testing.expectEqual(U.Tag2, it.next().?);
+        try testing.expectEqual(U.Tag2, it.next().?);
+        try testing.expectEqual(U.Tag2, it.next().?);
         // repeat() never returns null
         // try testing.expectEqual(@as(?U, null), it.next());
     }
