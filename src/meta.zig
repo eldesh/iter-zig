@@ -274,36 +274,31 @@ pub fn isIterator(comptime T: type) bool {
     }
 }
 
-pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
+// On zig-0.10.0, `@hasDecl` crashes.
+fn hasDecl(comptime T: type, comptime name: []const u8) bool {
     comptime {
         switch (@typeInfo(T)) {
-            .Struct => |Struct| {
-                for (Struct.decls) |decl| {
-                    if (std.mem.eql(u8, decl.name, name))
-                        return @TypeOf(@field(T, name));
+            .Struct, .Union, .Enum, .Opaque => {
+                for (std.meta.declarations(T)) |decl| {
+                    if (decl.is_pub) {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return true;
+                    }
                 }
+                return false;
             },
-            .Union => |Union| {
-                for (Union.decls) |decl| {
-                    if (std.mem.eql(u8, decl.name, name))
-                        return @TypeOf(@field(T, name));
-                }
-            },
-            .Enum => |Enum| {
-                for (Enum.decls) |decl| {
-                    if (std.mem.eql(u8, decl.name, name))
-                        return @TypeOf(@field(T, name));
-                }
-            },
-            .Opaque => |Opaque| {
-                for (Opaque.decls) |decl| {
-                    if (std.mem.eql(u8, decl.name, name))
-                        return @TypeOf(@field(T, name));
-                }
-            },
-            else => {},
+            else => return false,
         }
-        return null;
+    }
+}
+
+pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
+    comptime {
+        if (!std.meta.trait.isContainer(T))
+            return null;
+        if (!hasDecl(T, name))
+            return null;
+        return @as(?type, @TypeOf(@field(T, name)));
     }
 }
 
