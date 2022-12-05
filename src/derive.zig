@@ -853,18 +853,19 @@ test "derive position" {
 }
 
 pub fn DeriveCycle(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
-
-    if (meta.have_fun(Iter, "cycle")) |_| {
-        return struct {};
-    } else if (meta.basis.isClonable(Iter)) {
-        return struct {
-            pub fn cycle(self: Iter) Cycle(Iter) {
-                return Cycle(Iter).new(self);
-            }
-        };
-    } else {
-        return struct {};
+    comptime {
+        assert(isIterator(Iter));
+        if (meta.have_fun(Iter, "cycle")) |_| {
+            return struct {};
+        } else if (meta.basis.isClonable(Iter)) {
+            return struct {
+                pub fn cycle(self: Iter) Cycle(Iter) {
+                    return Cycle(Iter).new(self);
+                }
+            };
+        } else {
+            return struct {};
+        }
     }
 }
 
