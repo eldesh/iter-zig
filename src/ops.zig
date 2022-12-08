@@ -42,7 +42,7 @@ pub fn once(value: anytype) iter.Once(@TypeOf(value)) {
 }
 
 test "once" {
-    const unit = struct {};
+    const Unit = struct {};
     const F = struct {
         fn id(x: void) void {
             _ = x;
@@ -64,11 +64,11 @@ test "once" {
         try testing.expectEqual(@as(?void, null), it.next());
     }
     {
-        var it = once(unit{}).cycle().take(3);
-        try testing.expectEqual(@as(?unit, unit{}), it.next());
-        try testing.expectEqual(@as(?unit, unit{}), it.next());
-        try testing.expectEqual(@as(?unit, unit{}), it.next());
-        try testing.expectEqual(@as(?unit, null), it.next());
+        var it = once(Unit{}).cycle().take(3);
+        try testing.expectEqual(@as(?Unit, Unit{}), it.next());
+        try testing.expectEqual(@as(?Unit, Unit{}), it.next());
+        try testing.expectEqual(@as(?Unit, Unit{}), it.next());
+        try testing.expectEqual(@as(?Unit, null), it.next());
     }
 }
 
