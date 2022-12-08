@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const meta = @import("./meta.zig");
-const prim = @import("./derive/prim.zig");
+pub const prim = @import("./derive/prim.zig");
 const tuple = @import("./tuple.zig");
 const concept = @import("./concept.zig");
 
