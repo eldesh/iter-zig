@@ -1721,30 +1721,32 @@ test "derive ne" {
 }
 
 pub fn DeriveMax(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "max")) |_| {
-        return struct {};
-    } else {
-        if (meta.have_type(Iter, "Item")) |Item| {
-            if (meta.basis.isOrd(Item)) {
-                return struct {
-                    pub fn max(self: Iter) ?Iter.Item {
-                        var it = self;
-                        var acc: Iter.Item = it.next() orelse return null;
-                        while (it.next()) |val| {
-                            if (meta.basis.Ord.cmp(acc, val) == std.math.Order.lt) {
-                                acc = val;
-                            }
-                        }
-                        return acc;
-                    }
-                };
-            }
+        if (meta.have_fun(Iter, "max")) |_| {
             return struct {};
+        } else {
+            if (meta.have_type(Iter, "Item")) |Item| {
+                if (meta.basis.isOrd(Item)) {
+                    return struct {
+                        pub fn max(self: Iter) ?Item {
+                            var it = self;
+                            var acc: Item = it.next() orelse return null;
+                            while (it.next()) |val| {
+                                if (meta.basis.Ord.cmp(acc, val).compare(.lt)) {
+                                    acc = val;
+                                }
+                            }
+                            return acc;
+                        }
+                    };
+                }
+                return struct {};
+            }
+            // Iterator must have 'Item'
+            unreachable;
         }
-        // Iterator must have 'Item'
-        unreachable;
     }
 }
 
@@ -1761,23 +1763,25 @@ test "derive max empty" {
 }
 
 pub fn DeriveMaxBy(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "max_by")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn max_by(self: Iter, compare: Func2(*const Iter.Item, *const Iter.Item, math.Order)) ?Iter.Item {
-                var it = self;
-                var acc: Iter.Item = it.next() orelse return null;
-                while (it.next()) |val| {
-                    if (compare(&acc, &val) == .lt) {
-                        acc = val;
+        if (meta.have_fun(Iter, "max_by")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn max_by(self: Iter, compare: Func2(*const Iter.Item, *const Iter.Item, math.Order)) ?Iter.Item {
+                    var it = self;
+                    var acc: Iter.Item = it.next() orelse return null;
+                    while (it.next()) |val| {
+                        if (compare(&acc, &val) == .lt) {
+                            acc = val;
+                        }
                     }
+                    return acc;
                 }
-                return acc;
-            }
-        };
+            };
+        }
     }
 }
 
