@@ -10,7 +10,7 @@ const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
 
-const isIterator = meta.isIterator;
+const isIterator = concept.isIterator;
 const Func = meta.Func;
 const Func2 = meta.Func2;
 
@@ -317,7 +317,7 @@ comptime {
     const Range = range.Range;
     assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Self == Flatten(Map(Range(u32), fn (u32) Range(u32))));
     assert(Flatten(Map(Range(u32), fn (u32) Range(u32))).Item == u32);
-    assert(meta.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
+    assert(concept.isIterator(Flatten(Map(Range(u32), fn (u32) Range(u32)))));
 }
 
 test "Flatten" {
@@ -353,7 +353,7 @@ comptime {
             Map(SliceIter(u32), fn (*const u32) []u8),
     );
     assert(Map(SliceIter(u32), fn (*const u32) []u8).Item == []u8);
-    assert(meta.isIterator(Map(SliceIter(u32), fn (*const u32) []u8)));
+    assert(concept.isIterator(Map(SliceIter(u32), fn (*const u32) []u8)));
 }
 
 test "Map" {
@@ -378,7 +378,7 @@ pub fn Filter(comptime Iter: type, comptime Pred: type) type {
 comptime {
     assert(Filter(SliceIter(u32), fn (*u32) bool).Self == Filter(SliceIter(u32), fn (*u32) bool));
     assert(Filter(SliceIter(u32), fn (*u32) bool).Item == *u32);
-    assert(meta.isIterator(Filter(SliceIter(u32), fn (*u32) bool)));
+    assert(concept.isIterator(Filter(SliceIter(u32), fn (*u32) bool)));
 }
 
 test "Filter" {
@@ -403,7 +403,7 @@ pub fn FilterMap(comptime Iter: type, comptime F: type) type {
 comptime {
     assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Self == FilterMap(SliceIter(u32), fn (*const u32) ?u8));
     assert(FilterMap(SliceIter(u32), fn (*const u32) ?u8).Item == u8);
-    assert(meta.isIterator(FilterMap(SliceIter(u32), fn (*const u32) ?u8)));
+    assert(concept.isIterator(FilterMap(SliceIter(u32), fn (*const u32) ?u8)));
 }
 
 test "FilterMap" {
@@ -429,7 +429,7 @@ pub fn Chain(comptime Iter1: type, comptime Iter2: type) type {
 comptime {
     assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Self == Chain(SliceIter(u32), ArrayIter(u32, 5)));
     assert(Chain(SliceIter(u32), ArrayIter(u32, 5)).Item == *u32);
-    assert(meta.isIterator(Chain(SliceIter(u32), ArrayIter(u32, 5))));
+    assert(concept.isIterator(Chain(SliceIter(u32), ArrayIter(u32, 5))));
 }
 
 test "Chain" {
@@ -454,7 +454,7 @@ pub fn Enumerate(comptime Iter: type) type {
 comptime {
     assert(Enumerate(SliceIter(u32)).Self == Enumerate(SliceIter(u32)));
     assert(Enumerate(SliceIter(u32)).Item == tuple.Tuple2(SliceIter(u32).Item, usize));
-    assert(meta.isIterator(Enumerate(SliceIter(u32))));
+    assert(concept.isIterator(Enumerate(SliceIter(u32))));
 }
 
 test "Enumerate" {
@@ -475,7 +475,7 @@ pub fn Take(comptime Iter: type) type {
 comptime {
     assert(Take(SliceIter(u32)).Self == Take(SliceIter(u32)));
     assert(Take(SliceIter(u32)).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(Take(SliceIter(u32))));
+    assert(concept.isIterator(Take(SliceIter(u32))));
 }
 
 test "Take" {
@@ -513,7 +513,7 @@ comptime {
     assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Self == TakeWhile(SliceIter(u32), fn (*const *u32) bool));
     assert(TakeWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
     assert(TakeWhile(SliceIter(u32), fn (*const SliceIter(u32).Item) bool).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(TakeWhile(SliceIter(u32), fn (*const *u32) bool)));
+    assert(concept.isIterator(TakeWhile(SliceIter(u32), fn (*const *u32) bool)));
 }
 
 test "TakeWhile" {
@@ -541,7 +541,7 @@ pub fn Skip(comptime Iter: type) type {
 comptime {
     assert(Skip(SliceIter(u32)).Self == Skip(SliceIter(u32)));
     assert(Skip(SliceIter(u32)).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(Skip(SliceIter(u32))));
+    assert(concept.isIterator(Skip(SliceIter(u32))));
 }
 
 test "Skip" {
@@ -563,7 +563,7 @@ pub fn SkipWhile(comptime Iter: type, comptime P: type) type {
 comptime {
     assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Self == SkipWhile(SliceIter(u32), fn (*const *u32) bool));
     assert(SkipWhile(SliceIter(u32), fn (*const *u32) bool).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(SkipWhile(SliceIter(u32), fn (*const *u32) bool)));
+    assert(concept.isIterator(SkipWhile(SliceIter(u32), fn (*const *u32) bool)));
 }
 
 test "SkipWhile" {
@@ -589,7 +589,7 @@ pub fn Inspect(comptime Iter: type) type {
 comptime {
     assert(Inspect(SliceIter(u32)).Self == Inspect(SliceIter(u32)));
     assert(Inspect(SliceIter(u32)).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(Inspect(SliceIter(u32))));
+    assert(concept.isIterator(Inspect(SliceIter(u32))));
 }
 
 test "Inspect" {
@@ -633,7 +633,7 @@ pub fn MapWhile(comptime I: type, comptime P: type) type {
 comptime {
     assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Self == MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8));
     assert(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8).Item == []const u8);
-    assert(meta.isIterator(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8)));
+    assert(concept.isIterator(MapWhile(ArrayIter(u32, 3), fn (*u32) ?[]const u8)));
 }
 
 test "MapWhile" {
@@ -658,7 +658,7 @@ pub fn StepBy(comptime Iter: type) type {
 comptime {
     assert(StepBy(SliceIter(u32)).Self == StepBy(SliceIter(u32)));
     assert(StepBy(SliceIter(u32)).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(StepBy(SliceIter(u32))));
+    assert(concept.isIterator(StepBy(SliceIter(u32))));
 }
 
 test "StepBy" {
@@ -681,7 +681,7 @@ comptime {
     const St = std.ArrayList(u32);
     assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Self == Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8));
     assert(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8).Item == []const u8);
-    assert(meta.isIterator(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8)));
+    assert(concept.isIterator(Scan(SliceIter(u32), St, fn (*St, *u32) ?[]const u8)));
 }
 
 test "Scan" {
@@ -720,7 +720,7 @@ pub fn Fuse(comptime Iter: type) type {
 comptime {
     assert(Fuse(SliceIter(u32)).Self == Fuse(SliceIter(u32)));
     assert(Fuse(SliceIter(u32)).Item == SliceIter(u32).Item);
-    assert(meta.isIterator(Fuse(SliceIter(u32))));
+    assert(concept.isIterator(Fuse(SliceIter(u32))));
 }
 
 test "Fuse" {
@@ -1259,7 +1259,7 @@ pub fn DerivePartialCmp(comptime Iter: type) type {
             if (meta.basis.isPartialOrd(Item)) {
                 return struct {
                     pub fn partial_cmp(self: Iter, other: anytype) ?math.Order {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return PartialCmp(Iter.Item).partial_cmp(self, other);
                     }
@@ -1319,7 +1319,7 @@ pub fn DeriveCmp(comptime Iter: type) type {
             if (meta.basis.isOrd(Item)) {
                 return struct {
                     pub fn cmp(self: Iter, other: anytype) math.Order {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return Cmp(Iter.Item).cmp(self, other);
                     }
@@ -1361,7 +1361,7 @@ pub fn DeriveLe(comptime Iter: type) type {
             if (meta.basis.isOrd(Item)) {
                 return struct {
                     pub fn le(self: Iter, other: anytype) bool {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return Cmp(Iter.Item).cmp(self, other).compare(.lte);
                     }
@@ -1403,7 +1403,7 @@ pub fn DeriveGe(comptime Iter: type) type {
             if (meta.basis.isOrd(Item)) {
                 return struct {
                     pub fn ge(self: Iter, other: anytype) bool {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return Cmp(Iter.Item).cmp(self, other).compare(.gte);
                     }
@@ -1445,7 +1445,7 @@ pub fn DeriveLt(comptime Iter: type) type {
             if (meta.basis.isOrd(Item)) {
                 return struct {
                     pub fn lt(self: Iter, other: anytype) bool {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return Cmp(Iter.Item).cmp(self, other).compare(.lt);
                     }
@@ -1487,7 +1487,7 @@ pub fn DeriveGt(comptime Iter: type) type {
             if (meta.basis.isOrd(Item)) {
                 return struct {
                     pub fn gt(self: Iter, other: anytype) bool {
-                        comptime assert(meta.isIterator(@TypeOf(other)));
+                        comptime assert(concept.isIterator(@TypeOf(other)));
                         comptime assert(Iter.Item == @TypeOf(other).Item);
                         return Cmp(Iter.Item).cmp(self, other).compare(.gt);
                     }
@@ -1662,7 +1662,7 @@ pub fn DeriveEq(comptime Iter: type) type {
     } else {
         return struct {
             pub fn eq(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(concept.isIterator(@TypeOf(other)));
                 comptime assert(Iter.Item == @TypeOf(other).Item);
                 var it = self;
                 var jt = other;
@@ -1695,7 +1695,7 @@ pub fn DeriveNe(comptime Iter: type) type {
     } else {
         return struct {
             pub fn ne(self: Iter, other: anytype) bool {
-                comptime assert(meta.isIterator(@TypeOf(other)));
+                comptime assert(concept.isIterator(@TypeOf(other)));
                 comptime assert(Iter.Item == @TypeOf(other).Item);
                 var it = self;
                 var jt = other;
@@ -1730,6 +1730,7 @@ pub fn DeriveMax(comptime Iter: type) type {
             if (meta.have_type(Iter, "Item")) |Item| {
                 if (meta.basis.isOrd(Item)) {
                     return struct {
+                        /// Derive the maximum element of the iterator
                         pub fn max(self: Iter) ?Item {
                             var it = self;
                             var acc: Item = it.next() orelse return null;
@@ -2113,7 +2114,7 @@ pub fn DeriveFlatten(comptime Iter: type) type {
             return struct {};
         } else {
             if (meta.have_type(Iter, "Item")) |Item| {
-                if (meta.isIterator(Item)) {
+                if (concept.isIterator(Item)) {
                     return struct {
                         pub fn flatten(self: Iter) Flatten(Iter) {
                             return Flatten(Iter).new(self);
@@ -2840,8 +2841,8 @@ test "derive filter" {
     const Iter = to_iter.MakeSliceIter(DeriveFilter, u32);
     var filter = Iter.new(arr[0..]).filter(IsEven.call);
     comptime {
-        assert(meta.isIterator(Iter));
-        assert(meta.isIterator(@TypeOf(filter)));
+        assert(concept.isIterator(Iter));
+        assert(concept.isIterator(@TypeOf(filter)));
     }
     try testing.expectEqual(@as(u32, 2), filter.next().?.*);
     try testing.expectEqual(@as(u32, 4), filter.next().?.*);
@@ -2875,8 +2876,8 @@ test "derive filter_map" {
     const Iter = to_iter.MakeSliceIter(DeriveFilterMap, []const u8);
     var filter_map = Iter.new(arr[0..]).filter_map(ParseInt.call);
     comptime {
-        assert(meta.isIterator(Iter));
-        assert(meta.isIterator(@TypeOf(filter_map)));
+        assert(concept.isIterator(Iter));
+        assert(concept.isIterator(@TypeOf(filter_map)));
     }
     try testing.expectEqual(@as(?u32, 1), filter_map.next());
     try testing.expectEqual(@as(?u32, 2), filter_map.next());
@@ -2894,7 +2895,7 @@ test "derive filter_map" {
 /// If the type have any iterator functions itself yet, generating same name functions would be supressed.
 ///
 pub fn DeriveIterator(comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub usingnamespace DerivePeekable(Iter);
         pub usingnamespace DerivePosition(Iter);
@@ -2977,8 +2978,8 @@ test "derive iterator" {
         .map(Triple.call) // more more derive map for Filter
         .filter_map(Less.call);
     comptime {
-        assert(meta.isIterator(Iter));
-        assert(meta.isIterator(@TypeOf(mfm)));
+        assert(concept.isIterator(Iter));
+        assert(concept.isIterator(@TypeOf(mfm)));
     }
     try testing.expectEqual(@as(?u32, 6 * 3), mfm.next());
     try testing.expectEqual(@as(?u32, 12 * 3), mfm.next());

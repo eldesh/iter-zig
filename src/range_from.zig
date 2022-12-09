@@ -9,6 +9,7 @@ const std = @import("std");
 const meta = @import("./meta.zig");
 const derive = @import("./derive.zig");
 const make = @import("./range_from/make.zig");
+const concept = @import("./concept.zig");
 
 const assert = std.debug.assert;
 const testing = std.testing;
@@ -28,11 +29,11 @@ pub fn RangeFrom(comptime Item: type) type {
 }
 
 comptime {
-    assert(meta.isIterator(RangeFrom(u32)));
-    assert(meta.isIterator(RangeFrom(i64)));
+    assert(concept.isIterator(RangeFrom(u32)));
+    assert(concept.isIterator(RangeFrom(i64)));
     assert(meta.basis.isCopyable(RangeFrom(i64)));
     assert(meta.basis.isClonable(RangeFrom(u64)));
-    assert(!meta.isIterator(RangeFrom(f64)));
+    assert(!concept.isIterator(RangeFrom(f64)));
     assert(meta.basis.isCopyable(RangeFrom(f64)));
     assert(meta.basis.isClonable(RangeFrom(f64)));
 }
@@ -48,8 +49,8 @@ pub fn range_from(start: anytype) RangeFrom(@TypeOf(start)) {
 
 test "RangeFrom" {
     comptime {
-        assert(meta.isIterator(@TypeOf(range_from(@as(u32, 0)))));
-        assert(!meta.isIterator(@TypeOf(range_from(@as(f64, 0.0)))));
+        assert(concept.isIterator(@TypeOf(range_from(@as(u32, 0)))));
+        assert(!concept.isIterator(@TypeOf(range_from(@as(f64, 0.0)))));
     }
     {
         try testing.expect(!RangeFrom(u32).new(10).contains(3));
@@ -81,7 +82,7 @@ test "RangeFrom" {
 
 test "RangeFrom Iterator" {
     comptime {
-        assert(meta.isIterator(@TypeOf(range_from(@as(u32, 0)))));
+        assert(concept.isIterator(@TypeOf(range_from(@as(u32, 0)))));
     }
     var it = range_from(@as(u32, 0)).step_by(2)
         .filter(struct {

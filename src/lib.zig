@@ -14,10 +14,9 @@
 ///
 pub const Self: type = @This();
 
-pub const to_iter = @import("./to_iter.zig");
-pub const iter = @import("./iter.zig");
-pub const meta = @import("./meta.zig");
 pub const derive = @import("./derive.zig");
+pub const iter = @import("./iter.zig");
+pub const to_iter = @import("./to_iter.zig");
 pub const from_iter = @import("./from_iter.zig");
 pub const range = @import("./range.zig");
 pub const range_from = @import("./range_from.zig");
@@ -26,7 +25,7 @@ pub const ops = @import("./ops.zig");
 pub const concept = @import("./concept.zig");
 
 pub const prelude = struct {
-    pub const isIterator: fn (type) bool = meta.isIterator;
+    pub const isIterator: fn (type) bool = concept.isIterator;
     pub const DeriveIterator: fn (type) type = derive.DeriveIterator;
 };
 

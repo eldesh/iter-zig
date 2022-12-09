@@ -5,6 +5,7 @@ const std = @import("std");
 const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const make = @import("./to_iter/make.zig");
+const concept = @import("./concept.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -41,7 +42,7 @@ comptime {
     const arr = [_]u32{ 1, 2, 3 };
     assert(ArrayIter(u32, arr.len).Self == ArrayIter(u32, arr.len));
     assert(ArrayIter(u32, arr.len).Item == *u32);
-    assert(meta.isIterator(ArrayIter(u32, arr.len)));
+    assert(concept.isIterator(ArrayIter(u32, arr.len)));
 }
 
 test "ArrayIter" {
@@ -65,7 +66,7 @@ comptime {
     const arr = [_]u32{ 1, 2, 3 };
     assert(ArrayConstIter(u32, arr.len).Self == ArrayConstIter(u32, arr.len));
     assert(ArrayConstIter(u32, arr.len).Item == *const u32);
-    assert(meta.isIterator(ArrayConstIter(u32, arr.len)));
+    assert(concept.isIterator(ArrayConstIter(u32, arr.len)));
 }
 
 test "ArrayConstIter" {
@@ -88,7 +89,7 @@ pub fn SliceIter(comptime Item: type) type {
 comptime {
     assert(SliceIter(u32).Self == SliceIter(u32));
     assert(SliceIter(u32).Item == *u32);
-    assert(meta.isIterator(SliceIter(u32)));
+    assert(concept.isIterator(SliceIter(u32)));
 }
 
 test "SliceIter" {
@@ -118,7 +119,7 @@ pub fn SliceConstIter(comptime Item: type) type {
 comptime {
     assert(SliceConstIter(u32).Self == SliceConstIter(u32));
     assert(SliceConstIter(u32).Item == *const u32);
-    assert(meta.isIterator(SliceConstIter(u32)));
+    assert(concept.isIterator(SliceConstIter(u32)));
 }
 
 test "SliceConstIter" {
@@ -154,7 +155,7 @@ test "ArrayListIter" {
     comptime {
         assert(ArrayListIter(u32).Self == ArrayListIter(u32));
         assert(ArrayListIter(u32).Item == *u32);
-        assert(meta.isIterator(ArrayListIter(u32)));
+        assert(concept.isIterator(ArrayListIter(u32)));
     }
 
     var arr = [_]u32{ 1, 2, 3, 4, 5 };
@@ -190,7 +191,7 @@ test "ArrayListConstIter" {
     comptime {
         assert(ArrayListConstIter(u32).Self == ArrayListConstIter(u32));
         assert(ArrayListConstIter(u32).Item == *const u32);
-        assert(meta.isIterator(ArrayListConstIter(u32)));
+        assert(concept.isIterator(ArrayListConstIter(u32)));
     }
 
     var xs = ArrayList(u32).init(testing.allocator);
@@ -221,7 +222,7 @@ pub fn SinglyLinkedListIter(comptime Item: type) type {
 comptime {
     assert(SinglyLinkedListIter(u32).Self == SinglyLinkedListIter(u32));
     assert(SinglyLinkedListIter(u32).Item == *u32);
-    assert(meta.isIterator(SinglyLinkedListIter(u32)));
+    assert(concept.isIterator(SinglyLinkedListIter(u32)));
 }
 
 test "SinglyLinkedListIter" {
@@ -264,7 +265,7 @@ pub fn SinglyLinkedListConstIter(comptime Item: type) type {
 comptime {
     assert(SinglyLinkedListConstIter(u32).Self == SinglyLinkedListConstIter(u32));
     assert(SinglyLinkedListConstIter(u32).Item == *const u32);
-    assert(meta.isIterator(SinglyLinkedListConstIter(u32)));
+    assert(concept.isIterator(SinglyLinkedListConstIter(u32)));
 }
 
 test "SinglyLinkedListConstIter" {
@@ -300,7 +301,7 @@ comptime {
     const arr = [3]u32{ 1, 2, 3 };
     assert(BoundedArrayIter(u32, arr.len).Self == BoundedArrayIter(u32, arr.len));
     assert(BoundedArrayIter(u32, arr.len).Item == *u32);
-    assert(meta.isIterator(BoundedArrayIter(u32, arr.len)));
+    assert(concept.isIterator(BoundedArrayIter(u32, arr.len)));
 }
 
 test "BoundedArrayIter" {
@@ -325,7 +326,7 @@ comptime {
     var arr = BoundedArray(u32, 5).init(3) catch unreachable;
     assert(BoundedArrayConstIter(u32, arr.capacity()).Self == BoundedArrayConstIter(u32, arr.capacity()));
     assert(BoundedArrayConstIter(u32, arr.capacity()).Item == *const u32);
-    assert(meta.isIterator(BoundedArrayConstIter(u32, arr.len)));
+    assert(concept.isIterator(BoundedArrayConstIter(u32, arr.len)));
 }
 
 test "BoundedArrayConstIter" {
@@ -349,7 +350,7 @@ pub fn TailQueueIter(comptime T: type) type {
 comptime {
     assert(TailQueueIter(u32).Self == TailQueueIter(u32));
     assert(TailQueueIter(u32).Item == *u32);
-    assert(meta.isIterator(TailQueueIter(u32)));
+    assert(concept.isIterator(TailQueueIter(u32)));
 }
 
 test "TailQueueIter" {
@@ -397,7 +398,7 @@ pub fn TailQueueConstIter(comptime T: type) type {
 comptime {
     assert(TailQueueConstIter(u32).Self == TailQueueConstIter(u32));
     assert(TailQueueConstIter(u32).Item == *const u32);
-    assert(meta.isIterator(TailQueueConstIter(u32)));
+    assert(concept.isIterator(TailQueueConstIter(u32)));
 }
 
 test "TailQueueConstIter" {

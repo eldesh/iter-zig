@@ -4,6 +4,7 @@ const meta = @import("./meta.zig");
 const prim = @import("./derive/prim.zig");
 const tuple = @import("./tuple.zig");
 const derive = @import("./derive.zig");
+const concept = @import("./concept.zig");
 
 const math = std.math;
 const testing = std.testing;
@@ -50,10 +51,10 @@ pub fn Empty(comptime T: type) type {
 }
 
 comptime {
-    assert(meta.isIterator(Empty(void)));
+    assert(concept.isIterator(Empty(void)));
     assert(Empty(void).Self == Empty(void));
     assert(Empty(void).Item == void);
-    assert(meta.isIterator(Empty(u32)));
+    assert(concept.isIterator(Empty(u32)));
     assert(Empty(u32).Self == Empty(u32));
     assert(Empty(u32).Item == u32);
 }
@@ -77,10 +78,10 @@ pub fn Once(comptime T: type) type {
 }
 
 comptime {
-    assert(meta.isIterator(Once(void)));
+    assert(concept.isIterator(Once(void)));
     assert(Once(void).Self == Once(void));
     assert(Once(void).Item == void);
-    assert(meta.isIterator(Once(u32)));
+    assert(concept.isIterator(Once(u32)));
     assert(Once(u32).Self == Once(u32));
     assert(Once(u32).Item == u32);
 }
@@ -116,10 +117,10 @@ pub fn Repeat(comptime T: type) type {
 }
 
 comptime {
-    assert(meta.isIterator(Repeat(u32)));
+    assert(concept.isIterator(Repeat(u32)));
     assert(Repeat(u32).Self == Repeat(u32));
     assert(Repeat(u32).Item == meta.basis.Clone.EmptyError!u32);
-    assert(meta.isIterator(Repeat(*const u32)));
+    assert(concept.isIterator(Repeat(*const u32)));
     assert(Repeat(*const u32).Self == Repeat(*const u32));
     assert(Repeat(*const u32).Item == meta.basis.Clone.EmptyError!u32);
 }

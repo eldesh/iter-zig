@@ -2,6 +2,7 @@ const std = @import("std");
 
 const meta = @import("../meta.zig");
 const tuple = @import("../tuple.zig");
+const concept = @import("../concept.zig");
 
 const trait = std.meta.trait;
 const math = std.math;
@@ -17,7 +18,7 @@ const toFunc2 = meta.toFunc2;
 
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
     comptime {
-        assert(meta.isIterator(Iter));
+        assert(concept.isIterator(Iter));
         return struct {
             pub const Self: type = @This();
             pub const Item: type = Iter.Item;
@@ -76,7 +77,7 @@ pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.basis.isClonable(Iter));
     return struct {
         pub const Self: type = @This();
@@ -106,7 +107,7 @@ pub fn MakeCycle(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.basis.isCopyable(Iter.Item));
 
     return struct {
@@ -130,7 +131,7 @@ pub fn MakeCopied(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.basis.isClonable(Iter.Item));
 
     return struct {
@@ -154,8 +155,8 @@ pub fn MakeCloned(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(Other));
+    comptime assert(concept.isIterator(Iter));
+    comptime assert(concept.isIterator(Other));
 
     return struct {
         pub const Self: type = @This();
@@ -182,8 +183,8 @@ pub fn MakeZip(comptime D: fn (type) type, comptime Iter: type, comptime Other: 
 }
 
 pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type, comptime U: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(U));
+    comptime assert(concept.isIterator(Iter));
+    comptime assert(concept.isIterator(U));
     comptime assert(F == fn (Iter.Item) U);
 
     return struct {
@@ -269,8 +270,8 @@ pub fn Cmp(comptime Item: type) type {
 }
 
 pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
-    comptime assert(meta.isIterator(Iter.Item));
+    comptime assert(concept.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter.Item));
 
     return struct {
         pub const Self: type = @This();
@@ -298,7 +299,7 @@ pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     const G = comptime if (meta.newer_zig091) toFunc(F) else F;
     return struct {
         pub const Self: type = @This();
@@ -348,7 +349,7 @@ pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime P: t
 }
 
 pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.is_unary_func_type(F));
     comptime assert(trait.is(.Optional)(meta.codomain(F)));
     const G = comptime if (meta.newer_zig091) toFunc(F) else F;
@@ -376,8 +377,8 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
 }
 
 pub fn MakeChain(comptime D: fn (type) type, comptime Iter1: type, comptime Iter2: type) type {
-    comptime assert(meta.isIterator(Iter1));
-    comptime assert(meta.isIterator(Iter2));
+    comptime assert(concept.isIterator(Iter1));
+    comptime assert(concept.isIterator(Iter2));
     comptime assert(Iter1.Item == Iter2.Item);
     return struct {
         pub const Self: type = @This();
@@ -408,7 +409,7 @@ pub fn MakeChain(comptime D: fn (type) type, comptime Iter1: type, comptime Iter
 }
 
 pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Tuple2(Iter.Item, usize);
@@ -433,7 +434,7 @@ pub fn MakeEnumerate(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -457,7 +458,7 @@ pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
@@ -486,7 +487,7 @@ pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P
 }
 
 pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -510,7 +511,7 @@ pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
@@ -543,7 +544,7 @@ pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P
 }
 
 pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -567,7 +568,7 @@ pub fn MakeInspect(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: type) type {
-    comptime assert(meta.isIterator(I));
+    comptime assert(concept.isIterator(I));
     comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, meta.domain(P));
     comptime assert(trait.is(.Optional)(meta.codomain(P)));
     const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
@@ -593,7 +594,7 @@ pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: ty
 }
 
 pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -620,7 +621,7 @@ pub fn MakeStepBy(comptime D: fn (type) type, comptime Iter: type) type {
 }
 
 pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: type, comptime F: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, meta.domain(F)));
 
     const G = comptime if (meta.newer_zig091) toFunc2(F) else F;
@@ -648,7 +649,7 @@ pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: ty
 }
 
 pub fn MakeFuse(comptime D: fn (type) type, comptime Iter: type) type {
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;

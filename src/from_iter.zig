@@ -4,6 +4,7 @@ const std = @import("std");
 
 const meta = @import("./meta.zig");
 const range = @import("./range.zig");
+const concept = @import("./concept.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -16,7 +17,7 @@ const SinglyLinkedList = std.SinglyLinkedList;
 /// Create a slice consisting of the elements enumrated from `iter`.
 pub fn slice_from_iter(alloc: Allocator, iter: anytype) Allocator.Error![]@TypeOf(iter).Item {
     const Iter = @TypeOf(iter);
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     return (try array_list_from_iter(alloc, iter)).items;
 }
 
@@ -30,7 +31,7 @@ test "slice_from_iter" {
 /// Create an ArrayList consisting of the elements enumrated from `iter`.
 pub fn array_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!ArrayList(@TypeOf(iter).Item) {
     const Iter = @TypeOf(iter);
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
 
     var xs = ArrayList(Iter.Item).init(alloc);
     var it = iter;
@@ -54,7 +55,7 @@ test "array_list_from_iter" {
 /// Create an BoundedArray consisting of the elements enumrated from `iter`.
 pub fn bounded_array_from_iter(comptime N: usize, iter: anytype) error{Overflow}!BoundedArray(@TypeOf(iter).Item, N) {
     const Iter = @TypeOf(iter);
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
 
     var xs = try BoundedArray(Iter.Item, N).init(0);
     var it = iter;
@@ -75,7 +76,7 @@ test "bounded_array_from_iter" {
 
 pub fn singly_linked_list_from_iter(alloc: Allocator, iter: anytype) Allocator.Error!SinglyLinkedList(@TypeOf(iter).Item) {
     const Iter: type = @TypeOf(iter);
-    comptime assert(meta.isIterator(Iter));
+    comptime assert(concept.isIterator(Iter));
     comptime assert(meta.basis.isCopyable(Iter.Item));
     const T: type = Iter.Item;
 

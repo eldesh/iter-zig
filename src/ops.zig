@@ -3,6 +3,7 @@ const std = @import("std");
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 const derive = @import("./derive.zig");
+const concept = @import("./concept.zig");
 
 const assert = std.debug.assert;
 const testing = std.testing;
@@ -74,8 +75,8 @@ test "once" {
 
 /// Takes iterators and zips them
 pub fn zip(aiter: anytype, biter: anytype) derive.Zip(@TypeOf(aiter), @TypeOf(biter)) {
-    comptime assert(meta.isIterator(@TypeOf(aiter)));
-    comptime assert(meta.isIterator(@TypeOf(biter)));
+    comptime assert(concept.isIterator(@TypeOf(aiter)));
+    comptime assert(concept.isIterator(@TypeOf(biter)));
     return derive.Zip(@TypeOf(aiter), @TypeOf(biter)).new(aiter, biter);
 }
 

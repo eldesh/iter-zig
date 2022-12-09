@@ -2,6 +2,7 @@ const std = @import("std");
 
 const tool = @import("./tool.zig");
 const meta = @import("./meta.zig");
+const concept = @import("./concept.zig");
 
 const trait = std.meta.trait;
 const assert = std.debug.assert;
@@ -41,6 +42,26 @@ const range = struct {
         return Range(@TypeOf(start)).new(start, end);
     }
 };
+
+/// Check that the type `T` is an Iterator
+pub fn isIterator(comptime T: type) bool {
+    comptime {
+        if (meta.have_type(T, "Self")) |Self| {
+            if (meta.have_type(T, "Item")) |Item| {
+                if (meta.have_fun(T, "next")) |next_ty| {
+                    return next_ty == fn (*Self) ?Item;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+comptime {
+    assert(!isIterator(u32));
+    assert(!isIterator([]const u8));
+    assert(!isIterator([5]u64));
+}
 
 fn implSum(comptime T: type) bool {
     comptime {
@@ -174,7 +195,7 @@ pub const Sum = struct {
     /// Summation on an Iterator
     pub fn sum(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        comptime assert(meta.isIterator(Iter));
+        comptime assert(concept.isIterator(Iter));
         comptime assert(isSum(Iter.Item));
 
         if (comptime is_or_ptrto(is_prim)(Iter.Item))
@@ -329,7 +350,7 @@ pub const Product = struct {
 
     pub fn product(iter: anytype) Output(@TypeOf(iter).Item) {
         const Iter = @TypeOf(iter);
-        comptime assert(meta.isIterator(Iter));
+        comptime assert(concept.isIterator(Iter));
         comptime assert(isProduct(Iter.Item));
 
         if (comptime is_or_ptrto(is_prim)(Iter.Item))

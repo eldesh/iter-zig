@@ -260,20 +260,6 @@ pub fn have_field(comptime T: type, comptime name: []const u8) ?type {
     }
 }
 
-/// Check that the type `T` is an Iterator
-pub fn isIterator(comptime T: type) bool {
-    comptime {
-        if (have_type(T, "Self")) |Self| {
-            if (have_type(T, "Item")) |Item| {
-                if (have_fun(T, "next")) |next_ty| {
-                    return next_ty == fn (*Self) ?Item;
-                }
-            }
-        }
-        return false;
-    }
-}
-
 // On zig-0.10.0, `@hasDecl` crashes.
 fn hasDecl(comptime T: type, comptime name: []const u8) bool {
     comptime {
@@ -331,12 +317,6 @@ pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
             return null;
         }
     }
-}
-
-comptime {
-    assert(!isIterator(u32));
-    assert(!isIterator([]const u8));
-    assert(!isIterator([5]u64));
 }
 
 /// Returns error type of the error union type `R`.
