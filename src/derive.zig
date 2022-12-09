@@ -1655,27 +1655,29 @@ test "derive sum ptr" {
 }
 
 pub fn DeriveEq(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "eq")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn eq(self: Iter, other: anytype) bool {
-                comptime assert(concept.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                var it = self;
-                var jt = other;
-                while (it.next()) |lval| {
-                    if (jt.next()) |rval| {
-                        if (std.meta.eql(lval, rval))
-                            continue;
+        if (meta.have_fun(Iter, "eq")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn eq(self: Iter, other: anytype) bool {
+                    comptime assert(concept.isIterator(@TypeOf(other)));
+                    comptime assert(Iter.Item == @TypeOf(other).Item);
+                    var it = self;
+                    var jt = other;
+                    while (it.next()) |lval| {
+                        if (jt.next()) |rval| {
+                            if (std.meta.eql(lval, rval))
+                                continue;
+                        }
+                        return false;
                     }
-                    return false;
+                    return jt.next() == null;
                 }
-                return jt.next() == null;
-            }
-        };
+            };
+        }
     }
 }
 
@@ -1688,27 +1690,29 @@ test "derive eq" {
 }
 
 pub fn DeriveNe(comptime Iter: type) type {
-    comptime assert(isIterator(Iter));
+    comptime {
+        assert(isIterator(Iter));
 
-    if (meta.have_fun(Iter, "ne")) |_| {
-        return struct {};
-    } else {
-        return struct {
-            pub fn ne(self: Iter, other: anytype) bool {
-                comptime assert(concept.isIterator(@TypeOf(other)));
-                comptime assert(Iter.Item == @TypeOf(other).Item);
-                var it = self;
-                var jt = other;
-                while (it.next()) |lval| {
-                    if (jt.next()) |rval| {
-                        if (std.meta.eql(lval, rval))
-                            continue;
+        if (meta.have_fun(Iter, "ne")) |_| {
+            return struct {};
+        } else {
+            return struct {
+                pub fn ne(self: Iter, other: anytype) bool {
+                    comptime assert(concept.isIterator(@TypeOf(other)));
+                    comptime assert(Iter.Item == @TypeOf(other).Item);
+                    var it = self;
+                    var jt = other;
+                    while (it.next()) |lval| {
+                        if (jt.next()) |rval| {
+                            if (std.meta.eql(lval, rval))
+                                continue;
+                        }
+                        return true;
                     }
-                    return true;
+                    return jt.next() != null;
                 }
-                return jt.next() != null;
-            }
-        };
+            };
+        }
     }
 }
 
