@@ -98,4 +98,17 @@ pub fn main() anyerror!void {
             print("item: {}\n", .{item});
         }
     }
+    print("Use user defined iterator(3) (FlatMap).\n", .{});
+    print("================================================================\n", .{});
+    {
+        var counter = Counter().new();
+        var it = counter.flat_map(struct {
+            fn f(v: u32) iter.range.Range(u32) {
+                return iter.range.range(v, v + 3);
+            }
+        }.f);
+        while (it.next()) |item| {
+            print("item: {}\n", .{item});
+        }
+    }
 }
