@@ -187,16 +187,17 @@ pub fn MakeFlatMap(comptime D: fn (type) type, comptime Iter: type, comptime F: 
     comptime assert(concept.isIterator(U));
     comptime assert(F == fn (Iter.Item) U);
 
+    const Map = Func(Iter.Item, U);
     return struct {
         pub const Self: type = @This();
         pub const Item: type = U.Item;
         pub usingnamespace D(@This());
 
         iter: Iter,
-        f: Func(Iter.Item, U),
+        f: Map,
         curr: ?U,
 
-        pub fn new(iter: Iter, f: Func(Iter.Item, U)) Self {
+        pub fn new(iter: Iter, f: Map) Self {
             return .{ .iter = iter, .f = f, .curr = null };
         }
 
