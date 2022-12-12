@@ -48,9 +48,7 @@ pub fn Func2(comptime Arg1: type, comptime Arg2: type, comptime Result: type) ty
 /// ```
 pub fn eqTupleType(comptime exp: type, comptime act: type) bool {
     comptime {
-        // workaround criteria
-        const old_zig = SemVer.parse("0.9.1") catch unreachable;
-        if (builtin.zig_version.order(old_zig) == .gt)
+        if (newer_zig091)
             return exp == act;
 
         if (!trait.isTuple(exp)) return false;
