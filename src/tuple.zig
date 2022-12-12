@@ -56,6 +56,7 @@ pub fn Tuple2(comptime T: type, comptime U: type) type {
             return .{ .t = t, .u = u };
         }
 
+        /// Get the N-th type
         pub fn getType(comptime N: comptime_int) type {
             if (N == 0)
                 return T;
@@ -82,6 +83,13 @@ pub fn Tuple2(comptime T: type, comptime U: type) type {
             return Self.new(t.@"0", t.@"1");
         }
 
+        /// Transform self to a value of std tuple.
+        ///
+        /// # Details
+        /// In reverse to `fromStd`, transform the self tuple to a value of standard tuple, which is typed as follows:
+        /// ```
+        /// std.meta.Tuple(&[_]type{T, U})
+        /// ```
         pub fn intoStd(self: Self) StdTuple {
             return .{ self.t, self.u };
         }
