@@ -193,29 +193,6 @@ comptime {
     assert(deref_type(*U) == U);
 }
 
-pub fn remove_pointer(comptime T: type) type {
-    comptime {
-        assert(trait.isSingleItemPtr(T));
-        return std.meta.Child(T);
-    }
-}
-
-pub fn remove_const_pointer(comptime T: type) type {
-    comptime {
-        assert(trait.isSingleItemPtr(T) and trait.isConstPtr(T));
-        var info = @typeInfo(T);
-        info.Pointer.is_const = false;
-        return remove_pointer(@Type(info));
-    }
-}
-
-comptime {
-    assert(remove_pointer(*const u32) == u32);
-    assert(remove_pointer(*[]const u8) == []const u8);
-    assert(remove_const_pointer(*const u32) == u32);
-    assert(remove_const_pointer(*const []u8) == []u8);
-}
-
 pub fn have_type(comptime T: type, comptime name: []const u8) ?type {
     comptime {
         if (!trait.isContainer(T))
@@ -239,25 +216,6 @@ comptime {
     assert(have_type(E, "Self") == null);
     assert(have_type(C, "Self") != null);
     assert(have_type(u32, "cmp") == null);
-}
-
-pub fn have_field(comptime T: type, comptime name: []const u8) ?type {
-    comptime {
-        const fields = switch (@typeInfo(T)) {
-            .Struct => |s| s.fields,
-            .Union => |u| u.fields,
-            .Enum => |e| e.fields,
-            else => false,
-        };
-
-        inline for (fields) |field| {
-            if (std.mem.eql(u8, field.name, name)) {
-                return field.field_type;
-            }
-        }
-
-        return null;
-    }
 }
 
 // On zig-0.10.0, `@hasDecl` crashes.
@@ -344,13 +302,6 @@ fn is_func_type(comptime F: type) bool {
             .Fn => true,
             else => false,
         };
-    }
-}
-
-pub fn func_arity(comptime F: type) usize {
-    comptime {
-        assert(is_func_type(F));
-        return @typeInfo(F).Fn.args.len;
     }
 }
 
