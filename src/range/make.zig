@@ -104,7 +104,7 @@ fn MakeFloatRange(comptime T: type) type {
 /// For integer types, it combines functions derived by `F` which takes primitive integer range type.
 ///
 /// # Assert
-/// - std.meta.trait.isIntegral(T) ==> Iterator(MakeRange(F, T))
+/// - std.meta.trait.isIntegral(T) ==> isIterator(MakeRange(F, T))
 pub fn MakeRange(comptime F: fn (type) type, comptime T: type) type {
     comptime {
         assert(std.meta.trait.isNumber(T));

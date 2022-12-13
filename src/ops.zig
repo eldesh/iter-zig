@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const compat = @import("./compat.zig");
 const meta = @import("./meta.zig");
 const iter = @import("./iter.zig");
 const derive = @import("./derive.zig");
@@ -28,7 +29,7 @@ test "empty" {
     try testing.expectEqual(@as(?u32, null), empty_u32.next());
     var empty_f64 = empty(f64).map(F.id);
     try testing.expectEqual(@as(?f64, null), empty_f64.next());
-    if (comptime meta.older_zig091) {
+    if (comptime compat.older_zig091) {
         var empty_void = empty(void).filter(F.truth);
         try testing.expectEqual(@as(?void, null), empty_void.next());
     }
@@ -59,7 +60,7 @@ test "once" {
         try testing.expectEqual(@as(?u32, 42), it.next());
         try testing.expectEqual(@as(?u32, null), it.next());
     }
-    if (comptime meta.older_zig091) {
+    if (comptime compat.older_zig091) {
         var it = once(void{}).map(F.id).filter(F.truth);
         try testing.expectEqual(@as(?void, void{}), it.next());
         try testing.expectEqual(@as(?void, null), it.next());

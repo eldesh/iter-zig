@@ -6,6 +6,7 @@ const derive = @import("./derive.zig");
 const meta = @import("./meta.zig");
 const make = @import("./to_iter/make.zig");
 const concept = @import("./concept.zig");
+const compat = @import("./compat.zig");
 
 const testing = std.testing;
 const assert = std.debug.assert;
@@ -138,20 +139,20 @@ test "SliceConstIter" {
 
 pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
     comptime {
-        assert(meta.newer_zig091);
+        assert(compat.newer_zig091);
         return make.MakeArrayListIter(F, T);
     }
 }
 
 pub fn ArrayListIter(comptime Item: type) type {
     comptime {
-        assert(meta.newer_zig091);
+        assert(compat.newer_zig091);
         return make.MakeArrayListIter(DeriveIterator, Item);
     }
 }
 
 test "ArrayListIter" {
-    comptime if (meta.older_zig091) return;
+    comptime if (compat.older_zig091) return;
     comptime {
         assert(ArrayListIter(u32).Self == ArrayListIter(u32));
         assert(ArrayListIter(u32).Item == *u32);
@@ -174,20 +175,20 @@ test "ArrayListIter" {
 
 pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type {
     comptime {
-        assert(meta.newer_zig091);
+        assert(compat.newer_zig091);
         return make.MakeArrayListConstIter(F, T);
     }
 }
 
 pub fn ArrayListConstIter(comptime Item: type) type {
     comptime {
-        assert(meta.newer_zig091);
+        assert(compat.newer_zig091);
         return make.MakeArrayListConstIter(DeriveIterator, Item);
     }
 }
 
 test "ArrayListConstIter" {
-    comptime if (meta.older_zig091) return;
+    comptime if (compat.older_zig091) return;
     comptime {
         assert(ArrayListConstIter(u32).Self == ArrayListConstIter(u32));
         assert(ArrayListConstIter(u32).Item == *const u32);

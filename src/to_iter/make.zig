@@ -3,6 +3,7 @@
 const std = @import("std");
 
 const meta = @import("../meta.zig");
+const compat = @import("../compat.zig");
 
 const ArrayList = std.ArrayList;
 const SinglyLinkedList = std.SinglyLinkedList;
@@ -126,7 +127,7 @@ pub fn MakeSliceConstIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
-    comptime assert(meta.newer_zig091);
+    comptime assert(compat.newer_zig091);
     return struct {
         pub const Self: type = @This();
         pub const Item: type = *T;
@@ -151,7 +152,7 @@ pub fn MakeArrayListIter(comptime F: fn (type) type, comptime T: type) type {
 }
 
 pub fn MakeArrayListConstIter(comptime F: fn (type) type, comptime T: type) type {
-    comptime assert(meta.newer_zig091);
+    comptime assert(compat.newer_zig091);
     return struct {
         pub const Self: type = @This();
         pub const Item: type = *const T;

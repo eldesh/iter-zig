@@ -23,6 +23,7 @@ pub const range_from = @import("./range_from.zig");
 pub const tuple = @import("./tuple.zig");
 pub const ops = @import("./ops.zig");
 pub const concept = @import("./concept.zig");
+pub const compat = @import("./compat.zig");
 
 pub const prelude = struct {
     pub const isIterator: fn (type) bool = concept.isIterator;

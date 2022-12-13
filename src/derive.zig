@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const compat = @import("./compat.zig");
 const meta = @import("./meta.zig");
 pub const prim = @import("./derive/prim.zig");
 const tuple = @import("./tuple.zig");
@@ -11,8 +12,8 @@ const testing = std.testing;
 const assert = std.debug.assert;
 
 const isIterator = concept.isIterator;
-const Func = meta.Func;
-const Func2 = meta.Func2;
+const Func = compat.Func;
+const Func2 = compat.Func2;
 
 // iterator converters for unit tests
 const to_iter = struct {

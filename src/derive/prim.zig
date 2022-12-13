@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const compat = @import("../compat.zig");
 const meta = @import("../meta.zig");
 const tuple = @import("../tuple.zig");
 const concept = @import("../concept.zig");
@@ -12,9 +13,9 @@ const assertEqualTupleType = meta.assertEqualTupleType;
 const Tuple1 = tuple.Tuple1;
 const Tuple2 = tuple.Tuple2;
 
-const Func = meta.Func;
-const toFunc = meta.toFunc;
-const toFunc2 = meta.toFunc2;
+const Func = compat.Func;
+const toFunc = compat.toFunc;
+const toFunc2 = compat.toFunc2;
 
 pub fn MakePeekable(comptime D: fn (type) type, comptime Iter: type) type {
     comptime {
@@ -301,7 +302,7 @@ pub fn MakeFlatten(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type) type {
     comptime assert(concept.isIterator(Iter));
-    const G = comptime if (meta.newer_zig091) toFunc(F) else F;
+    const G = comptime if (compat.newer_zig091) toFunc(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = meta.codomain(F);
@@ -325,7 +326,7 @@ pub fn MakeMap(comptime D: fn (type) type, comptime Iter: type, comptime F: type
 }
 
 pub fn MakeFilter(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
-    const Pred = comptime if (meta.newer_zig091) toFunc(P) else P;
+    const Pred = comptime if (compat.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -353,7 +354,7 @@ pub fn MakeFilterMap(comptime D: fn (type) type, comptime Iter: type, comptime F
     comptime assert(concept.isIterator(Iter));
     comptime assert(meta.is_unary_func_type(F));
     comptime assert(trait.is(.Optional)(meta.codomain(F)));
-    const G = comptime if (meta.newer_zig091) toFunc(F) else F;
+    const G = comptime if (compat.newer_zig091) toFunc(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(F));
@@ -460,7 +461,7 @@ pub fn MakeTake(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeTakeWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(concept.isIterator(Iter));
-    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
+    const Q = comptime if (compat.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -513,7 +514,7 @@ pub fn MakeSkip(comptime D: fn (type) type, comptime Iter: type) type {
 
 pub fn MakeSkipWhile(comptime D: fn (type) type, comptime Iter: type, comptime P: type) type {
     comptime assert(concept.isIterator(Iter));
-    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
+    const Q = comptime if (compat.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = Iter.Item;
@@ -572,7 +573,7 @@ pub fn MakeMapWhile(comptime F: fn (type) type, comptime I: type, comptime P: ty
     comptime assert(concept.isIterator(I));
     comptime assertEqualTupleType(Tuple1(I.Item).StdTuple, meta.domain(P));
     comptime assert(trait.is(.Optional)(meta.codomain(P)));
-    const Q = comptime if (meta.newer_zig091) toFunc(P) else P;
+    const Q = comptime if (compat.newer_zig091) toFunc(P) else P;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(P));
@@ -625,7 +626,7 @@ pub fn MakeScan(comptime D: fn (type) type, comptime Iter: type, comptime St: ty
     comptime assert(concept.isIterator(Iter));
     comptime assert(meta.eqTupleType(Tuple2(*St, Iter.Item).StdTuple, meta.domain(F)));
 
-    const G = comptime if (meta.newer_zig091) toFunc2(F) else F;
+    const G = comptime if (compat.newer_zig091) toFunc2(F) else F;
     return struct {
         pub const Self: type = @This();
         pub const Item: type = std.meta.Child(meta.codomain(F));
