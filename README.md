@@ -155,7 +155,7 @@ try expectEqual(@as(?u32, null), rng.next());
 ```
 
 
-Similarly, `range_from` creates an endless sequence of numbers.
+Similarly, `range_from` creates an instance of `RangeFrom` to represents an endless sequence of numbers.
 e.g. `range_from(@as(u32, 0))` creates an endless sequence of natural numbers `0,1,2,...`.
 
 ```zig
@@ -164,6 +164,17 @@ try expectEqual(@as(u32, 0), rng.next().?);
 try expectEqual(@as(u32, 1), rng.next().?);
 try expectEqual(@as(u32, 2), rng.next().?);
 ..
+```
+
+
+When `Range` or `RangeFrom` is instantiated with a type of floating numbers,
+it would not be an Iterator. It is just a range of values.
+
+```zig
+comptime assert(!concept.isIterator(range.Range(f64)));
+comptime assert(!concept.isIterator(range.RangeFrom(f64)));
+comptime assert( range.range(@as(f64, 2.0), 3.0).contains(2.5))
+comptime assert(!range.range(@as(f64, 2.0), 3.0).contains(1.5))
 ```
 
 

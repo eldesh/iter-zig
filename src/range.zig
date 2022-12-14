@@ -55,6 +55,8 @@ pub fn range(start: anytype, end: @TypeOf(start)) Range(@TypeOf(start)) {
 
 test "Range" {
     comptime {
+        assert(concept.isIterator(Range(u32)));
+        assert(!concept.isIterator(Range(f64)));
         assert(concept.isIterator(@TypeOf(range(@as(u32, 0), 10))));
         assert(!concept.isIterator(@TypeOf(range(@as(f64, 0.0), 10.0))));
     }
@@ -86,6 +88,15 @@ test "Range" {
         try testing.expectEqual(@as(u32, 8), it.next().?);
         try testing.expectEqual(@as(u32, 10), it.next().?);
         try testing.expectEqual(@as(?u32, null), it.next());
+    }
+    {
+        try testing.expect(Range(f64).new(@as(f64, 2.0), 3.0).contains(2.0));
+        try testing.expect(Range(f64).new(@as(f64, 2.0), 3.0).contains(2.9));
+        try testing.expect(Range(f64).new(@as(f64, 2.0), 3.0).contains(2.5));
+        try testing.expect(range(@as(f64, 2.0), 3.0).contains(2.9));
+        try testing.expect(range(@as(f64, 2.0), 3.0).contains(2.5));
+        try testing.expect(!Range(f64).new(@as(f64, 2.0), 3.0).contains(1.2));
+        try testing.expect(!Range(f64).new(@as(f64, 2.0), 3.0).contains(3.6));
     }
 }
 
