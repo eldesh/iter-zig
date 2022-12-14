@@ -6,7 +6,7 @@ const assert = std.debug.assert;
 
 // pub usingnamespace basis;
 /// workaround criteria
-pub const zig091: std.SemanticVersion = std.SemanticVersion.parse("0.9.1") catch unreachable;
+const zig091: std.SemanticVersion = std.SemanticVersion.parse("0.9.1") catch unreachable;
 /// *this* is older than or equals to zig-0.9.1 (<= 0.9.1).
 pub const older_zig091: bool = builtin.zig_version.order(zig091).compare(.lte);
 /// *this* is newer than zig-0.9.1 (> 0.9.1)

@@ -5,9 +5,7 @@ const iter = @import("iter-zig");
 const assert = std.debug.assert;
 const print = std.debug.print;
 
-const prelude = struct {
-    pub usingnamespace iter.prelude;
-};
+const prelude = iter.prelude;
 
 /// User defined iterator type
 /// In order to follow the iterator conventions, takes a 'Derive'r.

@@ -48,7 +48,7 @@ To generate documentations:
 
 
 ```sh
-zig build docs
+zig build doc
 ```
 
 A html documents would be generated under the `./docs` directory.
